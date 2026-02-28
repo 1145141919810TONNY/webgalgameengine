@@ -232,7 +232,7 @@ action: { type: "finishGame" }   // 结束游戏
 然而，时光荏苒，岁月如梭。我们终究还是长大了，<br>
 各自奔向不同的道路。
 
-[s]标签
+[s]标签<br>
 在这里的[s]标签与kirikiri有一些不同，它将直接嵌入`text`中，示例如下：
 ```javascript
 { 
