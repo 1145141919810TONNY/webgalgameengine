@@ -391,8 +391,8 @@ BGM停止功能，可以在剧情中动态控制背景音乐：
 
 **请注意：在默认状态下，你需要将游戏第一个html文件命名为scene1.html作为开始游戏的起始文件**
 
-3.2 编写故事脚本
-----------------
+## 3.2 编写故事脚本
+
 
 基础对话：
 ```javascript
@@ -433,8 +433,8 @@ BGM停止功能，可以在剧情中动态控制背景音乐：
 }
 ```
 
-3.3 好感度系统
---------------
+## 3.3 好感度系统
+
 
 ```javascript
 // 在场景数据中初始化好感度
@@ -457,6 +457,54 @@ const sceneData = {
 };
 ```
 
+## 3.4 存档系统
+目前的存档系统使用的是硬编码的方式，你需要在`saves.html`中写入所有你需要导入的剧本文件。
+比如：
+
+```javascript
+if (this.isValidSceneFile(sceneFileName)) {
+                                // 自定义场景名称映射 - 为每个HTML文件提供自定义名称
+                                const sceneNames = {
+                                    'scene1': '1初次相遇',
+                                    'scene2': '场景2',
+                                    'scene3': '场景3 ',
+                                    // 可以按需继续添加更多场景
+                                    'scene4': '场景4',
+                                    'scene5': '场景5',
+                                    'scene6': '场景6',
+                                    'scene7': '场景7',
+                                    'scene8': '场景8',
+                                    'scene9': '场景9',
+                                    'scene10': '场景10',
+                                    'ending1': '结局1',
+                                    'ending2': '结局2',
+                                    'ending3': '结局3',
+                                    'sub_scene1': '分支场景1',
+                                    'sub_scene2': '分支场景2',
+                                    'sub_scene3': '分支场景3'
+                                };
+                                
+                                const displayName = sceneNames[sceneId] || sceneId.replace(/_/g, ' ').replace('scene', '场景 ');
+                                
+                                const cardDiv = document.createElement('div');
+                                cardDiv.className = 'scene-card';
+                                cardDiv.innerHTML = `
+                                    <div class="scene-name">${displayName}</div>
+                                    <button onclick="SaveManager.jumpToScene('${sceneFileName}')">
+                                        跳转
+                                    </button>
+                                `;
+                                jumpGrid.appendChild(cardDiv);
+                            }
+                        });
+                    } else {
+                        jumpGrid.innerHTML = '<p style="text-align: center; color: #666;">还没有可以跳转的场景</p>';
+                    }
+                } else {
+                    jumpGrid.innerHTML = '<p style="text-align: center; color: #666;">还没有可以跳转的场景</p>';
+                }
+            },
+```
 
 # 4. 资源管理与配置
 
@@ -831,6 +879,7 @@ A: 技术上可以实现，但需要修改引擎的文本解析机制。目前�
 Bilibili: https://space.bilibili.com/87412647
 
 禁止商用，仅供学习交流使用。
+
 
 
 
