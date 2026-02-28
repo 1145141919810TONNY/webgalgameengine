@@ -321,19 +321,27 @@ BGM停止功能，可以在剧情中动态控制背景音乐：
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>场景标题</title>
+    <title>场景模板</title>
     <link rel="stylesheet" href="../style.css">
     <script src="../modules/progress_api.js"></script>
 </head>
 <body>
-    <!-- 必需的DOM元素 -->
+    <!-- 背景容器 -->
     <div id="background-container"></div>
+    
+    <!-- 角色立绘容器 -->
     <div id="character-container"></div>
+    
+    <!-- 文本框区域 -->
     <div id="text-box-container">
         <div id="name-box">[姓名]</div>
         <div id="text-box">[文本]</div>
     </div>
+    
+    <!-- 选项容器 -->
     <div id="options-container"></div>
+    
+    <!-- 全屏文本模式 -->
     <div id="novel-mode-container">
         <div id="novel-text-box">[全屏文本]</div>
     </div>
@@ -344,46 +352,97 @@ BGM停止功能，可以在剧情中动态控制背景音乐：
     <audio id="voice-player"></audio>
     
     <!-- 视频播放器 -->
-    <div id="video-player" style="display:none;">
-        <video id="main-video" controls></video>
+    <div id="video-player" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:100; background-color:black;">
+        <video id="main-video" style="width:100%; height:100%; object-fit:contain;" controls>
+            您的浏览器不支持视频播放。
+        </video>
     </div>
     
-    <!-- 上下文菜单 -->
+    <!-- 上下文菜单遮罩层 -->
     <div id="context-menu-backdrop" class="context-menu-backdrop"></div>
+    
+    <!-- 上下文菜单 -->
     <div id="context-menu" class="context-menu">
         <ul>
-            <li onclick="sessionStorage.setItem('lastStoryPage', window.location.href); window.location.href='../html/saves.html'">进度管理</li>
+            <li onclick="window.location.href='../saves.html'">进度管理</li>
             <li onclick="window.location.href='../index.html'">返回标题页面</li>
         </ul>
     </div>
     
-    <script type="module">
-        import { TextDisplay } from '../modules/text_display.js';
-        import { StateManager } from '../modules/state_manager.js';
-        
+    <!-- 引擎脚本 -->
+    <script src="../engine.js"></script>
+    <script>
+        // 场景模板数据
         const sceneData = {
-            // 在这里定义你的场景数据
             background: {
-                'bg1': '../assets/bg/example.jpg'
+                // 背景图片定义示例
+                // 'bg1': '../assets/bg/background1.jpg',
+                // 'bg2': '../assets/bg/background2.png'
+            },
+            bgm: {
+                // BGM定义示例
+                // 'theme1': '../assets/bgm/theme1.ogg',
+                // 'theme2': '../assets/bgm/theme2.mp3'
             },
             audio: {
-                'se1': '../assets/audio/example.mp3'
+                // 音效和语音定义示例
+                // 'sfx1': '../assets/audio/sound_effect1.wav',
+                // 'voice1': '../assets/audio/voice1.mp3'
             },
             story: [
-                {
-                    text: "欢迎来到新场景！",
-                    speaker: "系统",
-                    background: "bg1",
+                { 
+                    text: "欢迎使用场景模板", 
+                    speaker: "系统",   //如果不要显示名字的话，删除此项
+                    background: null,  // 设置背景，若为null则不改变当前背景
+                    bgm: null,        // 设置BGM，若为null则不改变当前BGM
+                    audio: null,      // 设置音效或语音，若为null则不播放
+                    command: null, //这里加入类kirikiri的ks指令
+                    action: null      // 执行动作，如选项、转场等
+                },
+                { 
+                    text: "这是一个基本的场景模板，您可以复制此文件开始编写新的剧情", 
+                    speaker: "系统", 
+                    background: null,
+                    bgm: null,
+                    audio: null,
                     action: null
+                },
+                /*这是直接跳转下一个页面
+                { 
+                    text: "她生气地离开了...（这是一个坏结局）", 
+                    speaker: "旁白", 
+                    background: "badend1",
+                    audio: null,
+                    action: {
+                        type: "nextScene",
+                        target: "../index.html"
+                    }
                 }
+                    */
+                   /*这是选项跳转
+                { 
+                    text: "请在下面添加您的剧情内容", 
+                    speaker: "系统", 
+                    background: null,
+                    bgm: null,
+                    audio: null,
+                    action: {
+                        type: "choice",
+                        choices: [
+                            { text: "前往场景1", target: "scene1.html" },
+                            { text: "返回主菜单", target: "../index.html" }
+                        ]
+                    }
+                }
+                    */
             ]
         };
         
-        // 初始化场景
-        document.addEventListener('DOMContentLoaded', function() {
-            TextDisplay.init(sceneData);
-            TextDisplay.displayLine(0);
+        // 初始化游戏
+        document.addEventListener('DOMContentLoaded', () => {
+            gameEngine.init(sceneData);
         });
+        
     </script>
 </body>
 </html>
@@ -879,6 +938,7 @@ A: 技术上可以实现，但需要修改引擎的文本解析机制。目前�
 Bilibili: https://space.bilibili.com/87412647
 
 禁止商用，仅供学习交流使用。
+
 
 
 
