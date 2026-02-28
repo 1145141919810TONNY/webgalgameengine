@@ -567,6 +567,8 @@ if (this.isValidSceneFile(sceneFileName)) {
             },
 ```
 
+同时需要修改`progress_api.js`里对应的内容，详情请参照文件内注释
+
 # 4. 资源管理与配置
 
 
@@ -802,6 +804,7 @@ A: 技术上可以实现，但需要修改引擎的文本解析机制。目前�
 Bilibili: https://space.bilibili.com/87412647
 
 禁止商用，仅供学习交流使用。
+
 
 
 
