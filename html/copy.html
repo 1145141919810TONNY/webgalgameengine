@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>版权信息</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+            position: relative;
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('../assets/bg/bg.jpg') center center/cover no-repeat;
+            display: block;
+        }
+        
+        .container {
+            width: 80%;
+            margin: 70px auto 30px auto; /* 为固定顶部菜单留出空间，底部也留出空间 */
+            background: transparent;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: none;
+            min-height: calc(100vh - 100px);
+            display: flex;
+            gap: 20px;
+        }
+        
+        /* 左侧导航栏样式 */
+        .sidebar {
+            width: 22%;
+            background-color: rgba(0, 0, 0, 0.6);
+            border: 1px solid #FFD700;
+            border-radius: 10px;
+            padding: 20px;
+            height: fit-content;
+            position: sticky;
+            top: 90px;
+        }
+        
+        /* 顶部功能按钮区域 */
+        .top-buttons {
+            margin: 15px 0 20px 0;
+        }
+        
+        .top-buttons button {
+            background-color: rgba(255, 215, 0, 0.1);
+            color: #FFD700;
+            cursor: pointer;
+            padding: 18px;
+            width: 100%;
+            border: 1px solid #FFD700;
+            border-radius: 8px;
+            text-align: left;
+            outline: none;
+            font-size: 18px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            margin: 10px 0;
+        }
+        
+        .top-buttons button:hover {
+            background-color: rgba(255, 215, 0, 0.2);
+        }
+        
+        .sidebar h3 {
+            color: #FFD700;
+            text-align: center;
+            margin: 0 0 20px 0;
+            font-size: 18px;
+            border-bottom: 1px solid #FFD700;
+            padding-bottom: 10px;
+        }
+        
+        .nav-item {
+            background-color: rgba(255, 215, 0, 0.1);
+            color: #FFD700;
+            padding: 12px 15px;
+            margin: 8px 0;
+            border: 1px solid #FFD700;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            text-align: left;
+        }
+        
+        .nav-item:hover {
+            background-color: rgba(255, 215, 0, 0.2);
+            transform: translateX(5px);
+        }
+        
+        .nav-item.active {
+            background-color: rgba(255, 215, 0, 0.3);
+            border: 1px solid #FFA500;
+            color: #FFA500;
+        }
+        
+        /* 主内容区域 */
+        .main-content {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        h1 {
+            color: #FFD700;
+            text-align: center;
+            margin: 40px auto 30px auto;
+            font-size: 32px;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            width: fit-content;
+        }
+        
+        .content-section {
+            background-color: rgba(0, 0, 0, 0.6);
+            border: 1px solid #FFD700;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 20px 0;
+            color: white;
+        }
+        
+        .content-section h2 {
+            color: #FFD700;
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 5px rgba(255, 215, 0, 0.8);
+            border-bottom: 2px solid #FFD700;
+            padding-bottom: 10px;
+        }
+        
+        .content-section p {
+            line-height: 1.8;
+            margin: 15px 0;
+            font-size: 16px;
+        }
+        
+        .links-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .link-card {
+            background-color: rgba(255, 215, 0, 0.1);
+            border: 1px solid #FFD700;
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .link-card:hover {
+            background-color: rgba(255, 215, 0, 0.2);
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
+        }
+        
+        .link-card h3 {
+            color: #FFD700;
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        
+        .link-card a {
+            color: pink;
+            text-decoration: none;
+            display: block;
+            margin: 8px 0;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .link-card a:hover {
+            color: lightpink;
+            text-decoration: underline;
+        }
+        
+        .actions {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            text-align: center;
+            margin: 0;
+            padding: 10px;
+            border: none;
+            border-bottom: 1px solid #FFD700;
+            background-color: transparent;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        button {
+            background-color: transparent;
+            color: #FFD700;
+            padding: 8px 16px;
+            border: 2px solid #FFD700;
+            border-radius: 20px;
+            cursor: pointer;
+            margin: 0 5px;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            background-color: rgba(255, 215, 0, 0.2);
+            color: #FFA500;
+            border: 2px solid #FFA500;
+        }
+        
+        .highlight {
+            color: #FFD700;
+            font-weight: bold;
+        }
+        
+        .small-text {
+            font-size: 14px;
+            color: #ccc;
+            margin-top: 10px;
+        }
+        
+        /* 折叠面板样式 */
+        .collapsible {
+            background-color: rgba(255, 215, 0, 0.1);
+            color: #FFD700;
+            cursor: pointer;
+            padding: 18px;
+            width: 100%;
+            border: 1px solid #FFD700;
+            border-radius: 8px;
+            text-align: left;
+            outline: none;
+            font-size: 18px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            margin: 10px 0;
+        }
+        
+        .collapsible:hover {
+            background-color: rgba(255, 215, 0, 0.2);
+        }
+        
+        .collapsible:after {
+            content: '+';
+            color: #FFD700;
+            font-weight: bold;
+            float: right;
+            margin-left: 5px;
+            transition: transform 0.3s ease;
+        }
+        
+        .collapsible.active:after {
+            content: '-';
+            transform: rotate(180deg);
+        }
+        
+        .content {
+            padding: 0 18px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            background-color: rgba(0, 0, 0, 0.6);
+            border: 1px solid #FFD700;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            margin-bottom: 20px;
+        }
+        
+        .content.show {
+            max-height: 2000px; /* 足够大的值以容纳内容 */
+        }
+        
+        .content pre {
+            margin: 15px 0;
+            white-space: pre-wrap;
+            font-family: 'Microsoft YaHei', sans-serif;
+            color: #ccc;
+            line-height: 1.6;
+            background-color: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        
+        /* 隐藏游戏相关元素 */
+        #background-container,
+        #character-container,
+        #text-box-container,
+        #options-container,
+        #novel-mode-container {
+            display: none;
+        }
+        
+        /* 音频播放器保持隐藏 */
+        audio {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景容器 - 用作菜单背景 -->
+    <div id="background-container"></div>
+    
+    <!-- 角色立绘容器 -->
+    <div id="character-container"></div>
+    
+    <!-- 文本框区域 -->
+    <div id="text-box-container">
+        <div id="name-box">[姓名]</div>
+        <div id="text-box">[文本]</div>
+    </div>
+    
+    <!-- 选项容器 -->
+    <div id="options-container"></div>
+    
+    <!-- 全屏文本模式 -->
+    <div id="novel-mode-container">
+        <div id="novel-text-box">[全屏文本]</div>
+    </div>
+    
+    <!-- 音频播放器 -->
+    <audio id="bgm-player" loop></audio>
+    <audio id="se-player"></audio>
+    <audio id="voice-player"></audio>
+    
+    
+    <div class="container">
+        
+        <!-- 左侧导航栏 -->
+        <div class="sidebar">
+            <h3>快速导航</h3>
+            
+            <div class="top-buttons">
+                <button onclick="collapseAllAndScrollTop()" class="collapse-all">折叠全部并返回顶部</button>
+                <button onclick="location.href='../index.html'" class="back">返回主菜单(esc)</button>
+            </div>
+            
+            <div class="nav-item" onclick="navigateToSection('run-instructions')">运行说明</div>
+            <div class="nav-item" onclick="navigateToSection('project-docs')">项目文档</div>
+            <div class="nav-item" onclick="navigateToSection('license-agreement')">使用协议</div>
+        </div>
+        
+        <!-- 主内容区域 -->
+        <div class="main-content">
+        
+            <h1>版权信息与相关链接</h1>
+            
+            <div class="content-section">
+                <h2>项目信息</h2>
+            <p><span class="highlight">项目名称：</span>友琳の日记</p>
+            <p><span class="highlight">项目类型：</span>视觉小说游戏</p>
+            <p><span class="highlight">开发工具：</span>HTML5 + JavaScript + CSS3</p>
+            <p><span class="highlight">授权协议：</span>专有许可 (Proprietary License)</p>
+            <p class="small-text">本项目基于视觉小说引擎模板开发，仅供学习交流使用</p>
+        </div>
+        
+        <div class="content-section">
+            <h2>开发者信息</h2>
+            <p><span class="highlight">程序开发：</span>bilibili @月が綺麗ですね_</p>
+            <p><span class="highlight">联系方式：</span>B站主页：<a href="https://space.bilibili.com/87412647?spm_id_from=333.1007.0.0" target="_blank" style="color: pink;">https://space.bilibili.com/87412647</a></p>
+            <p><span class="highlight">邮箱：</span>3099637681@qq.com</p>
+        </div>
+        
+        <div class="content-section">
+            <h2>内容创作</h2>
+            <p><span class="highlight">游戏配音：</span>Bilibili虚拟主播 @友琳_Yurin</p>
+            <p><span class="highlight">图片来源：</span>Bilibili虚拟主播 @友琳_Yurin</p>
+            <p><span class="highlight">BGM来源：</span>游戏《少女神域∽少女天獄》</p>
+            <p class="small-text">感谢友琳_Yurin提供的精彩配音和图片素材</p>
+        </div>
+        
+        <div class="content-section">
+            <h2>相关链接</h2>
+            <div class="links-container">
+                <div class="link-card">
+                    <h3>开发者主页</h3>
+                    <a href="https://space.bilibili.com/87412647?spm_id_from=333.1007.0.0" target="_blank">程序开发者：月が綺麗ですね_</a>
+                    <a href="https://space.bilibili.com/3493107123357902?spm_id_from=333.1387.follow.user_card.click" target="_blank">配音演员：友琳_Yurin</a>
+                </div>
+                
+                <div class="link-card">
+                    <h3>音乐资源</h3>
+                    <a href="https://space.bilibili.com/87412647?spm_id_from=333.1007.0.0" target="_blank">BGM来源游戏介绍</a>
+                    <p class="small-text">背景音乐取自游戏《少女神域∽少女天獄》</p>
+                </div>
+               
+            </div>
+        </div>
+        
+        <div class="content-section">
+            <h2>使用声明</h2>
+            <p><span class="highlight">作品性质：</span>完全免费的二次创作作品</p>
+            <p><span class="highlight">使用范围：</span>仅限小范围个人使用和学习交流</p>
+            <p><span class="highlight">商业用途：</span>禁止任何形式的商业使用</p>
+            <p><span class="highlight">分发限制：</span>不得擅自修改版权信息进行再分发</p>
+            <p class="small-text">请尊重原创作者的劳动成果，合理使用本作品</p>
+        </div>
+        
+        <div class="content-section">
+            <h2>许可证信息</h2>
+            <p><span class="highlight">许可证类型：</span>专有许可 (Proprietary License)</p>
+            <p><span class="highlight">SPDX标识符：</span>Proprietary</p>
+            <p><span class="highlight">完整协议：</span>详见项目根目录下的 <a href="../license.txt" target="_blank" style="color: pink;">license.txt</a> 文件</p>
+            <p class="small-text">使用本项目前请仔细阅读完整的许可协议</p>
+            </div>
+            
+            <button id="run-instructions" class="collapsible">运行说明 (运行游戏前请先看我.txt)</button>
+        <div class="content">
+            <pre>
+如何运行游戏以获得完整功能
+========================
+下载python：
+<a href="https://www.python.org/downloads/" target="_blank">https://www.python.org/downloads/</a>
+由于浏览器的安全策略限制，当直接双击HTML文件（file://协议）运行游戏时，
+存档功能无法正常工作。
+
+为获得最佳体验和完整的存档功能，请使用以下任一方式运行游戏：
+
+方法一：使用自动化启动脚本（推荐）
+-----------------------------------
+• 双击运行 "launch_game.bat" 文件（Python版）
+  - 自动启动本地服务器
+  - 自动打开浏览器访问游戏
+  - 无需手动输入网址
+
+
+方法二：使用HBuilder X
+-----------------------
+将整个项目放入hbx，然后运行到任意外部浏览器
+
+注意事项：
+- 保持服务器窗口开启，关闭它将停止游戏服务
+- 在服务器模式下运行，所有功能（包括存档）都将正常工作
+- 如果没有安装Python请先安装
+
+若你仍想直接双击index.html运行的话，将无法使用存档功能。
+            </pre>
+        </div>
+        
+            <button id="project-docs" class="collapsible">项目说明文档 (README.txt)</button>
+        <div class="content">
+            <pre>
+# 视觉小说引擎
+
+这是一个基于HTML/JS的视觉小说引擎，具有类似Kirikiri的功能。
+
+在scenes文件夹中，scenes0.html是一个空白模板。
+
+## 快捷键
+- esc：打开游戏上下文菜单
+
+
+文件结构，请至少在assets文件夹中创建如下对应文件夹
+
+galgame-engine/
+├── index.html          # 主菜单页面
+├── engine.js           # 核心JavaScript引擎
+├── style.css           # 样式文件
+├── assets/             # 资源文件
+│   ├── bg/             # 背景图片
+│   ├── audio/          # 音频文件
+│   ├── bgm/            # BGM文件
+│   ├── video/          # 视频文件
+│   └── chars/          # 角色立绘
+├── scenes/             # 场景文件
+│   └── scene0.html     # 场景模板
+└── html/               # 功能页面
+    ├── bgm.html        # BGM鉴赏页面
+    └── video.html      # 视频鉴赏页面
+
+
+程序底层框架：月が綺麗ですね_
+https://space.bilibili.com/87412647?spm_id_from=333.1007.0.0
+            </pre>
+        </div>
+        
+            <button id="license-agreement" class="collapsible">引擎使用协议 (license.txt)</button>
+        <div class="content">
+            <pre>
+引擎使用协议
+生效日期：2026年2月20日
+版本V1.0
+版权所有 © 2026 bilibili 月が綺麗ですね_
+
+零、定义
+「本作品」：指附带的受保护文件及其任何修改、合并或衍生片段。
+「作者」：指版权声明中列明的版权所有人。
+「商用」：指以营利为目的的任何使用、复制、修改、发布或销售行为（包括直接销售、SaaS、广告变现、内部成本分摊）。
+「模板资源」：指本项目中已获授权的非代码内容（含背景图、BGM、人物配音、视频等）。
+本作品定义：本项目为视觉小说运行框架（含核心引擎与基础资源），其代码及框架结构受闭源协议保护。
+
+用户操作规则：
+非商业用途：可自由替换模板资源（包括背景图、音频、视频等），但必须删除原模板资源。
+商业用途：替换模板资源需提前获得作者书面授权，且必须删除原模板资源。
+
+一、版权归属
+本项目（含源代码、资源文件、文档）的全部知识产权归哔哩哔哩用户 bilibili月が綺麗ですね_ 独有，受中华人民共和国法律保护。
+本引擎中使用的模板资源（含背景图、人物配音、视频等）已获哔哩哔哩虚拟主播 @友琳_Yurin 授权，使用时不得修改原模板内容。
+本协议仅以中文文本为准，任何其他语言版本的翻译均不具法律效力。
+模板资源使用规则：
+无论商业或非商业用途，必须完全移除模板内所有非代码资源（包括背景音乐、CG、人物配音等），仅保留引擎核心代码。
+（注：替换为自有资源后，方可继续使用）
+
+二、使用授权范围
+| 用途          | 授权要求                                                                 |  
+|---------------|--------------------------------------------------------------------------|  
+| 非商业使用 | 无需授权，但必须删除原模板资源，可自由替换为自有资源。                 |  
+| 商业使用   | 需提前获得作者书面授权，且必须删除原模板资源，替换为自有资源。     |  
+| 禁止行为   | 未删除模板资源即视为侵权，作者保留追究法律责任的权利。                  |  
+
+三、署名强制要求
+必须署名：作者：bilibili月が綺麗ですね_（仅限B站ID，禁止真实姓名/其他ID）。
+模板授权署名：模板授权：@友琳_Yurin（示例：Powered by bilibili月が綺麗ですね_ | 模板授权：@友琳_Yurin）。
+署名位置：
+源代码头部注释（// Author: bilibili月が綺麗ですね_）
+项目文档（README、用户手册）
+界面页脚/“关于”对话框
+演示PPT/宣传材料
+保留本协议文件（license.txt）
+违反后果：未按要求署名或保留模板资源，自动终止授权并追究法律责任。
+
+四、禁止行为
+反向工程、破解、篡改版权信息；
+分发、销售、转让本项目；
+使用真实姓名或身份信息；
+保留原模板资源（背景图、人物配音等）；
+用于违法、恶意软件、暴力/色情内容。
+
+五、协议终止
+违反本协议（包括未删除模板资源、未正确署名）将自动终止使用权限，作者保留追究法律责任的权利。
+
+六. 协议更新
+作者有权随时更新本许可证文本；更新后的条款仅适用于更新日期之后的再分发行为，不影响此前已获得的许可。
+
+七、SPDX标识声明
+本项目采用闭源专有许可，SPDX标识符为：
+SPDX-License-Identifier: Proprietary
+
+协议执行示例
+（1）源代码头部注释
+// 版权所有：bilibili月が綺麗ですね_
+// SPDX-License-Identifier: Proprietary
+// 作者：bilibili月が綺麗ですね_
+（2）网页页脚署名
+
+项目开发：bilibili月が綺麗ですね_ © 版权所有
+SPDX标识：Proprietary
+
+
+八、联系方式
+通过b站主页联系：https://space.bilibili.com/87412647
+或通过邮箱联系：3099637681@qq.com
+            </pre>
+        </div>
+            
+        </div>
+        <!-- 主内容区域结束 -->
+    </div>
+
+    <script>
+        // ESC键返回主菜单
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                window.location.href = '../index.html';
+            }
+        });
+        
+        // 折叠面板功能
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('版权信息页面已加载');
+            
+            // 获取所有折叠按钮
+            var coll = document.getElementsByClassName("collapsible");
+            
+            // 为每个按钮添加点击事件
+            for (var i = 0; i < coll.length; i++) {
+                coll[i].addEventListener("click", function() {
+                    // 切换active类
+                    this.classList.toggle("active");
+                    
+                    // 获取下一个兄弟元素（内容区域）
+                    var content = this.nextElementSibling;
+                    
+                    // 切换显示/隐藏
+                    if (content.style.maxHeight) {
+                        content.style.maxHeight = null;
+                        content.classList.remove('show');
+                    } else {
+                        content.style.maxHeight = content.scrollHeight + "px";
+                        content.classList.add('show');
+                    }
+                });
+            }
+            
+            // 默认状态下所有面板都是折叠的
+            console.log('所有文档面板默认为折叠状态');
+        });
+        
+        // 折叠所有信息并返回顶部功能
+        function collapseAllAndScrollTop() {
+            console.log('执行折叠全部并返回顶部');
+            
+            // 获取所有折叠按钮
+            var collapsibleButtons = document.getElementsByClassName("collapsible");
+            
+            // 遍历所有折叠面板
+            for (var i = 0; i < collapsibleButtons.length; i++) {
+                var button = collapsibleButtons[i];
+                var content = button.nextElementSibling;
+                
+                // 移除active类
+                button.classList.remove("active");
+                
+                // 折叠内容
+                content.style.maxHeight = null;
+                content.classList.remove('show');
+            }
+            
+            // 平滑滚动到页面顶部
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+            
+            console.log('已完成折叠全部并返回顶部');
+        }
+        
+        // 导航到指定章节功能
+        function navigateToSection(sectionId) {
+            console.log('导航到章节:', sectionId);
+            
+            // 移除所有导航项的active状态
+            var navItems = document.querySelectorAll('.nav-item');
+            navItems.forEach(item => item.classList.remove('active'));
+            
+            // 为目标导航项添加active状态
+            event.target.classList.add('active');
+            
+            // 获取目标折叠按钮
+            var targetButton = document.getElementById(sectionId);
+            if (targetButton) {
+                // 平滑滚动到目标位置
+                targetButton.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+                
+                // 展开对应内容
+                var content = targetButton.nextElementSibling;
+                if (content && !targetButton.classList.contains('active')) {
+                    // 触发点击事件来展开
+                    targetButton.click();
+                }
+                
+                console.log('已导航到并展开章节:', sectionId);
+            }
+        }
+        
+        // 为折叠按钮添加点击事件监听，同步更新导航状态
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取所有折叠按钮
+            var collapsibleButtons = document.getElementsByClassName("collapsible");
+            
+            // 为每个折叠按钮添加点击监听
+            for (var i = 0; i < collapsibleButtons.length; i++) {
+                collapsibleButtons[i].addEventListener('click', function() {
+                    // 更新导航项的active状态
+                    updateNavActiveState(this.id);
+                });
+            }
+        });
+        
+        // 更新导航项的active状态
+        function updateNavActiveState(activeSectionId) {
+            // 移除所有导航项的active状态
+            var navItems = document.querySelectorAll('.nav-item');
+            navItems.forEach(item => item.classList.remove('active'));
+            
+            // 根据当前激活的折叠面板更新对应的导航项
+            var sectionMap = {
+                'run-instructions': 0,
+                'project-docs': 1,
+                'license-agreement': 2
+            };
+            
+            if (sectionMap.hasOwnProperty(activeSectionId)) {
+                navItems[sectionMap[activeSectionId]].classList.add('active');
+            }
+        }
+    </script>
+</body>
+</html>

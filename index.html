@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>主菜单</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('assets/bg/bg.jpg') center center/cover no-repeat;
+            font-family: 'Microsoft YaHei', sans-serif;
+            display: flex;
+        }
+
+        /* 菜单容器 - 占据右侧50% */
+        #menu-container {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 50%;
+            height: 100%;
+            background-color: transparent;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* 菜单标题 */
+        #menu-title {
+            color: white;
+            font-size: 32px;
+            margin-bottom: 40px;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        /* 菜单按钮 */
+        .menu-btn {
+            display: block;
+            width: 80%;
+            padding: 15px;
+            margin: 10px 0;
+            background-color: transparent;
+            color: #FFD700;
+            border: 3px solid #FFD700;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .menu-btn:hover {
+            background-color: rgba(255, 215, 0, 0.2);
+            color: #FFA500;
+            border: 3px solid #FFA500;
+            transform: scale(1.05);
+        }
+
+        /* 隐藏游戏相关元素 */
+        #background-container,
+        #character-container,
+        #text-box-container,
+        #options-container,
+        #novel-mode-container {
+            display: none;
+        }
+
+        /* 音频播放器保持可见但透明以确保功能 */
+        audio {
+            display: none;
+        }
+        
+        /* 信息容器内的链接样式 */
+        #info-container a {
+            color: pink;
+            text-decoration: none;
+        }
+        
+        #info-container a:visited {
+            color: pink;
+        }
+        
+        #info-container a:hover {
+            color: lightpink;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景容器 - 用作菜单背景 -->
+    <div id="background-container"></div>
+    
+    <!-- 角色立绘容器 -->
+    <div id="character-container"></div>
+    
+    <!-- 文本框区域 -->
+    <div id="text-box-container">
+        <div id="name-box">[姓名]</div>
+        <div id="text-box">[文本]</div>
+    </div>
+    
+    <!-- 选项容器 -->
+    <div id="options-container"></div>
+    
+    <!-- 全屏文本模式 -->
+    <div id="novel-mode-container">
+        <div id="novel-text-box">[全屏文本]</div>
+    </div>
+    
+    <!-- 音频播放器 -->
+    <audio id="bgm-player" loop></audio>
+    <audio id="se-player"></audio>
+    <audio id="voice-player"></audio>
+    
+    <!-- 视频播放器 -->
+    <div id="video-player" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:100; background-color:black;">
+        <video id="main-video" style="width:100%; height:100%; object-fit:contain;" controls>
+            您的浏览器不支持视频播放。
+        </video>
+    </div>
+    
+    <!-- 主菜单容器 -->
+    <div id="menu-container">
+        <h1 id="menu-title">友琳の日记</h1>
+        
+        <a href="scenes/scene1.html" class="menu-btn">开始游戏</a>
+        <a id="progress-btn" href="./html/saves.html" class="menu-btn">进度管理</a>
+        <a href="./html/bgm.html" class="menu-btn">BGM鉴赏</a>
+        <a href="./html/video.html" class="menu-btn">视频鉴赏</a>
+        <a href="./html/CG.html" class="menu-btn">CG鉴赏</a>
+        <a href="./html/copy.html" class="menu-btn">版权信息</a>
+
+    </div>
+    
+    <!-- 左下角信息容器 -->
+    <div id="info-container" style="position: absolute; bottom: 20px; left: 20px; color: gold; font-family: 'Microsoft YaHei', sans-serif; z-index: 10; font-size: 16px; text-shadow: 1px 1px 2px black;">
+        主菜单任意点击一下播放背景音乐<br/>
+        看剧情时不要点击太快，否则文本可能会乱掉，按esc呼出菜单<br/>
+        <a href="https://space.bilibili.com/87412647?spm_id_from=333.1007.0.0" target="_blank"> 程序：bilibili @月が綺麗ですね_</a><br/>
+        <a href="https://space.bilibili.com/3493107123357902?spm_id_from=333.1387.follow.user_card.click" target="_blank">模板中若存在游戏配音，图片来源: Bilibili虚拟主播 @友琳_Yurin</a><br />
+		此作品为完全免费的二创作品，仅限小范围使用<br />
+		禁止商用
+    </div>
+
+        <!-- 引擎脚本 -->
+    <script src="engine.js"></script>
+    <script>
+        // 检查是否为file协议，如果是则禁用进度管理按钮
+        if (window.location.protocol === 'file:') {
+            const progressBtn = document.getElementById('progress-btn');
+            if (progressBtn) {
+                progressBtn.href = "#";
+                progressBtn.textContent = "进度管理（file下无法使用该功能）";
+                progressBtn.style.opacity = "0.6";
+                progressBtn.style.cursor = "not-allowed";
+                progressBtn.onclick = function(e) {
+                    e.preventDefault();
+                    return false;
+                };
+            }
+        }
+        
+        const indexData = {
+            bgm: {
+                'bgm1': 'assets/bgm/bgm1.ogg'
+            },
+            story: [
+                {
+                    text: "",
+                    bgm: 'bgm1', // 播放BGM
+                    action: null
+                }
+            ]
+        };
+
+        // 初始化引擎并播放BGM
+        document.addEventListener('DOMContentLoaded', function() {
+            gameEngine.init(indexData);
+            
+            // 播放BGM
+            setTimeout(function() {
+                gameEngine.playAudio('bgm1');
+            }, 100);
+        });
+
+// 版权所有：bilibili月が綺麗ですね_
+// SPDX-License-Identifier: Proprietary
+// 作者：bilibili月が綺麗ですね_
+    </script>
+
+</body>
+</html>

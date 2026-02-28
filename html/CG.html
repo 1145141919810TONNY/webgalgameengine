@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CG鉴赏</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('../assets/bg/bg.jpg') center center/cover no-repeat;
+            font-family: 'Microsoft YaHei', sans-serif;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* CG列表容器 */
+        #cg-container {
+            position: absolute;
+            right: 0;
+            top: 80px; /* 留出标题空间 */
+            width: 100%;
+            height: calc(100% - 150px); /* 减去标题和返回按钮的空间 */
+            background-color: transparent;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));  /* 自适应列数 */
+            grid-auto-rows: auto;
+            gap: 15px;
+            justify-content: center;
+            align-content: start; /* 内容从顶部开始排列 */
+            z-index: 10;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto; /* 添加垂直滚动 */
+            overflow-x: hidden; /* 防止水平滚动 */
+        }
+
+        /* CG标题 */
+        #cg-title {
+            color: white;
+            font-size: 32px;
+            margin-bottom: 40px;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        /* CG图片缩略图样式 */
+        .cg-thumbnail {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .cg-thumbnail:hover {
+            transform: scale(1.05);
+            border: 2px solid #FFD700;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.7);
+        }
+
+        /* 放大图片的模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+        }
+
+        .close {
+            position: absolute;
+            top: 20px;
+            right: 35px;
+            color: #fff;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 2001;
+        }
+
+        .close:hover {
+            color: #FFD700;
+        }
+        
+        /* 导航按钮 */
+        .nav-button {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            font-size: 30px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 2001;
+            padding: 20px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            user-select: none;
+        }
+        
+        .prev-nav {
+            left: 20px;
+        }
+        
+        .next-nav {
+            right: 20px;
+        }
+        
+        .nav-button:hover {
+            background-color: rgba(255, 215, 0, 0.8);
+            color: white;
+            transform: translateY(-50%) scale(1.1);
+        }
+        
+        /* 图片计数器 */
+        .image-counter {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 5px 15px;
+            border-radius: 20px;
+            z-index: 2001;
+        }
+
+        /* 返回按钮 */
+        .back-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background-color: transparent;
+            color: #FFD700;
+            border: 2px solid #FFD700;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+
+        .back-btn:hover {
+            background-color: rgba(255, 215, 0, 0.2);
+            color: #FFA500;
+            border: 2px solid #FFA500;
+        }
+
+        /* 页面标题 */
+        #page-title {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: #FFD700;
+            font-size: 32px;
+            margin: 0;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            z-index: 20;
+        }
+
+        /* 隐藏游戏相关元素 */
+        #background-container,
+        #character-container,
+        #text-box-container,
+        #options-container,
+        #novel-mode-container {
+            display: none;
+        }
+
+        /* 音频播放器保持隐藏 */
+        audio {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景容器 - 用作菜单背景 -->
+    <div id="background-container"></div>
+    
+    <!-- 角色立绘容器 -->
+    <div id="character-container"></div>
+    
+    <!-- 文本框区域 -->
+    <div id="text-box-container">
+        <div id="name-box">[姓名]</div>
+        <div id="text-box">[文本]</div>
+    </div>
+    
+    <!-- 选项容器 -->
+    <div id="options-container"></div>
+    
+    <!-- 全屏文本模式 -->
+    <div id="novel-mode-container">
+        <div id="novel-text-box">[全屏文本]</div>
+    </div>
+    
+    <!-- 音频播放器 -->
+    <audio id="bgm-player" loop></audio>
+    <audio id="se-player"></audio>
+    <audio id="voice-player"></audio>
+    
+    <!-- 引擎脚本 -->
+    <script src="../engine.js"></script>
+    
+    <!-- 页面标题 -->
+    <h1 id="page-title">CG鉴赏</h1>
+    
+    <!-- CG列表容器 -->
+    <div id="cg-container">
+        <!-- CG图片将通过JavaScript动态加载 -->
+    </div>
+    
+    <!-- 放大图片的模态框 -->
+    <div id="imageModal" class="modal">
+        <span class="close">&times;</span>
+        <img class="modal-content" id="modalImage">
+        <div class="nav-button prev-nav">&#10094;</div>
+        <div class="nav-button next-nav">&#10095;</div>
+        <div class="image-counter">1 / 1</div>
+    </div>
+    
+    <!-- 返回主菜单按钮 -->
+    <a href="../index.html" class="back-btn">返回主菜单(esc)</a>
+
+    <script>
+        const indexData = {
+            bgm: {
+                'bgm1': '../assets/bgm/bgm1.ogg'
+            },
+            story: [
+                {
+                    text: "",
+                    bgm: 'bgm1', // 播放BGM
+                    action: null
+                }
+            ]
+        };
+
+        // CG图片管理器
+        const CGManager = {
+            // CG图片路径配置 - 使用bg文件夹中的图片
+            cgPaths: [
+                '../assets/bg/bg.jpg',
+                '../assets/bg/badend1.jpg',
+                '../assets/bg/yl1.jpg',
+                '../assets/bg/yl2.jpg'
+            ],
+            
+            // 当前显示的图片索引
+            currentImageIndex: 0,
+            
+            // 初始化CG列表
+            init: function() {
+                this.loadCGList();
+                this.bindEvents();
+            },
+            
+            // 加载CG列表
+            loadCGList: function() {
+                const container = document.getElementById('cg-container');
+                container.innerHTML = '';
+                
+                // 遍历CG图片路径并生成缩略图
+                this.cgPaths.forEach((path, index) => {
+                    // 检查图片是否存在
+                    this.imageExists(path, (exists) => {
+                        if (exists) {
+                            const img = document.createElement('img');
+                            img.src = path;
+                            img.alt = `CG ${index + 1}`;
+                            img.className = 'cg-thumbnail';
+                            img.dataset.fullPath = path;
+                            img.dataset.index = index;
+                            
+                            // 添加点击事件以放大显示
+                            img.addEventListener('click', (e) => {
+                                this.currentImageIndex = parseInt(e.target.dataset.index);
+                                this.showFullImage(e.target.dataset.fullPath);
+                            });
+                            
+                            container.appendChild(img);
+                        } else {
+                            console.log(`CG图片不存在: ${path}`);
+                        }
+                    });
+                });
+            },
+            
+            // 检查图片是否存在
+            imageExists: function(url, callback) {
+                const img = new Image();
+                img.onload = function() { callback(true); };
+                img.onerror = function() { callback(false); };
+                img.src = url;
+            },
+            
+            // 显示全尺寸图片
+            showFullImage: function(imageSrc) {
+                const modal = document.getElementById('imageModal');
+                const modalImg = document.getElementById('modalImage');
+                
+                modalImg.src = imageSrc;
+                modal.style.display = 'flex';
+                
+                // 更新图片计数器
+                this.updateImageCounter();
+            },
+            
+            // 更新图片计数器
+            updateImageCounter: function() {
+                const counter = document.querySelector('.image-counter');
+                if (counter) {
+                    counter.textContent = `${this.currentImageIndex + 1} / ${this.cgPaths.length}`;
+                }
+            },
+            
+            // 显示上一张图片
+            showPrevImage: function() {
+                this.currentImageIndex--;
+                if (this.currentImageIndex < 0) {
+                    this.currentImageIndex = this.cgPaths.length - 1; // 首尾循环
+                }
+                this.showFullImage(this.cgPaths[this.currentImageIndex]);
+            },
+            
+            // 显示下一张图片
+            showNextImage: function() {
+                this.currentImageIndex++;
+                if (this.currentImageIndex >= this.cgPaths.length) {
+                    this.currentImageIndex = 0; // 首尾循环
+                }
+                this.showFullImage(this.cgPaths[this.currentImageIndex]);
+            },
+            
+            // 绑定事件
+            bindEvents: function() {
+                // 关闭模态框
+                document.querySelector('.close').addEventListener('click', () => {
+                    document.getElementById('imageModal').style.display = 'none';
+                });
+                
+                // 点击模态框外部关闭
+                document.getElementById('imageModal').addEventListener('click', (e) => {
+                    if (e.target === document.getElementById('imageModal')) {
+                        e.target.style.display = 'none';
+                    }
+                });
+                
+                // 上一张图片按钮
+                document.querySelector('.prev-nav').addEventListener('click', () => {
+                    CGManager.showPrevImage();
+                });
+                
+                // 下一张图片按钮
+                document.querySelector('.next-nav').addEventListener('click', () => {
+                    CGManager.showNextImage();
+                });
+                
+                // 键盘事件：左箭头键上一张，右箭头键下一张
+                document.addEventListener('keydown', (e) => {
+                    if (document.getElementById('imageModal').style.display === 'flex' || 
+                        document.getElementById('imageModal').style.display === 'block') {
+                        if (e.key === 'ArrowLeft') {
+                            e.preventDefault();
+                            CGManager.showPrevImage();
+                        } else if (e.key === 'ArrowRight') {
+                            e.preventDefault();
+                            CGManager.showNextImage();
+                        }
+                    }
+                });
+                
+                // ESC键功能：如果模态框打开则关闭，否则返回主页
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        const modal = document.getElementById('imageModal');
+                        if (modal.style.display === 'flex' || modal.style.display === 'block') {
+                            // 如果模态框是打开的，关闭它
+                            modal.style.display = 'none';
+                        } else {
+                            // 如果模态框是关闭的，返回主页
+                            window.location.href = '../index.html';
+                        }
+                    }
+                });
+            }
+        };
+        
+        // 初始化引擎并播放BGM，以及CG管理器
+        document.addEventListener('DOMContentLoaded', function() {
+            gameEngine.init(indexData);
+            
+            // 播放BGM
+            setTimeout(function() {
+                gameEngine.playAudio('bgm1');
+            }, 100);
+            
+            // 初始化CG管理器
+            CGManager.init();
+        });
+        
+
+    </script>
+</body>
+</html>

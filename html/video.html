@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频鉴赏</title>
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('../assets/bg/bg.jpg') center center/cover no-repeat;
+            font-family: 'Microsoft YaHei', sans-serif;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* 菜单容器 - 占据整个屏幕 */
+        #menu-container {
+            position: absolute;
+            right: 0;
+            top: 80px; /* 留出标题空间 */
+            width: 100%;
+            height: calc(100% - 150px); /* 减去标题和控制按钮的空间 */
+            background-color: transparent;
+            display: grid;
+            grid-template-columns: 1fr 1fr;  /* 两排布局 */
+            grid-auto-rows: auto;
+            gap: 15px;
+            justify-content: center;
+            align-content: start; /* 内容从顶部开始排列 */
+            z-index: 10;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto; /* 添加垂直滚动 */
+            overflow-x: hidden; /* 防止水平滚动 */
+        }
+
+        /* 页面标题 */
+        #page-title {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: #FFD700;
+            font-size: 32px;
+            margin: 0;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            z-index: 20;
+        }
+
+        /* 菜单按钮 */
+        .menu-btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin: 5px;
+            background-color: transparent;
+            color: #FFD700;
+            border: 3px solid #FFD700;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .menu-btn:hover {
+            background-color: rgba(255, 215, 0, 0.2);
+            color: #FFA500;
+            border: 3px solid #FFA500;
+        }
+        
+        /* 返回按钮 */
+        .back-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background-color: transparent;
+            color: #FFD700;
+            border: 2px solid #FFD700;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+        
+        .back-btn:hover {
+            background-color: rgba(255, 215, 0, 0.2);
+            color: #FFA500;
+            border: 2px solid #FFA500;
+        }
+
+        /* 隐藏游戏相关元素 */
+        #background-container,
+        #character-container,
+        #text-box-container,
+        #options-container,
+        #novel-mode-container {
+            display: none;
+        }
+
+        /* 音频播放器保持隐藏 */
+        audio {
+            display: none;
+        }
+        
+        /* 视频播放器样式 */
+        #video-player {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 30;
+            display: none;
+        }
+        
+        /* 控制按钮容器 */
+        .control-buttons {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: row;
+            gap: 8px;
+            z-index: 100;
+        }
+        
+        /* 控制按钮样式 */
+        .control-btn {
+            padding: 10px 15px;
+            background-color: transparent;
+            color: #FFD700;
+            border: 2px solid #FFD700;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+        
+        .control-btn:hover {
+            background-color: rgba(255, 215, 0, 0.2);
+            color: #FFA500;
+            border: 2px solid #FFA500;
+        }
+        
+        #video-player video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景容器 - 用作菜单背景 -->
+    <div id="background-container"></div>
+    
+    <!-- 角色立绘容器 -->
+    <div id="character-container"></div>
+    
+    <!-- 文本框区域 -->
+    <div id="text-box-container">
+        <div id="name-box">[姓名]</div>
+        <div id="text-box">[文本]</div>
+    </div>
+    
+    <!-- 选项容器 -->
+    <div id="options-container"></div>
+    
+    <!-- 全屏文本模式 -->
+    <div id="novel-mode-container">
+        <div id="novel-text-box">[全屏文本]</div>
+    </div>
+    
+    <!-- 音频播放器 -->
+    <audio id="bgm-player" loop></audio>
+    <audio id="se-player"></audio>
+    <audio id="voice-player"></audio>
+    
+    <!-- 视频播放器 -->
+    <div id="video-player">
+        <video id="main-video" controls>
+            您的浏览器不支持视频播放。
+        </video>
+    </div>
+    
+    <!-- 控制按钮 -->
+    <div class="control-buttons">
+        <button class="control-btn" id="exit-playback-btn" onclick="stopVideo()" style="display:none;">退出播放</button>
+        <a href="../index.html" class="control-btn">返回主菜单(esc)</a>
+    </div>
+    
+    <!-- 页面标题 -->
+    <h1 id="page-title">视频鉴赏</h1>
+    
+    <!-- 视频列表容器 -->
+    <div id="menu-container">
+        <button class="menu-btn" onclick="playVideo('op')">测试1（没有视频）</button>
+        <button class="menu-btn" onclick="playVideo('hhca')">宣传视频1</button>
+        <button class="menu-btn" onclick="playVideo('chdljt')">宣传视频2</button>
+        <button class="menu-btn" onclick="playVideo('video1')">宣传视频3</button>
+    </div>
+    
+    <script>
+        // 视频资源映射
+        const videoMap = {
+            'op': '../assets/video/op.mp4',
+            'video1': '../assets/video/video1.mp4',
+            'hhca': '../assets/video/hhca.mp4',
+            'chdljt': '../assets/video/chdljt.mp4'
+        };
+        
+        // 视频播放状态
+        let isVideoPlaying = false;
+        
+        // 更新退出按钮的可见性
+        function updateExitButtonVisibility() {
+            const exitBtn = document.getElementById('exit-playback-btn');
+            if (exitBtn) {
+                exitBtn.style.display = isVideoPlaying ? 'block' : 'none';
+            }
+        }
+        
+        // 从URL参数获取视频文件名
+        function getVideoFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('video');
+        }
+        
+        // 检查是否从剧情中直接播放视频
+        window.addEventListener('load', function() {
+            const videoParam = getVideoFromUrl();
+            if (videoParam) {
+                // 直接播放指定的视频文件
+                playSpecificVideo(videoParam);
+            }
+        });
+        
+        // 播放指定视频文件
+        function playSpecificVideo(videoFileName) {
+            // 构建视频路径
+            let videoPath;
+            if (videoFileName.startsWith('../') || videoFileName.startsWith('/')) {
+                // 如果已经是完整路径，直接使用
+                videoPath = videoFileName;
+            } else {
+                // 否则假设视频在assets/video目录下
+                videoPath = '../assets/video/' + videoFileName;
+                
+                // 如果文件名不含扩展名，尝试添加常见扩展名
+                if (!videoFileName.includes('.')) {
+                    videoPath = '../assets/video/' + videoFileName + '.mp4';
+                }
+            }
+            
+            const videoPlayer = document.getElementById('video-player');
+            const mainVideo = document.getElementById('main-video');
+                    
+            // 尝试播放视频，支持多种格式
+            function tryVideoPlayback(videoPath) {
+                // 获取视频的基本路径（不包含扩展名）
+                const baseVideoPath = videoPath.substring(0, videoPath.lastIndexOf('.'));
+                const extension = videoPath.substring(videoPath.lastIndexOf('.'));
+                        
+                // 定义要尝试的视频格式列表（按优先级排序）
+                const videoFormats = [extension, '.mp4', '.webm', '.ogg', '.mov'];
+                        
+                let currentFormatIndex = 0;
+                        
+                // 定义尝试播放的函数
+                function attemptPlay() {
+                    if (currentFormatIndex >= videoFormats.length) {
+                        // 所有格式都尝试过了，仍无法播放
+                        console.error('所有视频格式都无法播放:', videoPath);
+                                
+                        // 提供错误消息给用户
+                        alert("无法播放视频文件: " + videoPath + "\n请检查文件是否存在或转换为Web兼容格式（如MP4）");
+                                
+                        // 播放失败后，仍然返回到剧情
+                        setTimeout(() => {
+                            window.history.back();
+                        }, 100);
+                        return;
+                    }
+                            
+                    // 构建当前格式的视频路径
+                    const currentFormat = videoFormats[currentFormatIndex];
+                    const currentVideoPath = baseVideoPath + currentFormat;
+                            
+                    console.log('尝试播放视频格式:', currentVideoPath);
+                            
+                    // 设置视频源
+                    mainVideo.src = currentVideoPath;
+                            
+                    // 显示视频播放器
+                    videoPlayer.style.display = 'block';
+                    isVideoPlaying = true;
+                    updateExitButtonVisibility();
+                            
+                    // 设置一个超时计时器，防止长时间等待
+                    const timeoutId = setTimeout(() => {
+                        console.log('视频加载超时，尝试下一个格式');
+                        currentFormatIndex++;
+                        attemptPlay();
+                    }, 5000); // 5秒超时
+                            
+                    // 成功加载元数据后清除超时计时器
+                    const onLoadedMetadata = () => {
+                        clearTimeout(timeoutId);
+                                        
+                        // 检查视频是否真的有视频轨道
+                        if (mainVideo.videoWidth === 0 && mainVideo.videoHeight === 0) {
+                            console.warn('视频文件没有视频轨道，只有音频:', currentVideoPath);
+                                            
+                            // 尝试下一个格式
+                            currentFormatIndex++;
+                            attemptPlay();
+                            return;
+                        }
+                                        
+                        console.log('视频尺寸:', mainVideo.videoWidth + 'x' + mainVideo.videoHeight);
+                                        
+                        // 尝试播放视频
+                        mainVideo.play().then(() => {
+                            console.log('视频播放开始:', currentVideoPath);
+                                            
+                            // 添加错误处理
+                            mainVideo.addEventListener('error', (e) => {
+                                console.error('视频播放错误:', e);
+                                                
+                                // 检查错误类型
+                                const mediaError = mainVideo.error;
+                                if (mediaError) {
+                                    console.error('媒体错误代码:', mediaError.code, '媒体错误信息:', mediaError.message);
+                                                    
+                                    // 根据错误类型决定是否尝试下一个格式
+                                    if (mediaError.code === 4) { // MEDIA_ERR_SRC_NOT_SUPPORTED
+                                        console.log('视频格式不受支持，尝试下一个格式');
+                                        // 尝试下一个格式
+                                        currentFormatIndex++;
+                                        attemptPlay();
+                                        return;
+                                    }
+                                }
+                                                
+                                // 尝试下一个格式
+                                currentFormatIndex++;
+                                attemptPlay();
+                            }, { once: true });
+                                            
+                            // 添加暂停/播放事件监听器
+                            mainVideo.addEventListener('pause', () => {
+                                console.log('视频已暂停');
+                            });
+                                            
+                            mainVideo.addEventListener('play', () => {
+                                console.log('视频已开始播放');
+                            });
+                        }).catch(error => {
+                            console.error('视频播放失败:', error);
+                                            
+                            // 尝试下一个格式
+                            currentFormatIndex++;
+                            attemptPlay();
+                        });
+                    };
+                            
+                    // 添加错误处理
+                    const onError = () => {
+                        clearTimeout(timeoutId);
+                                
+                        console.log('当前格式无法播放，尝试下一个格式:', currentVideoPath);
+                                
+                        // 尝试下一个格式
+                        currentFormatIndex++;
+                        attemptPlay();
+                    };
+                            
+                    // 监听事件
+                    mainVideo.addEventListener('loadedmetadata', onLoadedMetadata, { once: true });
+                    mainVideo.addEventListener('error', onError, { once: true });
+                }
+                        
+                // 开始尝试播放
+                attemptPlay();
+            }
+                    
+            // 开始尝试播放视频
+            tryVideoPlayback(videoPath);
+        }
+
+        // 播放预设视频
+        function playVideo(videoName) {
+            const videoPlayer = document.getElementById('video-player');
+            const mainVideo = document.getElementById('main-video');
+            if (videoMap[videoName]) {
+                mainVideo.src = videoMap[videoName];
+                videoPlayer.style.display = 'block';
+                isVideoPlaying = true;
+                updateExitButtonVisibility();
+                mainVideo.play().catch(e => console.log("视频播放失败:", e));
+            } else {
+                console.log("找不到视频:", videoName);
+            }
+        }
+
+        // 停止视频
+        function stopVideo() {
+            const videoPlayer = document.getElementById('video-player');
+            const mainVideo = document.getElementById('main-video');
+            videoPlayer.style.display = 'none';
+            mainVideo.pause();
+            mainVideo.currentTime = 0;
+            isVideoPlaying = false;
+            updateExitButtonVisibility();
+            
+            // 如果是通过URL参数播放的，关闭页面
+            const videoParam = getVideoFromUrl();
+            if (videoParam) {
+                // 延迟一小段时间后返回上一页，让视频完全停止
+                setTimeout(() => {
+                    window.history.back();
+                }, 100);
+            }
+        }
+        
+        // 点击视频区域外关闭视频
+        document.getElementById('video-player').addEventListener('click', function(e) {
+            if (e.target === this) {
+                stopVideo();
+            }
+        });
+        
+        // 添加键盘事件监听，允许ESC键关闭视频或返回主菜单
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const videoPlayer = document.getElementById('video-player');
+                if (videoPlayer.style.display === 'block') {
+                    stopVideo();
+                } else {
+                    // 如果视频播放器是关闭的，返回主菜单
+                    window.location.href = '../index.html';
+                }
+            }
+        });
+    </script>
+</body>
+</html>

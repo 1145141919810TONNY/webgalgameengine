@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BGM鉴赏</title>
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('../assets/bg/bg.jpg') center center/cover no-repeat;
+            font-family: 'Microsoft YaHei', sans-serif;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* 菜单容器 - 可滚动内容区域 */
+        #menu-container {
+            position: absolute;
+            right: 0;
+            top: 80px; /* 留出标题空间 */
+            width: 100%;
+            height: calc(100% - 150px); /* 减去标题和控制按钮的空间 */
+            background-color: transparent;
+            display: grid;
+            grid-template-columns: 1fr 1fr;  /* 两排布局 */
+            grid-auto-rows: auto;
+            gap: 15px;
+            justify-content: center;
+            align-content: start; /* 内容从顶部开始排列 */
+            z-index: 10;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto; /* 添加垂直滚动 */
+            overflow-x: hidden; /* 防止水平滚动 */
+        }
+
+        /* 菜单标题 */
+        #menu-title {
+            color: white;
+            font-size: 32px;
+            margin-bottom: 40px;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        /* 菜单按钮 */
+        .menu-btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin: 5px;
+            background-color: transparent;
+            color: #FFD700;
+            border: 3px solid #FFD700;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .menu-btn:hover {
+            background-color: rgba(255, 215, 0, 0.2);
+            color: #FFA500;
+            border: 3px solid #FFA500;
+        }
+        
+        /* 返回按钮 */
+        .back-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background-color: transparent;
+            color: #FFD700;
+            border: 2px solid #FFD700;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+        
+        .back-btn:hover {
+            background-color: rgba(255, 215, 0, 0.2);
+            color: #FFA500;
+            border: 2px solid #FFA500;
+        }
+        
+        /* 页面标题 */
+        #page-title {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: #FFD700;
+            font-size: 32px;
+            margin: 0;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            z-index: 20;
+        }
+
+        /* 隐藏游戏相关元素 */
+        #background-container,
+        #character-container,
+        #text-box-container,
+        #options-container,
+        #novel-mode-container {
+            display: none;
+        }
+
+        /* 音频播放器保持隐藏 */
+        audio {
+            display: none;
+        }
+        
+        /* 控制按钮容器 */
+        .control-buttons {
+            flex: 1.5; /* 占据更多空间以适应更宽的按钮 */
+            display: flex;
+            flex-direction: row;
+            gap: 8px;
+            z-index: 100;
+            margin: 0; /* 移除默认边距 */
+        }
+        
+        /* 控制按钮样式 */
+        .control-btn {
+            padding: 12px 10px; /* 调整内边距以适应两行文字 */
+            min-width: 70px; /* 设置最小宽度以适应两行文字 */
+            background-color: transparent;
+            color: #FFD700;
+            border: 2px solid #FFD700;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.3s ease;
+            white-space: normal; /* 允许文字换行 */
+            line-height: 1.4; /* 设置行高以改善两行文字显示 */
+        }
+        
+        .control-btn:hover {
+            background-color: rgba(255, 215, 0, 0.2);
+            color: #FFA500;
+            border: 2px solid #FFA500;
+        }
+        
+        /* 激活状态的按钮 */
+        .control-btn.active {
+            background-color: rgba(255, 215, 0, 0.4);
+            color: white;
+            border: 2px solid white;
+        }
+        
+        /* 当前播放的BGM按钮高亮 */
+        .menu-btn.playing {
+            background-color: rgba(255, 215, 0, 0.4);
+            color: white;
+            border: 3px solid white;
+        }
+        
+        /* 主控制区 */
+        .main-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between; /* 按钮靠右对齐 */
+            z-index: 100;
+        }
+        
+        /* 进度条容器 */
+        .progress-container {
+            flex: 3; /* 增加比例以拉长进度条 */
+            z-index: 100;
+        }
+        
+        /* 进度条样式 */
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+            outline: none;
+        }
+        
+        .progress-bar::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+            outline: none;
+        }
+        
+        .progress-bar::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #FFD700;
+            cursor: pointer;
+            margin-top: -6px; /* 调整滑块垂直居中 */
+        }
+        
+        /* 已播放部分的样式 */
+        .progress-bar::-webkit-slider-runnable-track {
+            background: linear-gradient(to right, #FFD700 0%, #FFD700 var(--value, 0%), rgba(255, 255, 255, 0.3) var(--value, 0%), rgba(255, 255, 255, 0.3) 100%);
+        }
+        
+        /* 时间显示 */
+        .time-display {
+            color: white;
+            font-size: 14px;
+            margin-top: 5px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景容器 - 用作菜单背景 -->
+    <div id="background-container"></div>
+    
+    <!-- 角色立绘容器 -->
+    <div id="character-container"></div>
+    
+    <!-- 文本框区域 -->
+    <div id="text-box-container">
+        <div id="name-box">[姓名]</div>
+        <div id="text-box">[文本]</div>
+    </div>
+    
+    <!-- 选项容器 -->
+    <div id="options-container"></div>
+    
+    <!-- 全屏文本模式 -->
+    <div id="novel-mode-container">
+        <div id="novel-text-box">[全屏文本]</div>
+    </div>
+    
+    <!-- 音频播放器 -->
+    <audio id="bgm-player" loop></audio>
+    <audio id="se-player"></audio>
+    <audio id="voice-player"></audio>
+    
+    <!-- 主控制区 -->
+    <div class="main-controls">
+        <!-- 进度条容器 -->
+        <div class="progress-container">
+            <input type="range" id="progress-bar" class="progress-bar" min="0" value="0" onchange="seekAudio()">
+            <div class="time-display">
+                <span id="current-time">00:00</span> / <span id="total-time">00:00</span>
+            </div>
+        </div>
+        
+        <!-- 控制按钮 -->
+        <div class="control-buttons">
+            <button id="pause-btn" class="control-btn" onclick="togglePause()">暂停播放</button>
+            <button id="single-loop-btn" class="control-btn" onclick="toggleSingleLoop()">单曲循环</button>
+            <button id="list-loop-btn" class="control-btn" onclick="toggleListLoop()">列表循环</button>
+            <button class="control-btn" onclick="stopBGM()">停止播放</button>
+            <a href="../index.html" class="control-btn">返回主菜单(esc)</a>
+        </div>
+    </div>
+    
+    <!-- 页面标题 -->
+    <h1 id="page-title">BGM鉴赏</h1>
+    
+    <!-- BGM列表容器 -->
+    <div id="menu-container">
+        <button class="menu-btn" onclick="playBGM('bgm1')">背景音乐1</button>
+        <button class="menu-btn" onclick="playBGM('bgm2')">背景音乐2</button>
+        <button class="menu-btn" onclick="playBGM('bgm3')">背景音乐3</button>
+        <button class="menu-btn" onclick="playBGM('bgm4')">背景音乐4</button>
+		<button class="menu-btn" onclick="playBGM('bgm5')">背景音乐5</button>
+		<button class="menu-btn" onclick="playBGM('bgm6')">背景音乐6</button>
+		<button class="menu-btn" onclick="playBGM('bgm7')">背景音乐7</button>
+		<button class="menu-btn" onclick="playBGM('bgm8')">背景音乐8</button>
+		<button class="menu-btn" onclick="playBGM('bgm9')">背景音乐9</button>
+		<button class="menu-btn" onclick="playBGM('bgm10')">背景音乐10</button>
+		<button class="menu-btn" onclick="playBGM('bgm11')">背景音乐11</button>
+		<button class="menu-btn" onclick="playBGM('bgm12')">背景音乐12</button>
+		<button class="menu-btn" onclick="playBGM('bgm13')">背景音乐13</button>
+		<button class="menu-btn" onclick="playBGM('bgm14')">背景音乐14</button>
+		<button class="menu-btn" onclick="playBGM('bgm15')">背景音乐15</button>
+		<button class="menu-btn" onclick="playBGM('bgm16')">背景音乐16</button>
+		<button class="menu-btn" onclick="playBGM('bgm17')">背景音乐17</button>
+		<button class="menu-btn" onclick="playBGM('bgm18')">背景音乐18</button>
+		<button class="menu-btn" onclick="playBGM('bgm19')">背景音乐19</button>
+		<button class="menu-btn" onclick="playBGM('bgm20')">背景音乐20</button>
+		<button class="menu-btn" onclick="playBGM('bgm21')">背景音乐21</button>
+		<button class="menu-btn" onclick="playBGM('bgm22')">背景音乐22</button>
+		<button class="menu-btn" onclick="playBGM('bgm23')">背景音乐23</button>
+		<button class="menu-btn" onclick="playBGM('bgm24')">背景音乐24</button>
+		<button class="menu-btn" onclick="playBGM('bgm25')">背景音乐25</button>
+		<button class="menu-btn" onclick="playBGM('bgm26')">背景音乐26</button>
+		<button class="menu-btn" onclick="playBGM('bgm27')">背景音乐27</button>
+		<button class="menu-btn" onclick="playBGM('bgm28')">背景音乐28</button>
+    </div>
+    
+    <script>
+        // BGM资源映射
+        const bgmMap = {
+            'bgm1': ['../assets/bgm/bgm1.ogg'],
+            'bgm2': ['../assets/bgm/bgm2.ogg'],
+            'bgm3': ['../assets/bgm/bgm3.ogg'],
+            'bgm4': ['../assets/bgm/bgm4.ogg'],
+			'bgm5': ['../assets/bgm/bgm5.ogg'],
+			'bgm6': ['../assets/bgm/bgm6.ogg'],
+			'bgm7': ['../assets/bgm/bgm7.ogg'],
+			'bgm8': ['../assets/bgm/bgm8.ogg'],
+			'bgm9': ['../assets/bgm/bgm9.ogg'],
+			'bgm10': ['../assets/bgm/bgm10.ogg'],
+			'bgm11': ['../assets/bgm/bgm11.ogg'],
+			'bgm12': ['../assets/bgm/bgm12.ogg'],
+			'bgm13': ['../assets/bgm/bgm13.ogg'],
+			'bgm14': ['../assets/bgm/bgm14.ogg'],
+			'bgm15': ['../assets/bgm/bgm15.ogg'],
+			'bgm16': ['../assets/bgm/bgm16.ogg'],
+			'bgm17': ['../assets/bgm/bgm17.ogg'],
+			'bgm18': ['../assets/bgm/bgm18.ogg'],
+			'bgm19': ['../assets/bgm/bgm19.ogg'],
+			'bgm20': ['../assets/bgm/bgm20.ogg'],
+			'bgm21': ['../assets/bgm/bgm21.ogg'],
+			'bgm22': ['../assets/bgm/bgm22.ogg'],
+			'bgm23': ['../assets/bgm/bgm23.ogg'],
+			'bgm24': ['../assets/bgm/bgm24.ogg'],
+			'bgm25': ['../assets/bgm/bgm25.ogg'],
+			'bgm26': ['../assets/bgm/bgm26.ogg'],
+			'bgm27': ['../assets/bgm/bgm27.ogg'],
+			'bgm28': ['../assets/bgm/bgm28.ogg'],
+        };
+
+        // 当前播放状态
+        let currentPlayerState = {
+            currentBgm: null,
+            isPaused: false,
+            isSingleLoop: false,
+            isListLoop: false,
+            currentIndex: -1
+        };
+
+        // 播放BGM
+        function playBGM(bgmName) {
+            const audioPlayer = document.getElementById('bgm-player');
+            if (bgmMap[bgmName]) {
+                // 清除之前的高亮状态
+                clearPlayingHighlight();
+                
+                // 设置当前播放的BGM
+                currentPlayerState.currentBgm = bgmName;
+                
+                // 高亮当前播放的按钮
+                highlightCurrentPlaying(bgmName);
+                
+                // 尝试播放音频，支持多格式回退
+                tryPlayAudio(audioPlayer, bgmMap[bgmName]);
+                
+                // 重置暂停状态
+                currentPlayerState.isPaused = false;
+                updatePauseButton();
+            } else {
+                console.log("找不到BGM:", bgmName);
+            }
+        }
+        
+        // 尝试播放音频，支持多格式回退
+        function tryPlayAudio(audioPlayer, sources) {
+            if (!Array.isArray(sources)) {
+                // 如果传入的不是数组而是单个路径，转换为数组
+                sources = [sources];
+            }
+            
+            let currentIndex = 0;
+            
+            function attemptPlay() {
+                if (currentIndex >= sources.length) {
+                    // 所有格式都尝试过了，仍无法播放
+                    console.log('所有音频格式都无法播放:', sources);
+                    return;
+                }
+                
+                const currentSource = sources[currentIndex];
+                console.log('尝试播放音频格式:', currentSource);
+                
+                // 设置音频源
+                audioPlayer.src = currentSource;
+                audioPlayer.loop = currentPlayerState.isSingleLoop; // 根据单曲循环状态设置
+                
+                // 先加载元数据再播放
+                audioPlayer.load();
+                
+                // 设置一个超时计时器，防止长时间等待
+                const timeoutId = setTimeout(() => {
+                    console.log('音频加载超时，尝试下一个格式:', currentSource);
+                    currentIndex++;
+                    attemptPlay();
+                }, 5000); // 5秒超时
+                
+                // 成功加载后清除超时计时器并播放
+                const onCanPlay = () => {
+                    clearTimeout(timeoutId);
+                    
+                    // 移除事件监听器
+                    audioPlayer.removeEventListener('canplay', onCanPlay);
+                    audioPlayer.removeEventListener('error', onError);
+                    
+                    // 尝试播放音频
+                    audioPlayer.play().then(() => {
+                        console.log('音频播放成功:', currentSource);
+                        
+                        // 监听音频结束事件，实现列表循环
+                        if (!currentPlayerState.isSingleLoop && currentPlayerState.isListLoop) {
+                            audioPlayer.onended = function() {
+                                playNextBGM();
+                            };
+                        } else if (currentPlayerState.isSingleLoop) {
+                            // 如果是单曲循环，设置loop属性
+                            audioPlayer.loop = true;
+                        }
+                    }).catch(error => {
+                        console.log('音频播放失败:', error);
+                        currentIndex++;
+                        attemptPlay();
+                    });
+                };
+                
+                // 错误处理
+                const onError = () => {
+                    clearTimeout(timeoutId);
+                    
+                    // 移除事件监听器
+                    audioPlayer.removeEventListener('canplay', onCanPlay);
+                    audioPlayer.removeEventListener('error', onError);
+                    
+                    console.log('当前格式无法播放，尝试下一个格式:', currentSource);
+                    currentIndex++;
+                    attemptPlay();
+                };
+                
+                // 监听事件
+                audioPlayer.addEventListener('canplay', onCanPlay, { once: true });
+                audioPlayer.addEventListener('error', onError, { once: true });
+            }
+            
+            // 开始尝试播放
+            attemptPlay();
+        }
+        
+        // 播放下一首BGM（用于列表循环）
+        function playNextBGM() {
+            if (!currentPlayerState.isListLoop) return;
+            
+            // 获取所有可用的BGM键
+            const bgmKeys = Object.keys(bgmMap);
+            
+            // 找到当前BGM的索引
+            const currentIndex = bgmKeys.indexOf(currentPlayerState.currentBgm);
+            
+            // 计算下一首BGM的索引
+            const nextIndex = (currentIndex + 1) % bgmKeys.length;
+            
+            // 播放下一首
+            playBGM(bgmKeys[nextIndex]);
+        }
+
+        // 停止BGM
+        function stopBGM() {
+            const audioPlayer = document.getElementById('bgm-player');
+            audioPlayer.pause();
+            audioPlayer.currentTime = 0;
+            
+            // 清除高亮状态
+            clearPlayingHighlight();
+            currentPlayerState.currentBgm = null;
+        }
+        
+        // 暂停/继续播放
+        function togglePause() {
+            const audioPlayer = document.getElementById('bgm-player');
+            
+            if (currentPlayerState.isPaused) {
+                // 继续播放
+                audioPlayer.play();
+                currentPlayerState.isPaused = false;
+            } else {
+                // 暂停播放
+                audioPlayer.pause();
+                currentPlayerState.isPaused = true;
+            }
+            
+            updatePauseButton();
+        }
+        
+        // 更新暂停按钮文本
+        function updatePauseButton() {
+            const pauseBtn = document.getElementById('pause-btn');
+            if (currentPlayerState.isPaused) {
+                pauseBtn.textContent = '继续播放';
+            } else {
+                pauseBtn.textContent = '暂停播放';
+            }
+        }
+        
+        // 切换单曲循环
+        function toggleSingleLoop() {
+            currentPlayerState.isSingleLoop = !currentPlayerState.isSingleLoop;
+            currentPlayerState.isListLoop = false; // 关闭列表循环
+            
+            const audioPlayer = document.getElementById('bgm-player');
+            audioPlayer.loop = currentPlayerState.isSingleLoop;
+            
+            // 更新按钮状态
+            updateLoopButtons();
+            
+            // 如果当前正在播放，更新循环设置
+            if (currentPlayerState.currentBgm) {
+                audioPlayer.loop = currentPlayerState.isSingleLoop;
+                
+                // 如果启用了单曲循环，移除列表循环的结束事件
+                if (currentPlayerState.isSingleLoop) {
+                    audioPlayer.onended = null;
+                } else if (currentPlayerState.isListLoop) {
+                    audioPlayer.onended = function() {
+                        playNextBGM();
+                    };
+                }
+            }
+        }
+        
+        // 切换列表循环
+        function toggleListLoop() {
+            currentPlayerState.isListLoop = !currentPlayerState.isListLoop;
+            currentPlayerState.isSingleLoop = false; // 关闭单曲循环
+            
+            const audioPlayer = document.getElementById('bgm-player');
+            audioPlayer.loop = false; // 列表循环不使用原生循环
+            
+            // 更新按钮状态
+            updateLoopButtons();
+            
+            // 如果当前正在播放，更新循环设置
+            if (currentPlayerState.currentBgm) {
+                audioPlayer.loop = false;
+                
+                // 如果启用了列表循环，设置结束事件
+                if (currentPlayerState.isListLoop) {
+                    audioPlayer.onended = function() {
+                        playNextBGM();
+                    };
+                } else {
+                    audioPlayer.onended = null;
+                }
+            }
+        }
+        
+        // 更新循环按钮状态
+        function updateLoopButtons() {
+            const singleLoopBtn = document.getElementById('single-loop-btn');
+            const listLoopBtn = document.getElementById('list-loop-btn');
+            
+            if (currentPlayerState.isSingleLoop) {
+                singleLoopBtn.classList.add('active');
+                listLoopBtn.classList.remove('active');
+            } else if (currentPlayerState.isListLoop) {
+                listLoopBtn.classList.add('active');
+                singleLoopBtn.classList.remove('active');
+            } else {
+                singleLoopBtn.classList.remove('active');
+                listLoopBtn.classList.remove('active');
+            }
+        }
+        
+        // 清除所有播放高亮状态
+        function clearPlayingHighlight() {
+            const buttons = document.querySelectorAll('.menu-btn');
+            buttons.forEach(btn => {
+                btn.classList.remove('playing');
+            });
+        }
+        
+        // 高亮当前播放的按钮
+        function highlightCurrentPlaying(bgmName) {
+            const buttons = document.querySelectorAll('.menu-btn');
+            buttons.forEach(btn => {
+                // 获取按钮的onclick属性
+                const onclickAttr = btn.getAttribute('onclick');
+                if (onclickAttr) {
+                    // 从onclick属性中提取BGM名称，例如从"playBGM('bgm1')"中提取'bgm1'
+                    const match = onclickAttr.match(/playBGM\(['"]([^'"]+)['"]\)/);
+                    if (match && match[1] === bgmName) {
+                        btn.classList.add('playing');
+                    } else {
+                        btn.classList.remove('playing');
+                    }
+                }
+            });
+        }
+        
+        // 更新进度条
+        function updateProgress() {
+            const audioPlayer = document.getElementById('bgm-player');
+            const progressBar = document.getElementById('progress-bar');
+            const currentTimeSpan = document.getElementById('current-time');
+            const totalTimeSpan = document.getElementById('total-time');
+            
+            if (audioPlayer.duration) {
+                // 更新进度条的最大值
+                progressBar.max = audioPlayer.duration;
+                
+                // 更新当前进度
+                progressBar.value = audioPlayer.currentTime;
+                
+                // 计算进度百分比并应用到样式
+                const progressPercent = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+                progressBar.style.setProperty('--value', progressPercent + '%');
+                
+                // 更新时间显示
+                currentTimeSpan.textContent = formatTime(audioPlayer.currentTime);
+                totalTimeSpan.textContent = formatTime(audioPlayer.duration);
+            }
+        }
+        
+        // 格式化时间显示
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        // 跳转到指定时间
+        function seekAudio() {
+            const audioPlayer = document.getElementById('bgm-player');
+            const progressBar = document.getElementById('progress-bar');
+            
+            audioPlayer.currentTime = progressBar.value;
+        }
+        
+        // 监听音频时间更新事件
+        document.getElementById('bgm-player').addEventListener('timeupdate', updateProgress);
+        
+        // 监听音频加载完成事件
+        document.getElementById('bgm-player').addEventListener('loadedmetadata', function() {
+            const totalTimeSpan = document.getElementById('total-time');
+            totalTimeSpan.textContent = formatTime(this.duration);
+        });
+        
+        // ESC键返回主菜单
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                window.location.href = '../index.html';
+            }
+        });
+    </script>
+</body>
+</html>

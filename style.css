@@ -1,0 +1,293 @@
+/* 视觉小说引擎样式 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Microsoft YaHei', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+}
+
+/* 背景容器 */
+#background-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    transition: opacity 1s ease;
+    z-index: 0;
+}
+
+/* 角色立绘容器 */
+#character-container {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: calc(100% - 200px);
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* 文本框容器 - 默认状态 */
+#text-box-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 10px 20px 20px;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    z-index: 2;
+}
+
+/* 姓名框 */
+#name-box {
+    background-color: rgba(0, 0, 0, 0.85);
+    padding: 8px 15px;
+    border-radius: 5px 5px 0 0;
+    margin-bottom: 5px;
+    max-width: 300px;
+    align-self: flex-start;
+    font-weight: bold;
+    color: #FFD700;  /* 金色 */
+    font-size: 20px; /* 加大 */
+    font-weight: 900; /* 加粗 */
+    position: relative;
+    top: -5px;
+}
+
+/* 文本框 */
+#text-box {
+    font-size: 18px;
+    line-height: 1.6;
+    margin-top: 5px; /* 在姓名框下方一点 */
+    flex-grow: 1;
+}
+
+/* 全屏小说模式容器 */
+#novel-mode-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+    padding: 50px;
+    text-align: center;
+}
+
+#novel-text-box {
+    color: white;
+    font-size: 24px;
+    line-height: 1.8;
+    max-width: 800px;
+}
+
+/* 选项容器 */
+#options-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: none;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    gap: 15px;
+    width: 100%;
+    height: auto;
+    z-index: 15;
+    max-width: none;
+    max-height: 80%;
+    overflow: hidden;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+/* 选项按钮样式 */
+.choice-btn {
+    background-color: rgba(0, 0, 0, 0.5);
+    color: #FFD700;
+    border: 2px solid #FFD700;
+    padding: 15px 25px;
+    font-size: 18px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    width: calc(100% - 20px);
+    margin: 0 auto;
+}
+
+.choice-btn:hover {
+    background-color: rgba(255, 215, 0, 0.2);
+    color: #FFA500;
+    border: 2px solid #FFA500;
+
+}
+
+/* 根据选项数量调整位置 */
+#options-container:has(.choice-btn:nth-child(1):nth-last-child(1)) {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    place-items: center;
+}
+
+#options-container:has(.choice-btn:nth-child(1):nth-last-child(2)) {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(2, 1fr);
+    place-items: center;
+}
+
+#options-container:has(.choice-btn:nth-child(1):nth-last-child(3)) {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(3, 1fr);
+    place-items: center;
+}
+
+#options-container:has(.choice-btn:nth-child(1):nth-last-child(4)) {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(4, 1fr);
+    place-items: center;
+}
+
+#options-container:has(.choice-btn:nth-child(1):nth-last-child(5)) {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(5, 1fr);
+    place-items: center;
+}
+
+/* 额外的选项数量样式 */
+#options-container:has(.choice-btn:nth-child(1):nth-last-child(6)) {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(6, 1fr);
+    place-items: center;
+}
+
+/* 隐藏音频元素 */
+audio {
+    display: none;
+}
+
+/* 点击提示 */
+.click-prompt {
+    position: absolute;
+    bottom: 200px;
+    right: 20px;
+    color: white;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0.3; }
+}
+
+/* 震动动画 */
+@keyframes shake {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    50% { transform: translateX(5px); }
+    75% { transform: translateX(-5px); }
+    100% { transform: translateX(0); }
+}
+
+/* 上下文菜单遮罩层 */
+.context-menu-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5); /* 半透明黑色背景 */
+    z-index: 9998;
+    display: none;
+}
+
+/* 上下文菜单样式 */
+.context-menu {
+    position: fixed;
+    top: 0;
+    right: -300px; /* 初始位置在屏幕右边外 */
+    width: 250px;
+    height: 100vh;
+    background: rgba(128, 128, 128, 0.5); /* 半透明灰色背景 */
+    z-index: 9999;
+    padding: 20px;
+    box-sizing: border-box;
+    transition: right 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 15px;
+}
+
+.context-menu.show {
+    right: 0; /* 显示时的位置 */
+}
+
+.context-menu ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    width: 100%;
+}
+
+.context-menu li {
+    display: block;
+    width: 100%;
+    padding: 15px;
+    margin: 5px 0;
+    background-color: transparent;
+    color: #FFD700;
+    border: 3px solid #FFD700;
+    border-radius: 30px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    box-sizing: border-box;
+}
+
+.context-menu li:hover {
+    background-color: rgba(255, 215, 0, 0.2);
+    color: #FFA500;
+    border: 3px solid #FFA500;
+    transform: scale(1.05);
+}
+
+/* 视频播放器样式 */
+#video-player {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    display: none;
+    background-color: black;
+}
+
+#video-player video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}

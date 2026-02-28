@@ -1,0 +1,831 @@
+# 视觉小说引擎
+
+这是一个基于HTML/JS的视觉小说引擎，具有类似Kirikiri的功能。
+
+在scenes文件夹中，scenes0.html是一个空白模板。
+
+## 快捷键
+- esc：打开游戏上下文菜单
+
+
+文件结构，请至少在assets文件夹中创建如下对应文件夹
+
+galgame-engine/
+├── index.html          # 主菜单页面
+├── engine.js           # 核心JavaScript引擎
+├── style.css           # 样式文件
+├── assets/             # 资源文件
+│   ├── bg/             # 背景图片
+│   ├── audio/          # 音频文件
+│   ├── bgm/            # BGM文件
+│   ├── video/          # 视频文件
+│   └── chars/          # 角色立绘
+├── scenes/             # 场景文件
+│   └── scene0.html     # 场景模板
+└── html/               # 功能页面
+    ├── bgm.html        # BGM鉴赏页面
+    ├── CG.html        # CG鉴赏页面
+    ├── copy.html        # 版权声明页面
+    ├── saves.html        # 存档页面
+    └── video.html      # 视频鉴赏页面
+
+
+程序底层框架：月が綺麗ですね_
+https://space.bilibili.com/87412647?spm_id_from=333.1007.0.0
+
+
+===============================================
+视觉小说引擎完整开发教程
+===============================================
+
+目录：
+1. 项目概述与架构
+2. 核心概念详解
+3. 场景制作指南
+4. 资源管理与配置
+5. 高级功能实现
+6. 模块化开发
+7. 调试与优化
+8. 发布与部署
+
+
+1. 项目概述与架构
+==================
+
+1.1 项目结构解析
+----------------
+
+galgame-engine/
+├── index.html          # 主菜单页面
+├── engine.js           # 核心JavaScript引擎（单文件版本）
+├── style.css           # 全局样式文件
+├── assets/             # 资源文件夹
+│   ├── bg/             # 背景图片资源
+│   ├── audio/          # 音效文件
+│   ├── bgm/            # 背景音乐文件
+│   ├── video/          # 视频文件
+│   └── chars/          # 角色立绘
+├── scenes/             # 场景文件夹
+│   ├── scene0.html     # 场景模板文件
+│   ├── scene1.html     # 示例场景1
+│   ├── scene2.html     # 示例场景2
+│   └── scene3.html     # 示例场景3
+├── html/               # 功能页面
+│   ├── bgm.html        # BGM鉴赏页面
+│   ├── CG.html         # CG鉴赏页面
+│   ├── copy.html       # 版权声明页面
+│   ├── saves.html      # 存档管理页面
+│   └── video.html      # 视频鉴赏页面
+├── modules/            # 模块化组件（新版）
+│   ├── command_parser.js    # 命令解析模块
+│   ├── dom_handler.js       # DOM操作模块
+│   ├── effects_handler.js   # 特效处理模块
+│   ├── event_manager.js     # 事件管理模块
+│   ├── media_handler.js     # 媒体处理模块
+│   ├── progress_api.js      # 进度管理API
+│   ├── scene_manager.js     # 场景管理模块
+│   ├── state_manager.js     # 状态管理模块
+│   └── text_display.js      # 文本显示模块
+├── api/                # API接口
+│   ├── progress.json   # 进度数据文件
+│   └── progress_api.js # 进度API实现
+├── launch_game.bat     # Windows启动脚本
+├── launch_game.ps1     # PowerShell启动脚本
+└── 运行游戏前请先看我.txt  # 运行说明
+
+1.2 核心架构模式
+----------------
+
+引擎采用模块化设计，支持两种运行模式：
+
+A. 单文件模式（传统）
+   - 所有功能集成在 engine.js 中
+   - 适合简单项目快速开发
+   - 文件结构简洁
+
+B. 模块化模式（推荐）
+   - 功能拆分为独立模块
+   - 更好的代码组织和维护性
+   - 支持ES6模块导入导出
+
+
+2. 核心概念详解
+==============
+
+2.1 场景数据结构
+----------------
+
+每个场景文件包含一个sceneData对象，基本结构如下：
+
+```javascript
+const sceneData = {
+    // 背景配置
+    background: {
+        'bg1': 'assets/bg/background1.jpg',
+        'bg2': 'assets/bg/background2.png'
+    },
+    
+    // 音频配置
+    audio: {
+        'se1': 'assets/audio/sound1.mp3',
+        'voice1': 'assets/audio/voice1.ogg'
+    },
+    
+    // BGM配置
+    bgm: {
+        'bgm1': 'assets/bgm/music1.mp3'
+    },
+    
+    // 视频配置
+    videos: {
+        'video1': 'assets/video/intro.mp4'
+    },
+    
+    // 故事脚本
+    story: [
+        {
+            text: "对话文本内容",
+            speaker: "说话者姓名",
+            background: "bg1",      // 背景标识
+            audio: "se1",          // 音效标识
+            bgm: "bgm1",           // BGM标识
+            video: "video1",       // 视频标识
+            action: {              // 动作对象
+                type: "choice",
+                choices: [
+                    { text: "选项1", target: "scene2" },
+                    { text: "选项2", target: "scene3" }
+                ]
+            },
+            command: "[标签命令]"   // 标签命令
+        }
+    ]
+};
+```
+
+2.2 Action动作系统
+------------------
+
+Action支持多种类型的动作：
+
+```javascript
+// 选择分支
+action: {
+    type: "choice",
+    choices: [
+        { text: "接受邀请", target: "scene_accept" },
+        { text: "拒绝邀请", target: "scene_reject" }
+    ]
+}
+
+// 场景跳转
+action: {
+    type: "nextScene",
+    target: "scene2"
+}
+
+// 小说模式控制
+action: { type: "novelOn" }   // 开启小说模式
+action: { type: "novelOff" }  // 关闭小说模式
+
+// 等待控制
+action: {
+    type: "wait",
+    duration: 2000  // 等待2秒
+}
+
+// 界面控制
+action: { type: "clearName" }    // 清除姓名框
+action: { type: "hideText" }     // 隐藏文本框
+action: { type: "showText" }     // 显示文本框
+
+// 特殊效果
+action: { type: "fadeOut" }      // 淡出效果
+action: { type: "fadeIn" }       // 淡入效果
+action: { type: "sepiaStart" }   // 怀旧滤镜
+
+// 游戏控制
+action: { type: "returnToMenu" } // 返回主菜单
+action: { type: "finishGame" }   // 结束游戏
+```
+
+2.3 标签命令系统
+----------------
+
+⚠️ **重要说明：标签命令需要通过 `command` 属性执行，不能直接嵌入在 `text` 中**
+
+✅ **正确的使用方式：**
+```javascript
+// 通过command属性执行标签命令
+{
+    text: "即将执行淡出效果",
+    speaker: "旁白",
+    command: "[fadeout time=1000 color=black]"  // ← 正确方式
+}
+
+// 等待命令
+{
+    text: "请等待2秒",
+    speaker: "系统", 
+    command: "[wait time=2000]"  // ← 正确方式
+}
+```
+
+❌ **错误的使用方式（当前不支持）：**
+```javascript
+// 这种方式当前不会工作！
+{
+    text: "[fadeout time=1000][wait time=2000]这些标签不会被执行",  // ← 错误方式
+    speaker: "旁白"
+}
+```
+
+可用标签命令（通过command属性执行）：
+- [bg:identifier] - 切换背景
+- [bgm:identifier] - 播放BGM
+- [se:identifier] - 播放音效
+- [voice:identifier] - 播放语音
+- [novel] - 开启小说模式
+- [normal] - 关闭小说模式
+- [end] - 返回主菜单
+- [choice:JSON] - 显示选项
+- [jump:url] - 页面跳转
+- [video:identifier] - 播放视频
+
+高级标签命令：
+- [fadeout time=1000 color=black] - 淡出效果
+- [fadein time=1000 color=black] - 淡入效果
+- [clearname] - 清除姓名框
+- [msgoff] - 隐藏文本框
+- [msgon] - 显示文本框
+- [finish bgcolor=black time=1500] - 游戏结束淡出
+- [finishwhite bgcolor=white time=1500] - 游戏结束淡出到白色
+
+文本格式标签：
+- [br] - 换行标签
+- \n - 换行转义字符
+- <br> - HTML换行标签
+- 普通换行符 - 直接使用回车换行
+
+文本内[s]标签功能：
+- 在text属性中直接使用[s]进行分段显示
+- 例如："123[s]456[s]789"
+- 第一次点击显示"123"，第二次点击显示"123456"，第三次点击显示"123456789"
+- 已显示的内容会保持在屏幕上，只对新增部分应用打字效果
+- 支持连续点击跳过打字动画
+
+2.4 BGM控制功能
+----------------
+
+新增了BGM停止功能，可以在剧情中动态控制背景音乐：
+
+```javascript
+// 停止当前BGM播放
+{
+    text: "现在停止背景音乐",
+    speaker: "旁白",
+    bgm: "bgm stop",  // 特殊标识符，用于停止BGM
+    action: null
+}
+
+// 播放指定BGM
+{
+    text: "播放浪漫音乐",
+    speaker: "旁白",
+    bgm: "romantic_bgm",  // 播放已配置的BGM
+    action: null
+}
+```
+
+功能特点：
+- 使用 `"bgm stop"` 字符串作为特殊标识符
+- 只影响BGM（背景音乐），不影响语音和音效
+- 停止后播放位置重置为0，下次播放从头开始
+- 向后兼容，不影响现有代码
+
+实现原理：
+在引擎的 `displayLine()` 函数中检测 `bgm` 属性是否为 `"bgm stop"`，如果是则调用 `stopBGM()` 方法暂停播放器并重置播放位置。
+
+
+3. 场景制作指南
+==============
+
+3.1 创建新场景
+--------------
+
+复制 scene0.html 模板作为起点：
+
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>场景标题</title>
+    <link rel="stylesheet" href="../style.css">
+    <script src="../modules/progress_api.js"></script>
+</head>
+<body>
+    <!-- 必需的DOM元素 -->
+    <div id="background-container"></div>
+    <div id="character-container"></div>
+    <div id="text-box-container">
+        <div id="name-box">[姓名]</div>
+        <div id="text-box">[文本]</div>
+    </div>
+    <div id="options-container"></div>
+    <div id="novel-mode-container">
+        <div id="novel-text-box">[全屏文本]</div>
+    </div>
+    
+    <!-- 音频播放器 -->
+    <audio id="bgm-player" loop></audio>
+    <audio id="se-player"></audio>
+    <audio id="voice-player"></audio>
+    
+    <!-- 视频播放器 -->
+    <div id="video-player" style="display:none;">
+        <video id="main-video" controls></video>
+    </div>
+    
+    <!-- 上下文菜单 -->
+    <div id="context-menu-backdrop" class="context-menu-backdrop"></div>
+    <div id="context-menu" class="context-menu">
+        <ul>
+            <li onclick="sessionStorage.setItem('lastStoryPage', window.location.href); window.location.href='../html/saves.html'">进度管理</li>
+            <li onclick="window.location.href='../index.html'">返回标题页面</li>
+        </ul>
+    </div>
+    
+    <script type="module">
+        import { TextDisplay } from '../modules/text_display.js';
+        import { StateManager } from '../modules/state_manager.js';
+        
+        const sceneData = {
+            // 在这里定义你的场景数据
+            background: {
+                'bg1': '../assets/bg/example.jpg'
+            },
+            audio: {
+                'se1': '../assets/audio/example.mp3'
+            },
+            story: [
+                {
+                    text: "欢迎来到新场景！",
+                    speaker: "系统",
+                    background: "bg1",
+                    action: null
+                }
+            ]
+        };
+        
+        // 初始化场景
+        document.addEventListener('DOMContentLoaded', function() {
+            TextDisplay.init(sceneData);
+            TextDisplay.displayLine(0);
+        });
+    </script>
+</body>
+</html>
+```
+
+3.2 编写故事脚本
+----------------
+
+基础对话：
+```javascript
+{
+    text: "你好，很高兴见到你！",
+    speaker: "友琳",
+    background: "school_day",
+    bgm: "bgm1"
+}
+```
+
+带选择分支：
+```javascript
+{
+    text: "你愿意和我一起去图书馆吗？",
+    speaker: "友琳",
+    action: {
+        type: "choice",
+        choices: [
+            { 
+                text: "当然愿意！", 
+                target: "library_scene" 
+            },
+            { 
+                text: "抱歉，我还有其他安排", 
+                target: "reject_scene" 
+            }
+        ]
+    }
+}
+```
+
+多行对话：
+```javascript
+{
+    text: "这是一段很长的对话。\n第二行内容。\n第三行内容。",
+    speaker: "叙述者"
+}
+```
+
+3.3 好感度系统
+--------------
+
+```javascript
+// 在场景数据中初始化好感度
+const sceneData = {
+    // ... 其他配置
+    affinity: {
+        'yurin': 50,  // 友琳好感度初始值
+        'other': 30   // 其他角色好感度
+    },
+    story: [
+        {
+            text: "你做出了明智的选择！",
+            action: {
+                type: "affinityChange",
+                character: "yurin",
+                change: 10  // 好感度增加10点
+            }
+        }
+    ]
+};
+```
+
+
+4. 资源管理与配置
+================
+
+4.1 资源文件组织
+----------------
+
+推荐的资源文件命名规范：
+
+背景图片 (assets/bg/)：
+- school_day.jpg    # 日间学校
+- school_night.png  # 夜间学校
+- home_room.jpg     # 家中房间
+
+音频文件 (assets/audio/)：
+- se_door_open.mp3  # 开门声
+- se_phone_ring.wav # 电话铃声
+- voice_yurin_001.ogg # 友琳语音1
+
+BGM文件 (assets/bgm/)：
+- bgm_main_theme.mp3  # 主题曲
+- bgm_romantic.ogg    # 浪漫场景
+- bgm_sad_theme.wav   # 悲伤主题
+
+视频文件 (assets/video/)：
+- intro_sequence.mp4  # 开场动画
+- memory_flashback.webm # 回忆片段
+
+4.2 资源加载优化
+----------------
+
+预加载重要资源：
+```javascript
+// 在场景初始化时预加载
+const preloadAssets = () => {
+    const images = ['bg1.jpg', 'bg2.jpg'];
+    const audios = ['bgm1.mp3', 'se1.mp3'];
+    
+    images.forEach(src => {
+        const img = new Image();
+        img.src = `../assets/bg/${src}`;
+    });
+    
+    audios.forEach(src => {
+        const audio = new Audio();
+        audio.src = `../assets/bgm/${src}`;
+    });
+};
+```
+
+
+5. 高级功能实现
+==============
+
+5.1 条件分支系统
+----------------
+
+```javascript
+{
+    text: "根据你之前的选择...",
+    action: {
+        type: "conditional",
+        condition: "affinity.yurin > 80",
+        trueBranch: [
+            {
+                text: "你们关系很好！",
+                target: "good_ending"
+            }
+        ],
+        falseBranch: [
+            {
+                text: "还需要努力提升关系。",
+                target: "continue_story"
+            }
+        ]
+    }
+}
+```
+
+5.2 复杂特效组合
+----------------
+
+```javascript
+{
+    text: "回忆涌现...",
+    action: {
+        type: "chain",  // 自定义链式动作
+        actions: [
+            { type: "flashbackStart" },
+            { type: "sepiaStart" },
+            { type: "fadeIn", duration: 2000 },
+            { type: "wait", duration: 3000 }
+        ]
+    }
+}
+```
+
+5.3 存档系统集成
+----------------
+
+```javascript
+// 保存游戏进度
+const saveProgress = (sceneId, lineIndex) => {
+    const progress = {
+        currentScene: sceneId,
+        currentLine: lineIndex,
+        timestamp: Date.now(),
+        affinity: gameEngine.state.affinity
+    };
+    localStorage.setItem('gameProgress', JSON.stringify(progress));
+};
+
+// 加载游戏进度
+const loadProgress = () => {
+    const saved = localStorage.getItem('gameProgress');
+    if (saved) {
+        return JSON.parse(saved);
+    }
+    return null;
+};
+```
+
+
+6. 模块化开发
+============
+
+6.1 模块导入方式
+----------------
+
+使用ES6模块语法：
+```javascript
+<script type="module">
+    import { TextDisplay } from '../modules/text_display.js';
+    import { MediaHandler } from '../modules/media_handler.js';
+    import { StateManager } from '../modules/state_manager.js';
+</script>
+```
+
+6.2 自定义模块开发
+------------------
+
+创建新模块：
+```javascript
+// modules/custom_module.js
+const CustomModule = {
+    // 模块初始化
+    init: function(config) {
+        this.config = config;
+        console.log('Custom module initialized');
+    },
+    
+    // 自定义功能
+    customFunction: function(data) {
+        // 实现自定义逻辑
+        return processedData;
+    }
+};
+
+export { CustomModule };
+```
+
+6.3 模块间通信
+--------------
+
+通过全局状态管理器：
+```javascript
+// 在一个模块中更新状态
+StateManager.updateState({
+    customFlag: true,
+    userData: someData
+});
+
+// 在另一个模块中读取状态
+const currentState = StateManager.getState();
+if (currentState.customFlag) {
+    // 执行相应逻辑
+}
+```
+
+
+7. 调试与优化
+============
+
+7.1 调试工具
+------------
+
+开发者控制台调试：
+```javascript
+// 查看当前状态
+console.log('当前行:', gameEngine.state.currentLine);
+console.log('好感度:', gameEngine.state.affinity);
+
+// 强制跳转到指定行
+gameEngine.state.currentLine = 10;
+TextDisplay.displayLine(10);
+
+// 重置游戏状态
+StateManager.resetState();
+```
+
+7.2 性能优化
+------------
+
+```javascript
+// 图片懒加载
+const lazyLoadImages = () => {
+    const images = document.querySelectorAll('img[data-src]');
+    const imageObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const img = entry.target;
+                img.src = img.dataset.src;
+                img.removeAttribute('data-src');
+                imageObserver.unobserve(img);
+            }
+        });
+    });
+    
+    images.forEach(img => imageObserver.observe(img));
+};
+
+// 音频资源管理
+const cleanupAudio = () => {
+    const players = ['bgmPlayer', 'sePlayer', 'voicePlayer'];
+    players.forEach(playerId => {
+        const player = document.getElementById(playerId);
+        if (player) {
+            player.pause();
+            player.src = '';
+        }
+    });
+};
+```
+
+
+8. 发布与部署
+============
+
+8.1 本地测试
+------------
+
+使用提供的启动脚本：
+```
+# Windows
+双击 launch_game.bat
+
+# 或使用PowerShell
+./launch_game.ps1
+```
+
+8.2 生产环境部署
+----------------
+
+静态网站部署：
+```bash
+# 构建生产版本
+# 1. 压缩资源文件
+# 2. 合并CSS/JS文件
+# 3. 启用gzip压缩
+
+# Nginx配置示例
+server {
+    listen 80;
+    server_name your-game.com;
+    root /path/to/galgame-engine;
+    
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+    
+    # 启用gzip压缩
+    gzip on;
+    gzip_types text/css application/javascript image/svg+xml;
+}
+```
+
+8.3 移动端适配
+--------------
+
+响应式设计：
+```css
+/* 移动端优化 */
+@media (max-width: 768px) {
+    #text-box-container {
+        padding: 5px 10px 10px;
+        font-size: 14px;
+    }
+    
+    .choice-btn {
+        font-size: 16px;
+        padding: 12px;
+    }
+}
+```
+
+⚠️ 重要提醒
+==========
+
+**关于标签命令的重要说明：**
+
+当前版本的引擎中，所有的标签命令都必须通过 `command` 属性来执行，不能直接嵌入在 `text` 属性中。
+
+✅ 正确的使用方式：
+```javascript
+{
+    text: "即将执行淡出效果",
+    speaker: "旁白",
+    command: "[fadeout time=1000 color=black]"  // 通过command属性执行
+}
+```
+
+❌ 错误的使用方式（当前不支持）：
+```javascript
+{
+    text: "[fadeout time=1000]这种嵌入方式不会工作",  // 标签不会被解析
+    speaker: "旁白"
+}
+```
+
+这个限制是因为引擎的文本处理机制只会在 `line.command` 存在时调用命令解析器，而不会解析 `line.text` 中的标签内容。
+
+附录A：常见问题解答
+==================
+
+Q: 如何添加新的角色立绘？
+A: 在 assets/chars/ 目录下放置立绘文件，在CSS中添加相应的类名。
+
+Q: 存档功能为什么在本地文件模式下不能使用？
+A: 浏览器安全策略限制，需要通过HTTP服务器运行。
+
+Q: 如何优化大场景的加载速度？
+A: 使用分页加载、资源预加载和懒加载技术。
+
+Q: 支持哪些音频格式？
+A: 推荐使用 MP3 和 OGG 格式以获得最佳兼容性。
+
+Q: 如何在剧情中停止背景音乐？
+A: 使用 `bgm: "bgm stop"` 属性。这是一个特殊标识符，会调用引擎的stopBGM()方法停止当前BGM播放。
+
+Q: BGM停止功能会影响语音和音效吗？
+A: 不会。该功能只针对背景音乐(BGM)，语音和音效会继续正常播放。
+
+Q: 为什么我写的[tag]标签在文本中不生效？
+A: 标签命令必须通过 `command` 属性执行，不能直接写在 `text` 属性中。请使用 `{text: "内容", command: "[tag]"}` 的格式。
+
+Q: 能否让标签命令支持嵌入在文本中？
+A: 技术上可以实现，但需要修改引擎的文本解析机制。目前的设计是将标签命令和文本内容分离处理。
+
+附录B：快捷键参考
+================
+
+- ESC: 打开上下文菜单
+- 空格键: 继续对话
+- 鼠标点击: 继续/选择选项
+
+附录C：资源推荐
+==============
+
+免费素材网站：
+- pixabay.com - 免费图片
+- freesound.org - 免费音效
+- opengameart.org - 游戏素材
+
+开发工具：
+- VS Code - 代码编辑器
+- Chrome DevTools - 调试工具
+- Audacity - 音频编辑
+
+版权信息：
+---------
+作者：月が綺麗ですね_
+Bilibili: https://space.bilibili.com/87412647
+
+禁止商用，仅供学习交流使用。
