@@ -592,8 +592,8 @@ BGM文件 (assets/bgm/)：
 - intro_sequence.mp4  # 开场动画
 - memory_flashback.webm # 回忆片段
 
-4.2 资源加载优化
-----------------
+## 4.2 资源加载优化
+
 
 预加载重要资源：
 ```javascript
@@ -687,122 +687,11 @@ const loadProgress = () => {
 ```
 
 
-# 6. 模块化开发
+
+# 6. 发布与部署
 
 
-## 6.1 模块导入方式
-
-
-使用ES6模块语法：
-```javascript
-<script type="module">
-    import { TextDisplay } from '../modules/text_display.js';
-    import { MediaHandler } from '../modules/media_handler.js';
-    import { StateManager } from '../modules/state_manager.js';
-</script>
-```
-
-## 6.2 自定义模块开发
-
-
-创建新模块：
-```javascript
-// modules/custom_module.js
-const CustomModule = {
-    // 模块初始化
-    init: function(config) {
-        this.config = config;
-        console.log('Custom module initialized');
-    },
-    
-    // 自定义功能
-    customFunction: function(data) {
-        // 实现自定义逻辑
-        return processedData;
-    }
-};
-
-export { CustomModule };
-```
-
-## 6.3 模块间通信
-
-
-通过全局状态管理器：
-```javascript
-// 在一个模块中更新状态
-StateManager.updateState({
-    customFlag: true,
-    userData: someData
-});
-
-// 在另一个模块中读取状态
-const currentState = StateManager.getState();
-if (currentState.customFlag) {
-    // 执行相应逻辑
-}
-```
-
-
-# 7. 调试与优化
-
-
-## 7.1 调试工具
-
-
-开发者控制台调试：
-```javascript
-// 查看当前状态
-console.log('当前行:', gameEngine.state.currentLine);
-console.log('好感度:', gameEngine.state.affinity);
-
-// 强制跳转到指定行
-gameEngine.state.currentLine = 10;
-TextDisplay.displayLine(10);
-
-// 重置游戏状态
-StateManager.resetState();
-```
-
-7.2 性能优化
-------------
-
-```javascript
-// 图片懒加载
-const lazyLoadImages = () => {
-    const images = document.querySelectorAll('img[data-src]');
-    const imageObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                const img = entry.target;
-                img.src = img.dataset.src;
-                img.removeAttribute('data-src');
-                imageObserver.unobserve(img);
-            }
-        });
-    });
-    
-    images.forEach(img => imageObserver.observe(img));
-};
-
-// 音频资源管理
-const cleanupAudio = () => {
-    const players = ['bgmPlayer', 'sePlayer', 'voicePlayer'];
-    players.forEach(playerId => {
-        const player = document.getElementById(playerId);
-        if (player) {
-            player.pause();
-            player.src = '';
-        }
-    });
-};
-```
-
-
-# 8. 发布与部署
-
-
-## 8.1 本地测试
+## 6.1 本地测试
 
 
 使用提供的启动脚本：
@@ -810,37 +699,11 @@ const cleanupAudio = () => {
 # Windows
 双击 launch_game.bat
 
-# 或使用PowerShell
-./launch_game.ps1
+# file
+双击 index.html
 ```
 
-8.2 生产环境部署
-----------------
-
-静态网站部署：
-```bash
-# 构建生产版本
-# 1. 压缩资源文件
-# 2. 合并CSS/JS文件
-# 3. 启用gzip压缩
-
-# Nginx配置示例
-server {
-    listen 80;
-    server_name your-game.com;
-    root /path/to/galgame-engine;
-    
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-    
-    # 启用gzip压缩
-    gzip on;
-    gzip_types text/css application/javascript image/svg+xml;
-}
-```
-
-## 8.3 移动端适配
+## 6.3 移动端适配
 
 
 响应式设计：
@@ -938,6 +801,7 @@ A: 技术上可以实现，但需要修改引擎的文本解析机制。目前�
 Bilibili: https://space.bilibili.com/87412647
 
 禁止商用，仅供学习交流使用。
+
 
 
 
