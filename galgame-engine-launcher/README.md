@@ -30,7 +30,7 @@
 
 1. **双击运行** `build_and_deploy.bat`
 2. **等待编译完成**（约 2-3 分钟）
-3. **完成！** exe 已自动生成到 `galgame-engine` 目录
+3. **完成！** exe 已自动生成到 `galgame-engine` 目录（或按需修改）
 
 ### 方法二：使用 Visual Studio
 
@@ -243,5 +243,6 @@ _listener.Start();
 
 **最后更新**: 2026 年 3 月 3 日  
 **版本**: v1.0.1
+
 
 
