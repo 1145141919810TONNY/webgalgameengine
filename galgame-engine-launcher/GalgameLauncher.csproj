@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    
+    <!-- 发布配置 - 使用完全独立模式以确保兼容性 -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+    
+    <!-- 应用程序信息 -->
+    <AssemblyName>GalgameLauncher</AssemblyName>
+    <RootNamespace>GalgameLauncher</RootNamespace>
+    <Version>1.0.0</Version>
+    <Authors>bilibili @月が綺麗ですね_</Authors>
+    <Product>Galgame Engine Launcher</Product>
+    <Description>Galgame 引擎启动器 - 无需 Python/Node.js 环境</Description>
+    <Copyright>bilibili @月が綺麗ですね_</Copyright>
+    <Company>bilibili @月が綺麗ですね_</Company>
+    
+    <!-- 文件属性 -->
+    <AssemblyTitle>Galgame 引擎启动器</AssemblyTitle>
+    <AssemblyProduct>Galgame Engine Launcher</AssemblyProduct>
+    <AssemblyCopyright>Copyright © bilibili @月が綺麗ですね_ 2026</AssemblyCopyright>
+    <AssemblyTrademark>bilibili @月が綺麗ですね_</AssemblyTrademark>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 框架引用（HttpListener 在 System.dll 中） -->
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+
+</Project>
