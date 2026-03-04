@@ -3,6 +3,7 @@
  * 实现类似Kirikiri的功能
  */
 
+
 const gameEngine = {
     // 游戏状态
     state: {
@@ -19,7 +20,8 @@ const gameEngine = {
         contextMenuInitialized: false,  // 上下文菜单是否已初始化
         textSegments: null,        // 文本分段数组
         currentSegment: 0,         // 当前文本段索引
-        waitingForSegmentClick: false  // 是否在等待分段点击
+        waitingForSegmentClick: false,  // 是否在等待分段点击
+        typingTimerId: null        // 打字效果定时器 ID
     },
     
     // DOM元素引用
@@ -131,16 +133,19 @@ const gameEngine = {
             if (!this.state.choicesActive && !this.isOptionElement(e.target)) {
                 // 优先处理分段文本点击
                 if (this.state.waitingForSegmentClick) {
-                    // 如果正在打字新增内容，立即完成打字
+                    // 如果正在打字新增内容，立即停止打字并显示下一句
                     if (this.state.typingActive) {
-                        // 完成当前段落的打字
-                        if (this.state.textSegments && this.state.currentSegment < this.state.textSegments.length) {
-                            let cumulativeText = '';
-                            for (let i = 0; i <= this.state.currentSegment; i++) {
-                                cumulativeText += this.state.textSegments[i];
-                            }
-                            this.elements.textBox.textContent = cumulativeText;
-                            this.state.typingActive = false;
+                        // 清除定时器，停止打字
+                        if (this.state.typingTimerId !== null) {
+                            clearTimeout(this.state.typingTimerId);
+                            this.state.typingTimerId = null;
+                        }
+                        this.state.typingActive = false;
+                        // 清空文本，直接进入下一行
+                        this.elements.textBox.innerHTML = '';
+                        this.state.currentLine++;
+                        if (this.state.currentLine < this.sceneData.story.length) {
+                            this.displayLine(this.state.currentLine);
                         }
                         return;
                     }
@@ -784,7 +789,7 @@ const gameEngine = {
         }
     },
     
-    // 显示累积文本（优化版-部分打字）
+    // 显示累积文本
     showCumulativeText: function(fullText, currentSegment) {
         // 计算之前的内容长度
         let previousLength = 0;
@@ -815,9 +820,11 @@ const gameEngine = {
             if (i < text.length) {
                 this.elements.textBox.textContent += text.charAt(i);
                 i++;
-                setTimeout(typeWriter, speed);
+                // 保存定时器 ID，以便可以被清除
+                this.state.typingTimerId = setTimeout(typeWriter, speed);
             } else {
                 this.state.typingActive = false;
+                this.state.typingTimerId = null;
             }
         };
         
@@ -860,18 +867,18 @@ const gameEngine = {
     // 打字机效果显示文本
     typeText: function(text) {
         let processedText = this.processLineBreaks(text);
-        
+            
         this.elements.textBox.innerHTML = '';
         let i = 0;
         const speed = 30; // 打字速度，毫秒
-        
+            
         this.state.typingActive = true;
-        
+            
         const typeWriter = () => {
             if (i < processedText.length) {
-                // 处理HTML标签，确保不会在标签中间断开
+                // 处理 HTML 标签，确保不会在标签中间断开
                 let charToAdd = processedText.charAt(i);
-                
+                    
                 // 如果遇到<，需要找到对应的>
                 if (charToAdd === '<') {
                     let tagEnd = processedText.indexOf('>', i);
@@ -888,13 +895,15 @@ const gameEngine = {
                     this.elements.textBox.innerHTML += charToAdd;
                     i++;
                 }
-                
-                setTimeout(typeWriter, speed);
+                    
+                // 保存定时器 ID，以便可以被清除
+                this.state.typingTimerId = setTimeout(typeWriter, speed);
             } else {
                 this.state.typingActive = false;
+                this.state.typingTimerId = null;
             }
         };
-        
+            
         typeWriter();
     },
     
@@ -914,16 +923,16 @@ const gameEngine = {
     nextLine: function() {
         if (this.state.choicesActive) return; // 如果正在显示选项，则不处理
         
-        // 如果正在打字，立即完成打字
+        // 如果正在打字，立即停止打字效果并清空文本
         if (this.state.typingActive) {
-            // 完成打字，直接显示完整文本（包含换行标签处理）
-            const line = this.sceneData.story[this.state.currentLine];
-            if (line) {
-                const processedText = this.processLineBreaks(line.text);
-                this.elements.textBox.innerHTML = processedText;
-                this.state.typingActive = false;
-                return; // 只完成打字，不进入下一行
+            // 清除定时器，立即停止打字
+            if (this.state.typingTimerId !== null) {
+                clearTimeout(this.state.typingTimerId);
+                this.state.typingTimerId = null;
             }
+            this.state.typingActive = false;
+            // 清空文本框，准备显示下一句
+            this.elements.textBox.innerHTML = '';
         }
         
         this.state.currentLine++;
@@ -931,7 +940,7 @@ const gameEngine = {
         if (this.state.currentLine < this.sceneData.story.length) {
             this.displayLine(this.state.currentLine);
         } else {
-            // 如果已经到了故事的最后一行，触发[next]行为
+            // 如果已经到了故事的最后一行，触发 [next] 行为
             console.log("到达场景末尾，准备跳转...");
             // 在实际应用中，这里应该跳转到下一个场景
             // this.goToNextScene(); 
