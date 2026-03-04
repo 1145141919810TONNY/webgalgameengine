@@ -12,7 +12,7 @@
 # V1.0.1更新内容(2026/3/3)
 - 现在，你可以通过release中下载已经编译好的exe文件以脱离python环境运行。或可在编译前修改 `GalgameLauncher.csproj` 中的相关信息（如版权署名，默认版权署名为bilibili@月が綺麗ですね_）。以运行完整功能
   - 编译部署流程：下载 `galgame-engine-launcher` 文件夹的全部内容，直接双击运行 `build_and_deploy.bat` 进行自动编译。该编译过程无需额外环境配置，甚至无需打开Visual Studio（仅需系统中安装任意版本的Visual Studio即可）。
-  - 部署方式：将生成的可执行文件（默认名称： GalgameLauncher.exe ，约60MB）放置于与 index.html 同级目录中，终端用户通过双击该启动器运行引擎。预编译版本需作为Release附件分发。
+  - 部署方式：将生成的可执行文件（默认名称： GalgameLauncher.exe ，约60MB）放置于与 index.html 同级目录中，终端用户通过双击该启动器运行引擎。预编译版本作为Release附件分发。
 
 文件结构，请至少在assets文件夹中创建如下对应文件夹
 
