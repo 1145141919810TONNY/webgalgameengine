@@ -21,7 +21,9 @@ const gameEngine = {
         textSegments: null,        // 文本分段数组
         currentSegment: 0,         // 当前文本段索引
         waitingForSegmentClick: false,  // 是否在等待分段点击
-        typingTimerId: null        // 打字效果定时器 ID
+        typingTimerId: null,       // 打字效果定时器 ID
+        fastForwardActive: false,  // 快进模式是否激活
+        fastForwardTimerId: null   // 快进定时器 ID
     },
     
     // DOM元素引用
@@ -169,11 +171,25 @@ const gameEngine = {
             }
         });
         
-        // ESC键呼出上下文菜单
+        // ESC 键呼出上下文菜单
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 e.preventDefault();
                 this.toggleContextMenu();
+            }
+                    
+            // Ctrl 键按下开始快进
+            if (e.key === 'Control' && !this.state.fastForwardActive) {
+                e.preventDefault();
+                this.startFastForward();
+            }
+        });
+                
+        // Ctrl 键释放停止快进
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'Control') {
+                e.preventDefault();
+                this.stopFastForward();
             }
         });
         
@@ -945,6 +961,40 @@ const gameEngine = {
             // 在实际应用中，这里应该跳转到下一个场景
             // this.goToNextScene(); 
         }
+    },
+    
+    // 开始快进
+    startFastForward: function() {
+        if (this.state.fastForwardActive || this.state.choicesActive) return;
+        
+        this.state.fastForwardActive = true;
+        console.log("开始快进...");
+        
+        // 立即执行一次
+        this.nextLine();
+        
+        // 然后每 50ms 自动执行一次，实现快进效果
+        this.state.fastForwardTimerId = setInterval(() => {
+            if (!this.state.fastForwardActive || this.state.choicesActive) {
+                this.stopFastForward();
+                return;
+            }
+            this.nextLine();
+        }, 50); // 50ms 间隔，可以根据需要调整
+    },
+    
+    // 停止快进
+    stopFastForward: function() {
+        if (!this.state.fastForwardActive) return;
+        
+        this.state.fastForwardActive = false;
+        
+        if (this.state.fastForwardTimerId !== null) {
+            clearInterval(this.state.fastForwardTimerId);
+            this.state.fastForwardTimerId = null;
+        }
+        
+        console.log("停止快进");
     },
     
     // 跳转到下一个场景
