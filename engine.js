@@ -238,7 +238,7 @@ const gameEngine = {
         } else {
             this.elements.nameBox.style.display = 'none';
         }
-        
+
         // 设置文本（带打字机效果）
         this.typeTextWithSplits(line.text);
         
