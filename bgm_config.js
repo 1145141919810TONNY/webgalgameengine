@@ -1,0 +1,100 @@
+/**
+ * BGM 配置文件
+ * 集中管理所有背景音乐资源路径
+ */
+
+// 根目录路径配置（用于 index.html）
+const BGM_CONFIG = {
+    'bgm1': 'assets/bgm/bgm1.ogg',
+    'bgm2': 'assets/bgm/bgm2.ogg',
+    'bgm3': 'assets/bgm/bgm3.ogg',
+    'bgm4': 'assets/bgm/bgm4.ogg',
+    'bgm5': 'assets/bgm/bgm5.ogg',
+    'bgm6': 'assets/bgm/bgm6.ogg',
+    'bgm7': 'assets/bgm/bgm7.ogg',
+    'bgm8': 'assets/bgm/bgm8.ogg',
+    'bgm9': 'assets/bgm/bgm9.ogg',
+    'bgm10': 'assets/bgm/bgm10.ogg',
+    'bgm11': 'assets/bgm/bgm11.ogg',
+    'bgm12': 'assets/bgm/bgm12.ogg',
+    'bgm13': 'assets/bgm/bgm13.ogg',
+    'bgm14': 'assets/bgm/bgm14.ogg',
+    'bgm15': 'assets/bgm/bgm15.ogg',
+    'bgm16': 'assets/bgm/bgm16.ogg',
+    'bgm17': 'assets/bgm/bgm17.ogg',
+    'bgm18': 'assets/bgm/bgm18.ogg',
+    'bgm19': 'assets/bgm/bgm19.ogg',
+    'bgm20': 'assets/bgm/bgm20.ogg',
+    'bgm21': 'assets/bgm/bgm21.ogg',
+    'bgm22': 'assets/bgm/bgm22.ogg',
+    'bgm23': 'assets/bgm/bgm23.ogg',
+    'bgm24': 'assets/bgm/bgm24.ogg',
+    'bgm25': 'assets/bgm/bgm25.ogg',
+    'bgm26': 'assets/bgm/bgm26.ogg',
+    'bgm27': 'assets/bgm/bgm27.ogg',
+    'bgm28': 'assets/bgm/bgm28.ogg'
+};
+
+// 子目录路径配置（用于 html/*.html 和 scenes/*.html）
+const BGM_CONFIG_SUB = {
+    'bgm1': '../assets/bgm/bgm1.ogg',
+    'bgm2': '../assets/bgm/bgm2.ogg',
+    'bgm3': '../assets/bgm/bgm3.ogg',
+    'bgm4': '../assets/bgm/bgm4.ogg',
+    'bgm5': '../assets/bgm/bgm5.ogg',
+    'bgm6': '../assets/bgm/bgm6.ogg',
+    'bgm7': '../assets/bgm/bgm7.ogg',
+    'bgm8': '../assets/bgm/bgm8.ogg',
+    'bgm9': '../assets/bgm/bgm9.ogg',
+    'bgm10': '../assets/bgm/bgm10.ogg',
+    'bgm11': '../assets/bgm/bgm11.ogg',
+    'bgm12': '../assets/bgm/bgm12.ogg',
+    'bgm13': '../assets/bgm/bgm13.ogg',
+    'bgm14': '../assets/bgm/bgm14.ogg',
+    'bgm15': '../assets/bgm/bgm15.ogg',
+    'bgm16': '../assets/bgm/bgm16.ogg',
+    'bgm17': '../assets/bgm/bgm17.ogg',
+    'bgm18': '../assets/bgm/bgm18.ogg',
+    'bgm19': '../assets/bgm/bgm19.ogg',
+    'bgm20': '../assets/bgm/bgm20.ogg',
+    'bgm21': '../assets/bgm/bgm21.ogg',
+    'bgm22': '../assets/bgm/bgm22.ogg',
+    'bgm23': '../assets/bgm/bgm23.ogg',
+    'bgm24': '../assets/bgm/bgm24.ogg',
+    'bgm25': '../assets/bgm/bgm25.ogg',
+    'bgm26': '../assets/bgm/bgm26.ogg',
+    'bgm27': '../assets/bgm/bgm27.ogg',
+    'bgm28': '../assets/bgm/bgm28.ogg'
+};
+
+// 兼容旧版本的 bgmMap 格式（带数组的版本，用于 html/bgm.html）
+const BGM_MAP = {
+    'bgm1': ['../assets/bgm/bgm1.ogg'],
+    'bgm2': ['../assets/bgm/bgm2.ogg'],
+    'bgm3': ['../assets/bgm/bgm3.ogg'],
+    'bgm4': ['../assets/bgm/bgm4.ogg'],
+    'bgm5': ['../assets/bgm/bgm5.ogg'],
+    'bgm6': ['../assets/bgm/bgm6.ogg'],
+    'bgm7': ['../assets/bgm/bgm7.ogg'],
+    'bgm8': ['../assets/bgm/bgm8.ogg'],
+    'bgm9': ['../assets/bgm/bgm9.ogg'],
+    'bgm10': ['../assets/bgm/bgm10.ogg'],
+    'bgm11': ['../assets/bgm/bgm11.ogg'],
+    'bgm12': ['../assets/bgm/bgm12.ogg'],
+    'bgm13': ['../assets/bgm/bgm13.ogg'],
+    'bgm14': ['../assets/bgm/bgm14.ogg'],
+    'bgm15': ['../assets/bgm/bgm15.ogg'],
+    'bgm16': ['../assets/bgm/bgm16.ogg'],
+    'bgm17': ['../assets/bgm/bgm17.ogg'],
+    'bgm18': ['../assets/bgm/bgm18.ogg'],
+    'bgm19': ['../assets/bgm/bgm19.ogg'],
+    'bgm20': ['../assets/bgm/bgm20.ogg'],
+    'bgm21': ['../assets/bgm/bgm21.ogg'],
+    'bgm22': ['../assets/bgm/bgm22.ogg'],
+    'bgm23': ['../assets/bgm/bgm23.ogg'],
+    'bgm24': ['../assets/bgm/bgm24.ogg'],
+    'bgm25': ['../assets/bgm/bgm25.ogg'],
+    'bgm26': ['../assets/bgm/bgm26.ogg'],
+    'bgm27': ['../assets/bgm/bgm27.ogg'],
+    'bgm28': ['../assets/bgm/bgm28.ogg']
+};
