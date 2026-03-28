@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CG鉴赏</title>
+    <title>CG 鉴赏</title>
     <link rel="icon" type="image/png" href="../icon/icon-32.png">
     <link rel="stylesheet" href="../css/style.css">
     <style>
@@ -229,6 +229,7 @@
     <audio id="voice-player"></audio>
     
     <!-- 引擎脚本 -->
+    <script src="../bgm_config.js"></script>
     <script src="../engine.js"></script>
     
     <!-- 页面标题 -->
@@ -253,9 +254,7 @@
 
     <script>
         const indexData = {
-            bgm: {
-                'bgm1': '../assets/bgm/bgm1.ogg'
-            },
+            bgm: BGM_CONFIG_SUB,
             story: [
                 {
                     text: "",
@@ -431,5 +430,4 @@
 
     </script>
 </body>
-
 </html>
