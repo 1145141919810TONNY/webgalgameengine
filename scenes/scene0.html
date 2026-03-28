@@ -6,6 +6,8 @@
     <title>场景模板</title>
     <link rel="icon" type="image/png" href="../icon/icon-32.png">
     <link rel="stylesheet" href="../style.css">
+    <!-- 引入 BGM 集中配置文件 -->
+    <script src="../bgm_config.js"></script>
     <script src="../modules/progress_api.js"></script>
 </head>
 <body>
@@ -62,11 +64,7 @@
                 // 'bg1': '../assets/bg/background1.jpg',
                 // 'bg2': '../assets/bg/background2.png'
             },
-            bgm: {
-                // BGM定义示例
-                // 'theme1': '../assets/bgm/theme1.ogg',
-                // 'theme2': '../assets/bgm/theme2.mp3'
-            },
+            bgm: BGM_CONFIG_SUB,  // 使用 BGM 集中配置（子目录路径）
             audio: {
                 // 音效和语音定义示例
                 // 'sfx1': '../assets/audio/sound_effect1.wav',
@@ -76,11 +74,13 @@
                 { 
                     text: "欢迎使用场景模板", 
                     speaker: "系统",   //如果不要显示名字的话，删除此项
-                    background: null,  // 设置背景，若为null则不改变当前背景
-                    bgm: null,        // 设置BGM，若为null则不改变当前BGM
-                    audio: null,      // 设置音效或语音，若为null则不播放
-                    command: null, //这里加入类kirikiri的ks指令
-                    action: null      // 执行动作，如选项、转场等
+                    background: null,  // 设置背景，若为 null 则不改变当前背景
+                    bgm: null,         // 设置 BGM，若为 null 则不改变当前 BGM
+                                       // 可使用 bgm: "bgm1" 播放预配置的 BGM
+                    audio: null,       // 设置音效或语音，若为 null 则不播放
+                    command: null,     // 这里加入类 kirikiri 的 ks 指令
+                                       // 示例：command: "[bgm:bgm1]" 播放 BGM
+                    action: null       // 执行动作，如选项、转场等
                 },
                 { 
                     text: "这是一个基本的场景模板，您可以复制此文件开始编写新的剧情", 
@@ -92,7 +92,7 @@
                 },
                 /*这是直接跳转下一个页面
                 { 
-                    text: "友琳生气地离开了...（这是一个坏结局）", 
+                    text: "她生气地离开了...（这是一个坏结局）", 
                     speaker: "旁白", 
                     background: "badend1",
                     audio: null,
@@ -128,5 +128,4 @@
         
     </script>
 </body>
-
 </html>
