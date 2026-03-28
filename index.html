@@ -4,7 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>主菜单</title>
-	<link rel="icon" type="image/png" href="../icon/icon-32.png">
+    <link rel="icon" type="image/x-icon" href="icon/favicon.ico">
+    <link rel="icon" type="image/png" sizes="256x256" href="icon/icon-256.png">
+    <link rel="icon" type="image/png" sizes="128x128" href="icon/icon-128.png">
+    <link rel="icon" type="image/png" sizes="64x64" href="icon/icon-64.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="icon/icon-32.png">
     <link rel="stylesheet" href="style.css">
     <style>
         body {
@@ -146,15 +150,13 @@
     
     <!-- 左下角信息容器 -->
     <div id="info-container" style="position: absolute; bottom: 20px; left: 20px; color: gold; font-family: 'Microsoft YaHei', sans-serif; z-index: 10; font-size: 16px; text-shadow: 1px 1px 2px black;">
-        主菜单任意点击一下播放背景音乐<br/>
         看剧情时按esc呼出菜单<br/>
+		长按ctrl快进剧情
         <a href="https://space.bilibili.com/87412647?spm_id_from=333.1007.0.0" target="_blank"> 程序：bilibili @月が綺麗ですね_</a><br/>
-        <a href="https://space.bilibili.com/3493107123357902?spm_id_from=333.1387.follow.user_card.click" target="_blank">模板中若存在游戏配音，图片来源以及其他任何有关于友琳的信息均来源于: Bilibili虚拟主播 @友琳_Yurin</a>为模板制作时的素材来源<br />
-		此作品为完全免费的二创作品，仅限小范围使用<br />
-		禁止商用
     </div>
 
-        <!-- 引擎脚本 -->
+    <!-- 引擎脚本 -->
+    <script src="bgm_config.js"></script>
     <script src="engine.js"></script>
     <script>
         // 检查是否为file协议，如果是则禁用进度管理按钮
@@ -173,9 +175,7 @@
         }
         
         const indexData = {
-            bgm: {
-                'bgm1': 'assets/bgm/bgm1.ogg'
-            },
+            bgm: BGM_CONFIG,
             story: [
                 {
                     text: "",
@@ -201,10 +201,4 @@
     </script>
 
 </body>
-
 </html>
-
-
-
-
-
