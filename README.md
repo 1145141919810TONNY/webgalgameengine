@@ -10,6 +10,9 @@
 - esc：打开游戏上下文菜单
 - ctrl：快进剧情
 
+# V1.0.5更新内容（2026/3/28）
+- 重构了BGM配置文件，采用集中化管理方式。此后不再需要在其他文件中多次重复的进行硬编码存储。
+
 # V1.0.4更新内容（2026/3/9）
 - 变更了一些编译逻辑，以适配不同的环境。如果使用V1.0.2版启动器文件无法编译的情况下可以尝试使用V1.0.3版本启动器文件进行编译。
   - 项目主要版本号与启动器版本号相互独立，请根据readme、release的版本号进行区分
@@ -33,6 +36,7 @@ galgame-engine/<br>
 ├── index.html          # 主菜单页面<br>
 ├── engine.js           # 核心JavaScript引擎<br>
 ├── GalgameLauncher.exe  # 启动器<br>
+├── bgm_config.js         # BGM 集中配置文件<br>
 ├── style.css           # 样式文件<br>
 ├── icon         # 更改你的浏览器页面的图标文件夹<br>
 ├── assets/             # 资源文件<br>
@@ -68,6 +72,7 @@ galgame-engine/<br>
 ├── index.html          # 主菜单页面<br>
 ├── GalgameLauncher.exe  # 启动器<br>
 ├── engine.js           # 核心JavaScript引擎<br>
+├── bgm_config.js         # BGM 集中配置文件<br>
 ├── style.css           # 样式文件<br>
 ├── icon         # 更改你的浏览器页面的图标文件夹<br>
 ├── assets/             # 资源文件<br>
@@ -106,10 +111,8 @@ const sceneData = {
         'voice1': 'assets/audio/voice1.ogg'
     },
     
-    // BGM配置
-    bgm: {
-        'bgm1': 'assets/bgm/music1.mp3'
-    },
+    // BGM 配置（使用集中配置文件）
+    bgm: BGM_CONFIG_SUB,  // 在子目录文件中引用
     
     // 视频配置
     videos: {
@@ -317,7 +320,10 @@ BGM停止功能，可以在剧情中动态控制背景音乐：
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>场景模板</title>
+    <link rel="icon" type="image/png" href="../icon/icon-32.png">
     <link rel="stylesheet" href="../style.css">
+    <!-- 引入 BGM 集中配置文件 -->
+    <script src="../bgm_config.js"></script>
     <script src="../modules/progress_api.js"></script>
 </head>
 <body>
@@ -374,11 +380,7 @@ BGM停止功能，可以在剧情中动态控制背景音乐：
                 // 'bg1': '../assets/bg/background1.jpg',
                 // 'bg2': '../assets/bg/background2.png'
             },
-            bgm: {
-                // BGM定义示例
-                // 'theme1': '../assets/bgm/theme1.ogg',
-                // 'theme2': '../assets/bgm/theme2.mp3'
-            },
+            bgm: BGM_CONFIG_SUB,  // 使用 BGM 集中配置（子目录路径）
             audio: {
                 // 音效和语音定义示例
                 // 'sfx1': '../assets/audio/sound_effect1.wav',
@@ -388,11 +390,13 @@ BGM停止功能，可以在剧情中动态控制背景音乐：
                 { 
                     text: "欢迎使用场景模板", 
                     speaker: "系统",   //如果不要显示名字的话，删除此项
-                    background: null,  // 设置背景，若为null则不改变当前背景
-                    bgm: null,        // 设置BGM，若为null则不改变当前BGM
-                    audio: null,      // 设置音效或语音，若为null则不播放
-                    command: null, //这里加入类kirikiri的ks指令
-                    action: null      // 执行动作，如选项、转场等
+                    background: null,  // 设置背景，若为 null 则不改变当前背景
+                    bgm: null,         // 设置 BGM，若为 null 则不改变当前 BGM
+                                       // 可使用 bgm: "bgm1" 播放预配置的 BGM
+                    audio: null,       // 设置音效或语音，若为 null 则不播放
+                    command: null,     // 这里加入类 kirikiri 的 ks 指令
+                                       // 示例：command: "[bgm:bgm1]" 播放 BGM
+                    action: null       // 执行动作，如选项、转场等
                 },
                 { 
                     text: "这是一个基本的场景模板，您可以复制此文件开始编写新的剧情", 
@@ -479,6 +483,93 @@ BGM停止功能，可以在剧情中动态控制背景音乐：
 }
 ```
 
+现在你只需要在bgm_config.js中按照模板定义好对应的bgm代号即可。该js类似于kirikiri的soundlist.csv的作用。
+
+## 使用方法
+
+### 在 HTML 文件中引入
+
+在需要播放 BGM 的 HTML 文件的 `<head>` 部分添加：
+
+```html
+<script src="bgm_config.js"></script>
+```
+
+### 在 sceneData 中使用（scenes/*.html）
+
+```javascript
+const sceneData = {
+    background: {
+        'yl1': '../assets/bg/yl1.jpg'
+    },
+    bgm: BGM_CONFIG_SUB,  // 使用子目录配置
+    audio: {
+        'theme': '../assets/audio/theme.mp3'
+    },
+    story: [
+        {
+            text: "剧情文本",
+            speaker: "说话者",
+            background: "yl1",
+            bgm: "bgm1",  // 引用配置的 BGM 键名
+            action: null
+        }
+    ]
+};
+```
+
+### 在 html/*.html 中使用（如 CG.html）
+
+```javascript
+const indexData = {
+    bgm: BGM_CONFIG_SUB,  // 使用子目录配置
+    story: [...]
+};
+```
+
+### 在 index.html 中使用
+
+```javascript
+const indexData = {
+    bgm: BGM_CONFIG,  // 直接引用配置对象
+    story: [...]
+};
+```
+
+### 在 bgm.html 中使用
+
+```javascript
+// 使用 BGM_MAP 兼容旧代码
+const bgmMap = BGM_MAP;
+
+function playBGM(bgmName) {
+    if (bgmMap[bgmName]) {
+        // 播放逻辑
+    }
+}
+```
+
+## 添加新的 BGM
+
+如需添加新的 BGM，只需在 `bgm_config.js` 中同时添加新的键值对到三个配置对象：
+
+```javascript
+const BGM_CONFIG = {
+    // ... 现有配置
+    'bgm29': 'assets/bgm/bgm29.ogg'  // 新增（根目录路径）
+};
+
+const BGM_CONFIG_SUB = {
+    // ... 现有配置
+    'bgm29': '../assets/bgm/bgm29.ogg'  // 新增（子目录路径）
+};
+
+const BGM_MAP = {
+    // ... 现有配置
+    'bgm29': ['../assets/bgm/bgm29.ogg']  // 新增（数组格式）
+};
+```
+
 多行对话：
 ```javascript
 {
@@ -523,19 +614,6 @@ if (this.isValidSceneFile(sceneFileName)) {
                                     'scene2': '场景2',
                                     'scene3': '场景3 ',
                                     // 可以按需继续添加更多场景
-                                    'scene4': '场景4',
-                                    'scene5': '场景5',
-                                    'scene6': '场景6',
-                                    'scene7': '场景7',
-                                    'scene8': '场景8',
-                                    'scene9': '场景9',
-                                    'scene10': '场景10',
-                                    'ending1': '结局1',
-                                    'ending2': '结局2',
-                                    'ending3': '结局3',
-                                    'sub_scene1': '分支场景1',
-                                    'sub_scene2': '分支场景2',
-                                    'sub_scene3': '分支场景3'
                                 };
                                 
                                 const displayName = sceneNames[sceneId] || sceneId.replace(/_/g, ' ').replace('scene', '场景 ');
