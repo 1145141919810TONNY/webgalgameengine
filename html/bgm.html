@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BGM鉴赏</title>
-	<link rel="icon" type="image/png" href="../icon/icon-32.png">
+    <title>BGM 鉴赏</title>
+    <link rel="icon" type="image/png" href="../icon/icon-32.png">
     <link rel="stylesheet" href="../style.css">
     <style>
         body {
@@ -280,9 +280,12 @@
     </div>
     
     <!-- 页面标题 -->
-    <h1 id="page-title">BGM鉴赏</h1>
-    
-    <!-- BGM列表容器 -->
+    <h1 id="page-title">BGM 鉴赏</h1>
+        
+    <!-- BGM 配置文件 -->
+    <script src="../bgm_config.js"></script>
+        
+    <!-- BGM 列表容器 -->
     <div id="menu-container">
         <button class="menu-btn" onclick="playBGM('bgm1')">背景音乐1</button>
         <button class="menu-btn" onclick="playBGM('bgm2')">背景音乐2</button>
@@ -316,36 +319,7 @@
     
     <script>
         // BGM资源映射
-        const bgmMap = {
-            'bgm1': ['../assets/bgm/bgm1.ogg'],
-            'bgm2': ['../assets/bgm/bgm2.ogg'],
-            'bgm3': ['../assets/bgm/bgm3.ogg'],
-            'bgm4': ['../assets/bgm/bgm4.ogg'],
-			'bgm5': ['../assets/bgm/bgm5.ogg'],
-			'bgm6': ['../assets/bgm/bgm6.ogg'],
-			'bgm7': ['../assets/bgm/bgm7.ogg'],
-			'bgm8': ['../assets/bgm/bgm8.ogg'],
-			'bgm9': ['../assets/bgm/bgm9.ogg'],
-			'bgm10': ['../assets/bgm/bgm10.ogg'],
-			'bgm11': ['../assets/bgm/bgm11.ogg'],
-			'bgm12': ['../assets/bgm/bgm12.ogg'],
-			'bgm13': ['../assets/bgm/bgm13.ogg'],
-			'bgm14': ['../assets/bgm/bgm14.ogg'],
-			'bgm15': ['../assets/bgm/bgm15.ogg'],
-			'bgm16': ['../assets/bgm/bgm16.ogg'],
-			'bgm17': ['../assets/bgm/bgm17.ogg'],
-			'bgm18': ['../assets/bgm/bgm18.ogg'],
-			'bgm19': ['../assets/bgm/bgm19.ogg'],
-			'bgm20': ['../assets/bgm/bgm20.ogg'],
-			'bgm21': ['../assets/bgm/bgm21.ogg'],
-			'bgm22': ['../assets/bgm/bgm22.ogg'],
-			'bgm23': ['../assets/bgm/bgm23.ogg'],
-			'bgm24': ['../assets/bgm/bgm24.ogg'],
-			'bgm25': ['../assets/bgm/bgm25.ogg'],
-			'bgm26': ['../assets/bgm/bgm26.ogg'],
-			'bgm27': ['../assets/bgm/bgm27.ogg'],
-			'bgm28': ['../assets/bgm/bgm28.ogg'],
-        };
+        const bgmMap = BGM_MAP;
 
         // 当前播放状态
         let currentPlayerState = {
@@ -669,5 +643,4 @@
         });
     </script>
 </body>
-
 </html>
