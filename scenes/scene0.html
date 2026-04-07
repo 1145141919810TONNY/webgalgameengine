@@ -6,8 +6,9 @@
     <title>场景模板</title>
     <link rel="icon" type="image/png" href="../icon/icon-32.png">
     <link rel="stylesheet" href="../style.css">
-    <!-- 引入 BGM 集中配置文件 -->
+    <!-- 引入资源集中配置文件 -->
     <script src="../bgm_config.js"></script>
+    <script src="../cg_config.js"></script>
     <script src="../modules/progress_api.js"></script>
 </head>
 <body>
@@ -59,11 +60,7 @@
     <script>
         // 场景模板数据
         const sceneData = {
-            background: {
-                // 背景图片定义示例
-                // 'bg1': '../assets/bg/background1.jpg',
-                // 'bg2': '../assets/bg/background2.png'
-            },
+            background: {},
             bgm: BGM_CONFIG_SUB,  // 使用 BGM 集中配置（子目录路径）
             audio: {
                 // 音效和语音定义示例
