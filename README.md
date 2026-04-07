@@ -52,10 +52,11 @@
 galgame-engine/<br>
 ├── index.html          # 主菜单页面<br>
 ├── engine.js           # 核心JavaScript引擎<br>
-├── GalgameLauncher.exe  # 启动器<br>
-├── bgm_config.js         # BGM 集中配置文件<br>
+├── Shiori.exe          # 启动器<br>
+├── bgm_config.js       # BGM 集中配置文件<br>
+├── cg_config.js        # CG 集中配置文件<br>
 ├── style.css           # 样式文件<br>
-├── icon         # 更改你的浏览器页面的图标文件夹<br>
+├── icon                # 更改你的浏览器页面的图标文件夹<br>
 ├── assets/             # 资源文件<br>
 │   ├── bg/             # 背景图片<br>
 │   ├── audio/          # 音频文件<br>
@@ -66,8 +67,8 @@ galgame-engine/<br>
 │   └── scene0.html     # 场景模板<br>
 └── html/               # 功能页面<br>
     ├── bgm.html        # BGM鉴赏页面<br>
-    ├── CG.html        # CG鉴赏页面<br>
-    ├── saves.html        # 存档页面<br>
+    ├── CG.html         # CG鉴赏页面<br>
+    ├── saves.html      # 存档页面<br>
     └── video.html      # 视频鉴赏页面<br>
 
 
@@ -87,11 +88,12 @@ https://space.bilibili.com/87412647?spm_id_from=333.1007.0.0
 
 galgame-engine/<br>
 ├── index.html          # 主菜单页面<br>
-├── GalgameLauncher.exe  # 启动器<br>
+├── Shiori.exe          # 启动器<br>
 ├── engine.js           # 核心JavaScript引擎<br>
-├── bgm_config.js         # BGM 集中配置文件<br>
+├── bgm_config.js       # BGM 集中配置文件<br>
+├── cg_config.js        # CG 集中配置文件<br>
 ├── style.css           # 样式文件<br>
-├── icon         # 更改你的浏览器页面的图标文件夹<br>
+├── icon                # 更改你的浏览器页面的图标文件夹<br>
 ├── assets/             # 资源文件<br>
 │   ├── bg/             # 背景图片<br>
 │   ├── audio/          # 音频文件<br>
@@ -102,8 +104,8 @@ galgame-engine/<br>
 │   └── scene0.html     # 场景模板<br>
 └── html/               # 功能页面<br>
     ├── bgm.html        # BGM鉴赏页面<br>
-    ├── CG.html        # CG鉴赏页面<br>
-    ├── saves.html        # 存档页面<br>
+    ├── CG.html         # CG鉴赏页面<br>
+    ├── saves.html      # 存档页面<br>
     └── video.html      # 视频鉴赏页面<br>
 
 # 2. 核心概念详解
