@@ -54,7 +54,7 @@ namespace ShioriLauncher
                 Console.TreatControlCAsInput = true;
                 
                 Console.WriteLine("=====================================");
-                Console.WriteLine("  Galgame 引擎启动器 v1.0.2");
+                Console.WriteLine("  Shiori 引擎启动器 v1.0.2");
                 Console.WriteLine("=====================================");
                 Console.WriteLine();
 
