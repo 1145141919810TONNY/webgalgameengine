@@ -229,6 +229,7 @@
     <audio id="voice-player"></audio>
     
     <!-- 引擎脚本 -->
+    <script src="../cg_config.js"></script>
     <script src="../bgm_config.js"></script>
     <script src="../engine.js"></script>
     
@@ -266,14 +267,6 @@
 
         // CG图片管理器
         const CGManager = {
-            // CG图片路径配置 - 使用bg文件夹中的图片
-            cgPaths: [
-                '../assets/bg/bg.jpg',
-                '../assets/bg/badend1.jpg',
-                '../assets/bg/yl1.jpg',
-                '../assets/bg/yl2.jpg'
-            ],
-            
             // 当前显示的图片索引
             currentImageIndex: 0,
             
@@ -288,8 +281,8 @@
                 const container = document.getElementById('cg-container');
                 container.innerHTML = '';
                 
-                // 遍历CG图片路径并生成缩略图
-                this.cgPaths.forEach((path, index) => {
+                // 遍历CG配置并生成缩略图
+                Object.values(CG_CONFIG_SUB).forEach((path, index) => {
                     // 检查图片是否存在
                     this.imageExists(path, (exists) => {
                         if (exists) {
@@ -338,26 +331,28 @@
             updateImageCounter: function() {
                 const counter = document.querySelector('.image-counter');
                 if (counter) {
-                    counter.textContent = `${this.currentImageIndex + 1} / ${this.cgPaths.length}`;
+                    counter.textContent = `${this.currentImageIndex + 1} / ${Object.keys(CG_CONFIG_SUB).length}`;
                 }
             },
             
             // 显示上一张图片
             showPrevImage: function() {
+                const paths = Object.values(CG_CONFIG_SUB);
                 this.currentImageIndex--;
                 if (this.currentImageIndex < 0) {
-                    this.currentImageIndex = this.cgPaths.length - 1; // 首尾循环
+                    this.currentImageIndex = paths.length - 1; // 首尾循环
                 }
-                this.showFullImage(this.cgPaths[this.currentImageIndex]);
+                this.showFullImage(paths[this.currentImageIndex]);
             },
             
             // 显示下一张图片
             showNextImage: function() {
+                const paths = Object.values(CG_CONFIG_SUB);
                 this.currentImageIndex++;
-                if (this.currentImageIndex >= this.cgPaths.length) {
+                if (this.currentImageIndex >= paths.length) {
                     this.currentImageIndex = 0; // 首尾循环
                 }
-                this.showFullImage(this.cgPaths[this.currentImageIndex]);
+                this.showFullImage(paths[this.currentImageIndex]);
             },
             
             // 绑定事件
