@@ -10,7 +10,7 @@
    - `icon-32.png`
 
 3. **重启程序**
-   重新启动 GalgameLauncher.exe，图标会自动应用
+   重新启动 Shiori.exe，图标会自动应用
 
 ## 注意事项
 
@@ -26,7 +26,7 @@ galgame-engine/
 ├── icon/
 │   └── icon-32.png 
 ├── index.html
-├── GalgameLauncher.exe
+├── Shiori.exe
 └── ...
 ```
 
