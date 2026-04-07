@@ -1,6 +1,6 @@
 /**
- * 视觉小说引擎核心脚本
- * 实现类似Kirikiri的功能
+ * Shiori 引擎核心脚本
+ * 可根据需求自由修改和扩展
  */
 
 
@@ -23,7 +23,9 @@ const gameEngine = {
         waitingForSegmentClick: false,  // 是否在等待分段点击
         typingTimerId: null,       // 打字效果定时器 ID
         fastForwardActive: false,  // 快进模式是否激活
-        fastForwardTimerId: null   // 快进定时器 ID
+        fastForwardTimerId: null,   // 快进定时器 ID
+        audioSegments: null,        // 音频分段数组
+        currentAudioSegment: 0     // 当前音频段索引
     },
     
     // DOM元素引用
@@ -143,6 +145,9 @@ const gameEngine = {
                             this.state.typingTimerId = null;
                         }
                         this.state.typingActive = false;
+                        // 清除音频序列状态
+                        this.state.audioSegments = null;
+                        this.state.currentAudioSegment = 0;
                         // 清空文本，直接进入下一行
                         this.elements.textBox.innerHTML = '';
                         this.state.currentLine++;
@@ -242,9 +247,35 @@ const gameEngine = {
         // 设置文本（带打字机效果）
         this.typeTextWithSplits(line.text);
         
+        // 解析音频序列（如果存在[a]标签）
+        if (line.audio && typeof line.audio === 'string' && line.audio.includes('[a]')) {
+            this.state.audioSegments = this.parseAudioSequence(line.audio);
+            this.state.currentAudioSegment = 0;
+            
+            // 播放第一个音频
+            if (this.state.audioSegments.length > 0) {
+                this.playAudio(this.state.audioSegments[0]);
+            }
+        } else if (line.audio) {
+            // 原有的单音频播放逻辑
+            if (this.sceneData.audio && this.sceneData.audio[line.audio] && 
+                !(this.sceneData.bgm && this.sceneData.bgm[line.audio])) {
+                this.playAudio(line.audio);
+            }
+        }
+        
         // 切换背景
-        if (line.background && this.sceneData.background[line.background]) {
-            this.setBackground(this.sceneData.background[line.background]);
+        if (line.background) {
+            let bgPath = null;
+            if (this.sceneData.background[line.background]) {
+                bgPath = this.sceneData.background[line.background];
+            } else if (typeof CG_CONFIG_SUB !== 'undefined' && CG_CONFIG_SUB[line.background]) {
+                bgPath = CG_CONFIG_SUB[line.background];
+            }
+            
+            if (bgPath) {
+                this.setBackground(bgPath);
+            }
         }
         
         // 处理BGM（优先级更高）
@@ -252,15 +283,14 @@ const gameEngine = {
             if (line.bgm === 'bgm stop') {
                 // 停止当前BGM播放
                 this.stopBGM();
+            } else if (typeof line.bgm === 'string' && line.bgm.startsWith('bgm wait ')) {
+                // 淡出旧BGM并播放新BGM
+                const newBgmKey = line.bgm.substring('bgm wait '.length).trim();
+                this.fadeOutAndPlayBGM(newBgmKey);
             } else if (this.sceneData.bgm && this.sceneData.bgm[line.bgm]) {
                 // 播放指定的BGM
                 this.playAudio(line.bgm);
             }
-        }
-        
-        // 播放音频（如果该音频不在bgm数组中）
-        if (line.audio && this.sceneData.audio && this.sceneData.audio[line.audio] && !(this.sceneData.bgm && this.sceneData.bgm[line.audio])) {
-            this.playAudio(line.audio);
         }
         
         // 播放视频
@@ -773,6 +803,8 @@ const gameEngine = {
             this.state.textSegments = null;
             this.state.currentSegment = 0;
             this.state.waitingForSegmentClick = false;
+            this.state.audioSegments = null;      // 新增
+            this.state.currentAudioSegment = 0;   // 新增
             return;
         }
         
@@ -856,6 +888,8 @@ const gameEngine = {
             this.state.textSegments = null;
             this.state.currentSegment = 0;
             this.state.waitingForSegmentClick = false;
+            this.state.audioSegments = null;      
+            this.state.currentAudioSegment = 0;   
         }
     },
     
@@ -870,6 +904,15 @@ const gameEngine = {
         if (this.state.waitingForSegmentClick) {
             this.state.waitingForSegmentClick = false;
             this.hideClickPrompt();
+            
+            // 切换到下一个音频片段
+            if (this.state.audioSegments && 
+                this.state.currentAudioSegment < this.state.audioSegments.length - 1) {
+                this.state.currentAudioSegment++;
+                const nextAudio = this.state.audioSegments[this.state.currentAudioSegment];
+                this.playAudio(nextAudio);
+            }
+            
             this.displayNextSegment();
         }
     },
@@ -938,6 +981,10 @@ const gameEngine = {
     // 下一行
     nextLine: function() {
         if (this.state.choicesActive) return; // 如果正在显示选项，则不处理
+        
+        // 清除可能存在的音频序列状态
+        this.state.audioSegments = null;
+        this.state.currentAudioSegment = 0;
         
         // 如果正在打字，立即停止打字效果并清空文本
         if (this.state.typingActive) {
@@ -1085,6 +1132,17 @@ const gameEngine = {
         }
     },
     
+    // 解析音频序列（支持[a]标签）
+    parseAudioSequence: function(audioStr) {
+        if (!audioStr || typeof audioStr !== 'string') {
+            return [];
+        }
+        
+        // 按[a]标签分割音频键名
+        const segments = audioStr.split(/\[a\]/i);
+        return segments.filter(seg => seg.trim().length > 0);
+    },
+    
     // 停止所有音频（保留BGM）
     stopAllAudio: function() {
         this.elements.voicePlayer.pause();
@@ -1105,6 +1163,70 @@ const gameEngine = {
             this.elements.bgmPlayer.currentTime = 0;
             console.log("BGM已停止播放");
         }
+    },
+    
+    // 淡出当前BGM并播放新BGM
+    fadeOutAndPlayBGM: function(newBgmKey) {
+        const bgmPlayer = this.elements.bgmPlayer;
+        
+        // 检查新BGM是否存在
+        let audioPath = null;
+        if (this.sceneData.bgm && this.sceneData.bgm[newBgmKey]) {
+            audioPath = this.sceneData.bgm[newBgmKey];
+        }
+        
+        if (!audioPath) {
+            console.log("新BGM路径不存在:", newBgmKey);
+            this.nextLine();
+            return;
+        }
+        
+        console.log("开始BGM淡出切换，新BGM:", newBgmKey);
+        
+        // 如果当前没有播放BGM，直接播放新的
+        if (!bgmPlayer.src || bgmPlayer.paused) {
+            bgmPlayer.src = audioPath;
+            bgmPlayer.loop = true;
+            bgmPlayer.volume = 1;
+            bgmPlayer.play().catch(error => {
+                console.log("BGM播放失败:", error);
+            });
+            this.nextLine();
+            return;
+        }
+        
+        // 淡出当前BGM
+        const fadeDuration = 1000; // 1秒淡出
+        const fadeSteps = 20; // 分20步完成淡出
+        const fadeInterval = fadeDuration / fadeSteps;
+        const volumeStep = bgmPlayer.volume / fadeSteps;
+        let currentStep = 0;
+        
+        const fadeOutInterval = setInterval(() => {
+            currentStep++;
+            bgmPlayer.volume = Math.max(0, bgmPlayer.volume - volumeStep);
+            
+            if (currentStep >= fadeSteps) {
+                // 淡出完成
+                clearInterval(fadeOutInterval);
+                bgmPlayer.volume = 0;
+                bgmPlayer.pause();
+                bgmPlayer.currentTime = 0;
+                
+                // 播放新BGM
+                bgmPlayer.src = audioPath;
+                bgmPlayer.loop = true;
+                bgmPlayer.volume = 1;
+                bgmPlayer.play().catch(error => {
+                    console.log("新BGM播放失败:", error);
+                });
+                
+                console.log("BGM切换完成:", newBgmKey);
+                
+                // 继续下一行
+                this.nextLine();
+            }
+        }, fadeInterval);
     },
     
     // 播放视频
