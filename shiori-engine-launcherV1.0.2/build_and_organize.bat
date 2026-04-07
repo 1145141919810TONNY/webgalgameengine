@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 echo ====================================
-echo   Galgame Launcher 构建脚本
+echo   Shiori Launcher 构建脚本
 echo ====================================
 echo.
 
