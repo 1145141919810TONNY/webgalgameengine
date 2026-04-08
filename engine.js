@@ -25,7 +25,9 @@ const gameEngine = {
         fastForwardActive: false,  // 快进模式是否激活
         fastForwardTimerId: null,   // 快进定时器 ID
         audioSegments: null,        // 音频分段数组
-        currentAudioSegment: 0     // 当前音频段索引
+        currentAudioSegment: 0,     // 当前音频段索引
+        povActive: false,           // POV视角是否激活
+        povIndicator: null          // POV指示器DOM元素引用
     },
     
     // DOM元素引用
@@ -414,6 +416,22 @@ const gameEngine = {
                 return {
                     type: 'waitForClick'
                 };
+            
+            case 'pov':
+                // 处理 pov 指令
+                if (parts.length >= 2 && parts[1].toLowerCase() === 'stop') {
+                    return {
+                        type: 'povStop'
+                    };
+                } else if (parts.length >= 2) {
+                    // 提取视角名称（去除引号）
+                    const povName = parts.slice(1).join(' ').replace(/"/g, '').trim();
+                    return {
+                        type: 'povShow',
+                        povName: povName
+                    };
+                }
+                break;
         }
             
         // 如果没有识别到命令，返回空对象
@@ -641,6 +659,14 @@ const gameEngine = {
             case 'waitForClick':
                 // 等待用户点击继续
                 // 不执行任何操作，等待用户点击
+                break;
+            case 'povShow':
+                // 显示POV视角指示器
+                this.showPovIndicator(action.povName);
+                break;
+            case 'povStop':
+                // 隐藏POV视角指示器
+                this.hidePovIndicator();
                 break;
             default:
                 console.log('未知动作类型:', action.type);
@@ -1048,6 +1074,8 @@ const gameEngine = {
     goToScene: function(sceneUrl) {
         // 在跳转前停止所有音频，包括BGM
         this.stopAllAudioWithBGM();
+        // 清理POV状态
+        this.clearPovState();
         window.location.href = sceneUrl;
     },
     
@@ -2443,6 +2471,9 @@ const gameEngine = {
         // 标记当前场景为已完成
         this.markSceneCompleted();
         
+        // 清理POV状态
+        this.clearPovState();
+        
         // 延迟跳转，给用户时间阅读最后的文本
         setTimeout(() => {
             // 在跳转前停止所有音频，包括BGM
@@ -2566,5 +2597,44 @@ const gameEngine = {
             this.elements.contextMenu.classList.add('show');
             this.elements.contextMenuBackdrop.style.display = 'block';
         }
+    },
+    
+    // 显示POV视角指示器
+    showPovIndicator: function(povName) {
+        // 如果已经存在，先移除旧的
+        if (this.state.povIndicator && this.state.povIndicator.parentNode) {
+            this.state.povIndicator.parentNode.removeChild(this.state.povIndicator);
+        }
+        
+        // 创建新的POV指示器
+        const povElement = document.createElement('div');
+        povElement.className = 'pov-indicator';
+        povElement.textContent = `当前叙事视角 ${povName}`;
+        
+        document.body.appendChild(povElement);
+        
+        // 更新状态
+        this.state.povActive = true;
+        this.state.povIndicator = povElement;
+        
+        console.log('POV视角已显示:', povName);
+    },
+    
+    // 隐藏POV视角指示器
+    hidePovIndicator: function() {
+        if (this.state.povIndicator && this.state.povIndicator.parentNode) {
+            this.state.povIndicator.parentNode.removeChild(this.state.povIndicator);
+        }
+        
+        // 更新状态
+        this.state.povActive = false;
+        this.state.povIndicator = null;
+        
+        console.log('POV视角已隐藏');
+    },
+    
+    // 清理POV状态（用于场景切换时）
+    clearPovState: function() {
+        this.hidePovIndicator();
     }
 };
