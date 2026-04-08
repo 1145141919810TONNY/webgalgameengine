@@ -232,12 +232,6 @@ const gameEngine = {
         
         const line = this.sceneData.story[index];
         
-        // 解析并执行标签命令
-        if (line.command) {
-            this.executeCommand(line.command);
-            return;
-        }
-        
         // 设置说话者
         if (line.speaker) {
             this.elements.nameBox.textContent = line.speaker;
@@ -298,6 +292,12 @@ const gameEngine = {
         // 播放视频
         if (line.video && this.sceneData.videos && this.sceneData.videos[line.video]) {
             this.playVideo(line.video);
+        }
+        
+        // 解析并执行标签命令
+        if (line.command) {
+            this.executeCommand(line.command);
+            return;
         }
         
         // 处理动作
