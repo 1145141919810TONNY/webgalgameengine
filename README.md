@@ -24,6 +24,32 @@
 - esc：打开游戏上下文菜单
 - ctrl：快进剧情
 
+# V1.0.8更新内容（2026/4/8）
+- 新增 `pov` 标签，支持叙事视角显示功能
+  - 语法格式：`command: "[pov 角色名]"` 或 `command: "[pov stop]"`
+  - 功能说明：在屏幕右上角显示当前叙事视角，帮助玩家理解故事视角
+  - 视觉样式：金色文字 (#FFD700)，24px加粗，位置固定在右边缘10px、上边缘100px
+  - 行为特性：显示后持续存在，直到遇到 `[pov stop]` 指令或场景切换时自动清除
+  - 示例代码：
+    ```javascript
+    {
+        text: "切换到主角视角",
+        speaker: "系统",
+        command: "[pov 主角]"  // 显示"当前叙事视角 主角"
+    },
+    {
+        text: "停止显示视角",
+        speaker: "系统",
+        command: "[pov stop]"  // 隐藏视角指示器
+    }
+    ```
+  - 默认字体与样式修改：
+    - POV 指示器默认继承全局字体设置（`body` 中定义的 `'Microsoft YaHei'`）
+    - 如需全局修改字体，编辑 `style.css` 中的 `body` 或 `*` 选择器的 `font-family` 属性
+    - 如仅需修改 POV 指示器样式，直接编辑 `style.css` 中的 `.pov-indicator` 类（可调整 `font-family`、`font-size`、`color` 等属性）
+    - `engine.js` 负责逻辑控制（显示/隐藏），不直接定义样式；如需动态修改样式，可通过扩展引擎代码实现
+    - 默认显示格式为"当前叙事视角 [角色名]"，如需修改前缀文字或显示格式，需编辑 `engine.js` 中 `showPovIndicator` 函数的模板字符串
+
 # V1.0.7更新内容（2026/4/8）
 - 新增 `bgm wait` 标签，支持 BGM 淡出切换功能
   - 语法格式：`bgm: "bgm wait <新BGM标识符>"`
