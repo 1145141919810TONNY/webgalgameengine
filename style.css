@@ -1,4 +1,4 @@
-/* 视觉小说引擎样式 */
+/* Shiori 引擎样式 */
 * {
     margin: 0;
     padding: 0;
@@ -290,4 +290,21 @@ audio {
     width: 100%;
     height: 100%;
     object-fit: contain;
+}
+
+/* POV视角指示器 */
+.pov-indicator {
+    position: fixed;
+    right: 10px;
+    top: 100px;
+    color: #FFD700;
+    font-size: 24px;
+    font-weight: bold;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), 
+                 -2px -2px 4px rgba(0, 0, 0, 0.8),
+                 2px -2px 4px rgba(0, 0, 0, 0.8),
+                 -2px 2px 4px rgba(0, 0, 0, 0.8);
+    z-index: 5;
+    pointer-events: none;
+    user-select: none;
 }
