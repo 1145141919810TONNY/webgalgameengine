@@ -26,6 +26,7 @@
 
 # V1.0.9更新内容（2026/4/8）
 - 修复了使用`pov`指令时，bgm无法播放的问题
+- **重要提示**：所有 `command` 指令应当单独占用一个故事行对象，且该对象的 `text` 字段应为空字符串 (`""`) 或 `null`。详细规范请参考 [COMMAND_USAGE_GUIDELINES.md](COMMAND_USAGE_GUIDELINES.md)
 
 # V1.0.8更新内容（2026/4/8）
 - 新增 `pov` 标签，支持叙事视角显示功能
