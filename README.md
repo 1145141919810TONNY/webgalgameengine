@@ -261,10 +261,6 @@ action: {
     target: "scene2"
 }
 
-// 小说模式控制
-action: { type: "novelOn" }   // 开启小说模式
-action: { type: "novelOff" }  // 关闭小说模式
-
 // 等待控制
 action: {
     type: "wait",
