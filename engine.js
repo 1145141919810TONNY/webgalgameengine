@@ -417,6 +417,12 @@ const gameEngine = {
                     type: 'waitForClick'
                 };
             
+            case 'wait':
+                // 处理 wait 指令，支持 [wait] 或 [wait click]
+                return {
+                    type: 'waitForClick'
+                };
+            
             case 'pov':
                 // 处理 pov 指令
                 if (parts.length >= 2 && parts[1].toLowerCase() === 'stop') {
@@ -432,6 +438,18 @@ const gameEngine = {
                     };
                 }
                 break;
+            
+            case 'novel':
+                // 开启小说模式
+                return {
+                    type: 'novelOn'
+                };
+            
+            case 'normal':
+                // 关闭小说模式
+                return {
+                    type: 'novelOff'
+                };
         }
             
         // 如果没有识别到命令，返回空对象
@@ -801,8 +819,12 @@ const gameEngine = {
     
     // 带分段等待的文本显示（支持文本内的[s]标签）
     typeTextWithSplits: function(text) {
-        // 重置文本框
-        this.elements.textBox.textContent = '';
+        // 重置文本框（根据模式选择容器）
+        if (this.state.novelMode) {
+            this.elements.novelTextBox.textContent = '';
+        } else {
+            this.elements.textBox.textContent = '';
+        }
         
         // 分割文本，按[s]标签分段
         const segments = text.split(/\[s\]/i);
@@ -829,8 +851,8 @@ const gameEngine = {
             this.state.textSegments = null;
             this.state.currentSegment = 0;
             this.state.waitingForSegmentClick = false;
-            this.state.audioSegments = null;      // 新增
-            this.state.currentAudioSegment = 0;   // 新增
+            this.state.audioSegments = null;      
+            this.state.currentAudioSegment = 0;   
             return;
         }
         
@@ -871,8 +893,11 @@ const gameEngine = {
             previousLength += this.state.textSegments[i].length;
         }
         
+        // 根据当前模式选择文本容器
+        const targetBox = this.state.novelMode ? this.elements.novelTextBox : this.elements.textBox;
+        
         // 显示已有的内容
-        this.elements.textBox.textContent = fullText.substring(0, previousLength);
+        targetBox.textContent = fullText.substring(0, previousLength);
         
         // 对新增部分使用打字效果
         const newText = fullText.substring(previousLength);
@@ -888,11 +913,14 @@ const gameEngine = {
         let i = 0;
         const speed = 30;
         
+        // 根据当前模式选择文本容器
+        const targetBox = this.state.novelMode ? this.elements.novelTextBox : this.elements.textBox;
+        
         this.state.typingActive = true;
         
         const typeWriter = () => {
             if (i < text.length) {
-                this.elements.textBox.textContent += text.charAt(i);
+                targetBox.textContent += text.charAt(i);
                 i++;
                 // 保存定时器 ID，以便可以被清除
                 this.state.typingTimerId = setTimeout(typeWriter, speed);
@@ -952,8 +980,11 @@ const gameEngine = {
     // 打字机效果显示文本
     typeText: function(text) {
         let processedText = this.processLineBreaks(text);
+        
+        // 根据当前模式选择文本容器
+        const targetBox = this.state.novelMode ? this.elements.novelTextBox : this.elements.textBox;
             
-        this.elements.textBox.innerHTML = '';
+        targetBox.innerHTML = '';
         let i = 0;
         const speed = 30; // 打字速度，毫秒
             
@@ -969,15 +1000,15 @@ const gameEngine = {
                     let tagEnd = processedText.indexOf('>', i);
                     if (tagEnd !== -1) {
                         // 添加整个标签
-                        this.elements.textBox.innerHTML += processedText.substring(i, tagEnd + 1);
+                        targetBox.innerHTML += processedText.substring(i, tagEnd + 1);
                         i = tagEnd + 1;
                     } else {
                         // 如果没有找到>，当作普通字符处理
-                        this.elements.textBox.innerHTML += charToAdd;
+                        targetBox.innerHTML += charToAdd;
                         i++;
                     }
                 } else {
-                    this.elements.textBox.innerHTML += charToAdd;
+                    targetBox.innerHTML += charToAdd;
                     i++;
                 }
                     
@@ -1319,15 +1350,21 @@ const gameEngine = {
         this.state.novelMode = enabled;
         
         if (enabled) {
-            // 显示全屏小说模式
-            this.elements.novelModeContainer.style.display = 'flex';
+            // 隐藏角色和文本框，但保持背景可见
+            this.elements.characterContainer.style.display = 'none';
             this.elements.textContainer.style.display = 'none';
+            
+            // 显示全屏小说模式（背景通过半透明遮罩可见）
+            this.elements.novelModeContainer.style.display = 'flex';
             
             // 将当前文本复制到全屏模式（保持HTML格式）
             this.elements.novelTextBox.innerHTML = this.elements.textBox.innerHTML;
         } else {
             // 隐藏全屏小说模式
             this.elements.novelModeContainer.style.display = 'none';
+            
+            // 恢复原有UI元素
+            this.elements.characterContainer.style.display = '';
             this.elements.textContainer.style.display = 'flex';
         }
     },
