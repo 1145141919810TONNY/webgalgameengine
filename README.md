@@ -139,31 +139,6 @@
   - 编译部署流程：下载 `galgame-engine-launcher` 文件夹的全部内容，直接双击运行 `build_and_deploy.bat` 进行自动编译。该编译过程无需额外环境配置，甚至无需打开Visual Studio（仅需系统中安装任意版本的Visual Studio即可）。
   - 部署方式：将生成的可执行文件（默认名称： GalgameLauncher.exe ，约60MB）放置于与 index.html 同级目录中，终端用户通过双击该启动器运行引擎。预编译版本作为Release附件分发。
 
-文件结构，请至少在assets文件夹中创建如下对应文件夹
-
-galgame-engine/<br>
-├── index.html          # 主菜单页面<br>
-├── engine.js           # 核心JavaScript引擎<br>
-├── Shiori.exe          # 启动器<br>
-├── bgm_config.js       # BGM 集中配置文件<br>
-├── cg_config.js        # CG 集中配置文件<br>
-├── style.css           # 样式文件<br>
-├── icon                # 更改你的浏览器页面的图标文件夹<br>
-├── assets/             # 资源文件<br>
-│   ├── bg/             # 背景图片<br>
-│   ├── audio/          # 音频文件<br>
-│   ├── bgm/            # BGM文件<br>
-│   ├── video/          # 视频文件<br>
-│   └── chars/          # 角色立绘<br>
-├── scenes/             # 场景文件<br>
-│   └── scene0.html     # 场景模板<br>
-└── html/               # 功能页面<br>
-    ├── bgm.html        # BGM鉴赏页面<br>
-    ├── CG.html         # CG鉴赏页面<br>
-    ├── saves.html      # 存档页面<br>
-    └── video.html      # 视频鉴赏页面<br>
-
-
 程序底层框架：月が綺麗ですね_
 https://space.bilibili.com/87412647?spm_id_from=333.1007.0.0
 
@@ -178,27 +153,36 @@ https://space.bilibili.com/87412647?spm_id_from=333.1007.0.0
 ## 1.1 项目结构解析
 
 
-galgame-engine/<br>
-├── index.html          # 主菜单页面<br>
-├── Shiori.exe          # 启动器<br>
-├── engine.js           # 核心JavaScript引擎<br>
-├── bgm_config.js       # BGM 集中配置文件<br>
-├── cg_config.js        # CG 集中配置文件<br>
-├── style.css           # 样式文件<br>
-├── icon                # 更改你的浏览器页面的图标文件夹<br>
-├── assets/             # 资源文件<br>
-│   ├── bg/             # 背景图片<br>
-│   ├── audio/          # 音频文件<br>
-│   ├── bgm/            # BGM文件<br>
-│   ├── video/          # 视频文件<br>
-│   └── chars/          # 角色立绘<br>
-├── scenes/             # 场景文件<br>
-│   └── scene0.html     # 场景模板<br>
-└── html/               # 功能页面<br>
-    ├── bgm.html        # BGM鉴赏页面<br>
-    ├── CG.html         # CG鉴赏页面<br>
-    ├── saves.html      # 存档页面<br>
-    └── video.html      # 视频鉴赏页面<br>
+galgame-engine/
+├── shiori.exe            # Windows 可执行启动器（推荐）<br>
+├── index.html            # 主菜单页面<br>
+├── engine.js             # 核心 JavaScript 引擎<br>
+├── style.css             # 样式文件<br>
+├── bg_config.js          # 背景图片集中配置文件<br>
+├── bgm_config.js         # BGM 集中配置文件<br>
+├── cg_config.js          # CG 集中配置文件<br>
+├── launch_game.bat       # 批处理启动脚本<br>
+├── icon/                 # 浏览器图标文件夹<br>
+│   └── icon-32.png       # 浏览器页面图标<br>
+├── assets/               # 资源文件目录<br>
+│   ├── bg/               # 背景图片<br>
+│   ├── chars/            # 角色立绘<br>
+│   ├── audio/            # 音效/语音<br>
+│   ├── bgm/              # 背景音乐<br>
+│   ├── cg/               # CG图片<br>
+│   └── video/            # 视频文件<br>
+├── scenes/               # 场景剧本 <br>
+│   └── scene0.html       # 空白模板<br>
+├── html/                 # 功能页面<br>
+│   ├── saves.html        # 存档管理<br>
+│   ├── bgm.html          # BGM 鉴赏<br>
+│   ├── video.html        # 视频鉴赏<br>
+│   ├── CG.html           # CG 图鉴<br>
+│   └── story.html        # 小故事页面<br>
+├── api/                  # API 接口<br>
+│   ├── progress.json     # 进度数据<br>
+│   └── progress_api.js   # 进度API脚本<br>
+└──  plugin/               # 插件扩展目录<br>
 
 # 2. 核心概念详解
 
