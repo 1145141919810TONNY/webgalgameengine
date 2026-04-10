@@ -1,108 +1,139 @@
 /**
  * Shiori 引擎核心脚本
- * 可根据需求自由修改和扩展
+ * 可按需自由修改
  */
 
 
 const gameEngine = {
-    // 游戏状态
     state: {
-        currentScene: 0,           // 当前场景索引
-        currentLine: 0,            // 当前台词索引
-        novelMode: false,          // 是否为全屏小说模式
-        choicesActive: false,      // 是否正在显示选项
-        conditionalStack: [],      // 条件判断栈
-        currentConditionResult: null,  // 当前条件结果
-        pendingSelections: [],     // 待处理的选项
-        disableLVE: false,         // 是否禁用演出效果
-        affinity: {},              // 好感度系统
-        completedScenes: [],       // 完成的场景列表
-        contextMenuInitialized: false,  // 上下文菜单是否已初始化
-        textSegments: null,        // 文本分段数组
-        currentSegment: 0,         // 当前文本段索引
-        waitingForSegmentClick: false,  // 是否在等待分段点击
-        typingTimerId: null,       // 打字效果定时器 ID
-        fastForwardActive: false,  // 快进模式是否激活
-        fastForwardTimerId: null,   // 快进定时器 ID
-        audioSegments: null,        // 音频分段数组
-        currentAudioSegment: 0,     // 当前音频段索引
-        povActive: false,           // POV视角是否激活
-        povIndicator: null          // POV指示器DOM元素引用
+        // 当前场景索引
+        currentScene: 0,
+        // 当前对话行号
+        currentLine: 0,
+        // 是否启用全屏小说模式
+        novelMode: false,
+        // 选项菜单是否处于激活状态
+        choicesActive: false,
+        // 条件判断栈，用于嵌套的条件分支
+        conditionalStack: [],
+        // 当前条件判断的结果
+        currentConditionResult: null,
+        // 待显示的选项列表
+        pendingSelections: [],
+        // 是否禁用Live2D演出效果
+        disableLVE: false,
+        // 角色好感度数据
+        affinity: {},
+        // 已完成的场景列表
+        completedScenes: [],
+        // 右键菜单是否已初始化
+        contextMenuInitialized: false,
+        // 分段文本数组（支持[s]标签）
+        textSegments: null,
+        // 当前显示的分段索引
+        currentSegment: 0,
+        // 是否等待用户点击以继续下一段文本
+        waitingForSegmentClick: false,
+        // 打字机效果的定时器ID
+        typingTimerId: null,
+        // 打字机效果是否正在运行
+        typingActive: false,
+        // 快进模式是否激活
+        fastForwardActive: false,
+        // 快进模式的定时器ID
+        fastForwardTimerId: null,
+        // 音频片段数组（支持[a]标签）
+        audioSegments: null,
+        // 当前播放的音频片段索引
+        currentAudioSegment: 0,
+        // POV视角指示器是否激活
+        povActive: false,
+        // POV视角指示器DOM元素
+        povIndicator: null,
+        // 文本是否已完整显示（用于控制点击行为）
+        textFullyDisplayed: false
     },
     
-    // DOM元素引用
     elements: {
+        // 背景容器DOM元素
         backgroundContainer: null,
+        // 角色立绘容器DOM元素
         characterContainer: null,
+        // 角色姓名框DOM元素
         nameBox: null,
+        // 对话框DOM元素
         textBox: null,
+        // 选项容器DOM元素
         optionsContainer: null,
+        // 全屏小说模式文本框DOM元素
         novelTextBox: null,
+        // 全屏小说模式容器DOM元素
         novelModeContainer: null,
+        // 文本框外层容器DOM元素
         textContainer: null,
+        // BGM音频播放器DOM元素
         bgmPlayer: null,
+        // 音效播放器DOM元素
         sePlayer: null,
+        // 语音播放器DOM元素
         voicePlayer: null
     },
     
-    // 场景数据
+    // 当前场景数据对象
     sceneData: null,
     
-    // 初始化引擎
+    /**
+     * 初始化游戏引擎
+     * @param {Object} data - 场景数据对象，包含story、background、audio等配置
+     */
     init: function(data) {
+        // 缓存场景数据
         this.sceneData = data;
+        // 缓存DOM元素引用
         this.cacheElements();
+        // 绑定事件监听器
         this.bindEvents();
-        
-        // 加载之前的进度
+        // 加载存档进度
         this.loadProgress();
-        
-        // 检查并保存当前场景的唯一标识符到存档
+        // 保存当前场景标记
         this.saveCurrentSceneMarker();
-        
-        // 如果有视频元素，初始化视频播放器
+        // 隐藏视频播放器
         if (this.elements.videoPlayer) {
             this.elements.videoPlayer.style.display = 'none';
         }
-        
+        // 显示第一行对话
         this.displayLine(this.state.currentLine);
-        
-        // 请求用户交互以启用音频播放
+        // 请求音频播放权限（处理浏览器自动播放策略）
         this.requestAudioPlayback();
     },
     
-    // 请求音频播放权限
+    /**
+     * 请求音频播放权限
+     * 通过监听用户首次交互来解锁音频上下文，解决浏览器自动播放限制
+     */
     requestAudioPlayback: function() {
-        // 某些浏览器需要在用户交互后才能播放音频
-        // 设置监听器以响应用户首次交互并尝试解锁音频
         const handleFirstInteraction = () => {
-            // 尝试播放一个无声的音频片段来解锁音频上下文
             this.unlockAudioContext();
-            
-            // 移除事件监听器
             document.removeEventListener('mousedown', handleFirstInteraction);
             document.removeEventListener('touchstart', handleFirstInteraction);
             document.removeEventListener('keydown', handleFirstInteraction);
         };
-        
-        // 监听用户的第一次交互
         document.addEventListener('mousedown', handleFirstInteraction);
         document.addEventListener('touchstart', handleFirstInteraction);
         document.addEventListener('keydown', handleFirstInteraction);
     },
     
-    // 尝试解锁音频上下文
+    /**
+     * 解锁音频上下文
+     * 通过先静音播放再恢复音量的方式绕过浏览器自动播放策略
+     */
     unlockAudioContext: function() {
-        // 某些浏览器需要先播放一个无声的音频片段来解锁音频上下文
         try {
-            // 尝试播放一个无声的音频
             this.elements.bgmPlayer.volume = 0;
             this.elements.bgmPlayer.play().then(() => {
-                // 播放成功后恢复音量
                 this.elements.bgmPlayer.volume = 1;
                 console.log("音频上下文已解锁");
             }).catch(() => {
-                // 如果失败，恢复音量
                 this.elements.bgmPlayer.volume = 1;
             });
         } catch (e) {
@@ -111,7 +142,10 @@ const gameEngine = {
         }
     },
     
-    // 缓存DOM元素
+    /**
+     * 缓存DOM元素引用
+     * 将所有常用的DOM元素一次性获取并存储，避免重复查询提升性能
+     */
     cacheElements: function() {
         this.elements = {
             backgroundContainer: document.getElementById('background-container'),
@@ -132,30 +166,37 @@ const gameEngine = {
         };
     },
     
-    // 绑定事件
+    /**
+     * 绑定全局事件监听器
+     * 包括点击、右键、键盘等交互事件的处理
+     */
     bindEvents: function() {
-        // 点击继续故事
+        // 左键点击事件：推进对话或显示完整文本
         document.body.addEventListener('click', (e) => {
             if (!this.state.choicesActive && !this.isOptionElement(e.target)) {
-                // 优先处理分段文本点击
                 if (this.state.waitingForSegmentClick) {
-                    // 如果正在打字新增内容，立即停止打字并显示下一句
                     if (this.state.typingActive) {
-                        // 清除定时器，停止打字
+                        // 如果正在打字，立即显示完整文本
                         if (this.state.typingTimerId !== null) {
                             clearTimeout(this.state.typingTimerId);
                             this.state.typingTimerId = null;
                         }
                         this.state.typingActive = false;
-                        // 清除音频序列状态
+                        const targetBox = this.state.novelMode ? this.elements.novelTextBox : this.elements.textBox;
+                        let fullText = '';
+                        if (this.state.textSegments) {
+                            for (let i = 0; i <= this.state.currentSegment; i++) {
+                                fullText += this.state.textSegments[i];
+                            }
+                        } else {
+                            const currentLine = this.sceneData.story[this.state.currentLine];
+                            if (currentLine && currentLine.text) {
+                                fullText = this.processLineBreaks(currentLine.text);
+                            }
+                        }
+                        targetBox.innerHTML = fullText;
                         this.state.audioSegments = null;
                         this.state.currentAudioSegment = 0;
-                        // 清空文本，直接进入下一行
-                        this.elements.textBox.innerHTML = '';
-                        this.state.currentLine++;
-                        if (this.state.currentLine < this.sceneData.story.length) {
-                            this.displayLine(this.state.currentLine);
-                        }
                         return;
                     }
                     this.handleSegmentClick();
@@ -165,42 +206,44 @@ const gameEngine = {
             }
         });
         
-        // 右键跳过视频或继续故事
+        // 右键点击事件：跳过视频或推进对话
         document.body.addEventListener('contextmenu', (e) => {
-            // 如果视频正在播放，跳过视频
             if (this.elements.videoPlayer && this.elements.videoPlayer.style.display === 'block') {
+                // 视频播放时，右键跳过
                 e.preventDefault();
                 this.skipVideo();
             } else if (!this.state.choicesActive && !this.isOptionElement(e.target)) {
-                // 如果没有选项激活，右键也可以继续故事
+                // 非选项状态时，右键推进对话
                 e.preventDefault();
                 this.nextLine();
             }
         });
         
-        // ESC 键呼出上下文菜单
+        // 键盘按下事件：ESC键切换菜单，Ctrl键快进
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
+                // ESC键切换右键菜单
                 e.preventDefault();
                 this.toggleContextMenu();
             }
                     
-            // Ctrl 键按下开始快进
             if (e.key === 'Control' && !this.state.fastForwardActive) {
+                // Ctrl键开始快进
                 e.preventDefault();
                 this.startFastForward();
             }
         });
                 
-        // Ctrl 键释放停止快进
+        // 键盘释放事件：停止快进
         document.addEventListener('keyup', (e) => {
             if (e.key === 'Control') {
+                // 释放Ctrl键停止快进
                 e.preventDefault();
                 this.stopFastForward();
             }
         });
         
-        // 点击遮罩层关闭菜单
+        // 右键菜单背景点击事件：关闭菜单
         if (this.elements.contextMenuBackdrop) {
             this.elements.contextMenuBackdrop.addEventListener('click', () => {
                 this.toggleContextMenu();
@@ -208,31 +251,44 @@ const gameEngine = {
         }
     },
     
-    // 检查是否点击了选项元素
+    /**
+     * 检查元素是否为选项元素
+     * @param {HTMLElement} element - 要检查的DOM元素
+     * @returns {boolean} - 是否为选项容器内的元素
+     */
     isOptionElement: function(element) {
         return element.closest('#options-container') !== null;
     },
     
-    // 显示当前行
+    
+    /**
+     * 显示指定行的对话内容
+     * 处理文本、背景、BGM、视频等多种元素的显示逻辑
+     * @param {number} index - 要显示的行索引
+     */
     displayLine: function(index) {
+        // 检查是否到达场景末尾
         if (index >= this.sceneData.story.length) {
             console.log("故事结束或到达场景末尾");
             this.handleEndOfScene();
             return;
         }
         
+        // 重置文本完整显示标志
+        this.state.textFullyDisplayed = false;
+        
         // 检查当前行是否应该被跳过（基于条件判断）
         if (this.shouldSkipLine(index)) {
             this.state.currentLine = index;
             setTimeout(() => {
                 this.nextLine();
-            }, 10); // 短暂延迟以避免阻塞
+            }, 10);
             return;
         }
         
         const line = this.sceneData.story[index];
         
-        // 设置说话者
+        // 设置说话者姓名
         if (line.speaker) {
             this.elements.nameBox.textContent = line.speaker;
             this.elements.nameBox.style.display = 'block';
@@ -240,32 +296,33 @@ const gameEngine = {
             this.elements.nameBox.style.display = 'none';
         }
 
-        // 设置文本（带打字机效果）
+        // 显示文本（支持分段和打字机效果）
         this.typeTextWithSplits(line.text);
         
-        // 解析音频序列（如果存在[a]标签）
+        // 解析并播放音频序列（支持[a]标签的多段音频）
         if (line.audio && typeof line.audio === 'string' && line.audio.includes('[a]')) {
             this.state.audioSegments = this.parseAudioSequence(line.audio);
             this.state.currentAudioSegment = 0;
             
-            // 播放第一个音频
             if (this.state.audioSegments.length > 0) {
                 this.playAudio(this.state.audioSegments[0]);
             }
         } else if (line.audio) {
-            // 原有的单音频播放逻辑
+            // 播放单个音频文件
             if (this.sceneData.audio && this.sceneData.audio[line.audio] && 
                 !(this.sceneData.bgm && this.sceneData.bgm[line.audio])) {
                 this.playAudio(line.audio);
             }
         }
         
-        // 切换背景
+        // 切换背景图片
         if (line.background) {
             let bgPath = null;
+            // 优先从场景数据中查找背景路径
             if (this.sceneData.background[line.background]) {
                 bgPath = this.sceneData.background[line.background];
             } else if (typeof CG_CONFIG_SUB !== 'undefined' && CG_CONFIG_SUB[line.background]) {
+                // 如果场景数据中没有，则从CG配置中查找
                 bgPath = CG_CONFIG_SUB[line.background];
             }
             
@@ -274,17 +331,17 @@ const gameEngine = {
             }
         }
         
-        // 处理BGM（优先级更高）
+        // 处理BGM播放逻辑
         if (line.bgm) {
             if (line.bgm === 'bgm stop') {
-                // 停止当前BGM播放
+                // 停止当前BGM
                 this.stopBGM();
             } else if (typeof line.bgm === 'string' && line.bgm.startsWith('bgm wait ')) {
                 // 淡出旧BGM并播放新BGM
                 const newBgmKey = line.bgm.substring('bgm wait '.length).trim();
                 this.fadeOutAndPlayBGM(newBgmKey);
             } else if (this.sceneData.bgm && this.sceneData.bgm[line.bgm]) {
-                // 播放指定的BGM
+                // 直接播放指定BGM
                 this.playAudio(line.bgm);
             }
         }
@@ -294,24 +351,28 @@ const gameEngine = {
             this.playVideo(line.video);
         }
         
-        // 解析并执行标签命令
+        // 解析并执行标签命令（如[s]、[wait]等）
         if (line.command) {
             this.executeCommand(line.command);
             return;
         }
         
-        // 处理动作
+        // 处理动作指令（如背景切换、特效等）
         if (line.action) {
             this.handleAction(line.action);
         }
         
-        // 更新当前行
+        // 更新当前行号
         this.state.currentLine = index;
     },
     
-    // 执行标签命令
+    /**
+     * 执行标签命令
+     * 解析并执行场景文件中的命令标签（如[s]、[wait]、[novel]等）
+     * @param {string} command - 命令字符串
+     */
     executeCommand: function(command) {
-        // 解析命令字符串
+        // 解析命令字符串为结构化对象
         const parsedCommand = this.parseCommand(command);
         
         // 执行解析后的命令
@@ -319,17 +380,16 @@ const gameEngine = {
             this.handleAction(parsedCommand);
         }
         
-        // 检查是否是需要等待用户点击的命令类型
+        // 定义需要等待用户点击的命令类型
         const waitForClickCommands = ['waitForClick'];
         
-        // 如果命令类型是需要等待用户点击的，不要自动继续
+        // 如果命令需要等待用户点击，显示提示信息
         if (waitForClickCommands.includes(parsedCommand.type)) {
-            // 显示提示信息，告诉用户需要点击继续
             this.elements.textBox.textContent = '点击继续';
             this.elements.nameBox.textContent = '系统';
             this.elements.nameBox.style.display = 'block';
         } else {
-            // 如果没有后续文本，直接进入下一行
+            // 如果没有后续文本，自动进入下一行
             if (!parsedCommand.text) {
                 setTimeout(() => {
                     this.nextLine();
@@ -338,9 +398,15 @@ const gameEngine = {
         }
     },
     
-    // 解析标签命令
+    
+    /**
+     * 解析命令字符串
+     * 将类似 [command param=value] 格式的标签解析为结构化对象
+     * @param {string} commandStr - 命令字符串，如 "[wait click]" 或 "[fadeout time=1000]"
+     * @returns {Object} - 解析后的命令对象，包含type和参数
+     */
     parseCommand: function(commandStr) {
-        // 解析命令，支持类似 [command param=value] 的格式
+        // 使用正则表达式提取命令内容
         const cmdMatch = commandStr.match(/\[([^\]]+)\]/);
         if (!cmdMatch) return {};
             
@@ -348,7 +414,7 @@ const gameEngine = {
         const parts = fullCmd.split(' ');
         const cmdName = parts[0].toLowerCase();
             
-        // 解析参数
+        // 解析键值对参数
         const params = {};
         for (let i = 1; i < parts.length; i++) {
             const paramMatch = parts[i].match(/([a-zA-Z0-9]+)=(.+)/);
@@ -357,14 +423,22 @@ const gameEngine = {
             }
         }
             
-        // 调用专门的命令解析函数
+        // 根据命令名称调用专门的解析函数
         return this.parseCommandByName(cmdName, params, parts);
     },
         
-    // 根据命令名称解析具体命令
+    /**
+     * 根据命令名称解析命令
+     * 将不同标签命令转换为统一的动作对象格式
+     * @param {string} cmdName - 命令名称（小写）
+     * @param {Object} params - 键值对参数对象
+     * @param {Array} parts - 分割后的命令部分数组
+     * @returns {Object} - 标准化的动作对象
+     */
     parseCommandByName: function(cmdName, params, parts) {
         switch(cmdName) {
             case 'fadeout':
+                // 淡出效果
                 return {
                     type: 'fadeOut',
                     duration: parseInt(params.time) || 1000,
@@ -372,21 +446,25 @@ const gameEngine = {
                 };
                     
             case 'clearname':
+                // 清除姓名框
                 return {
                     type: 'clearName'
                 };
                     
             case 'msgoff':
+                // 隐藏文本框
                 return {
                     type: 'hideText'
                 };
                     
             case 'msgon':
+                // 显示文本框
                 return {
                     type: 'showText'
                 };
                     
             case 'fadein':
+                // 淡入效果
                 return {
                     type: 'fadeIn',
                     duration: parseInt(params.time) || 1000,
@@ -394,11 +472,13 @@ const gameEngine = {
                 };
                     
             case 'clear':
+                // 清除姓名框（clearname的别名）
                 return {
                     type: 'clearName'
                 };
                     
             case 'finish':
+                // 游戏结束（黑色背景）
                 return {
                     type: 'finishGame',
                     bgColor: params.bgcolor || 'black',
@@ -406,6 +486,7 @@ const gameEngine = {
                 };
                     
             case 'finishwhite':
+                // 游戏结束（白色背景）
                 return {
                     type: 'finishGame',
                     bgColor: params.bgcolor || 'white',
@@ -413,18 +494,19 @@ const gameEngine = {
                 };
                     
             case 's':
+                // 分段等待标签
                 return {
                     type: 'waitForClick'
                 };
             
             case 'wait':
-                // 处理 wait 指令，支持 [wait] 或 [wait click]
+                // 等待用户点击
                 return {
                     type: 'waitForClick'
                 };
             
             case 'pov':
-                // 处理 pov 指令
+                // 处理POV视角指令
                 if (parts.length >= 2 && parts[1].toLowerCase() === 'stop') {
                     return {
                         type: 'povStop'
@@ -440,13 +522,13 @@ const gameEngine = {
                 break;
             
             case 'novel':
-                // 开启小说模式
+                // 开启全屏小说模式
                 return {
                     type: 'novelOn'
                 };
             
             case 'normal':
-                // 关闭小说模式
+                // 关闭全屏小说模式，恢复正常模式
                 return {
                     type: 'novelOff'
                 };
@@ -456,7 +538,10 @@ const gameEngine = {
         return {};
     },
     
-    // 显示选项
+    /**
+     * 显示选项菜单
+     * @param {Array} choices - 选项数组，每个选项包含text和target属性
+     */
     showChoices: function(choices) {
         this.state.choicesActive = true;
         this.elements.optionsContainer.innerHTML = '';
@@ -467,7 +552,7 @@ const gameEngine = {
             button.textContent = choice.text;
             button.dataset.target = choice.target;
             
-            // 根据选项数量调整按钮位置
+            // 设置选项按钮位置（由CSS Grid控制）
             button.style.gridArea = this.calculateChoicePosition(index, choices.length);
             
             button.addEventListener('click', (e) => {
@@ -481,69 +566,67 @@ const gameEngine = {
         this.elements.optionsContainer.style.display = 'grid';
     },
     
-    // 计算选项位置
+    /**
+     * 计算选项位置（已由CSS Grid替代）
+     * @deprecated 此方法不再使用，保留用于向后兼容
+     */
     calculateChoicePosition: function(index, total) {
-        // 此方法不再用于CSS Grid布局
-        // CSS Grid布局由CSS负责
         return '';
     },
     
-    // 处理动作
+    /**
+     * 处理动作指令
+     * 根据动作类型执行相应的游戏逻辑（如切换背景、播放音效、显示选项等）
+     * @param {Object} action - 动作对象，包含type和相应参数
+     */
     handleAction: function(action) {
         switch(action.type) {
             case 'choice':
+                // 显示选项菜单
                 this.showChoices(action.choices);
                 break;
             case 'novelOn':
+                // 开启全屏小说模式
                 this.setNovelMode(true);
                 break;
             case 'novelOff':
+                // 关闭全屏小说模式
                 this.setNovelMode(false);
                 break;
             case 'nextScene':
-                // 这是[next]指令的模拟，会在最后一条线后触发
+                // 跳转到下一个场景
                 if(action.target) {
                     this.goToScene(action.target);
                 }
                 break;
             case 'fadeOut':
-                // 淡出效果
                 this.fadeOut(action.duration || 1000, action.backgroundColor || 'black');
                 break;
             case 'fadeIn':
-                // 淡入效果
                 this.fadeIn(action.duration || 1000, action.backgroundColor || 'black');
                 break;
             case 'clearName':
-                // 清除姓名框
                 this.clearNameBox();
                 break;
             case 'hideText':
-                // 隐藏文本框
                 this.hideTextBox();
                 break;
             case 'showText':
-                // 显示文本框
                 this.showTextBox();
                 break;
             case 'hideAllCharacters':
-                // 隐藏所有角色
                 this.hideAllCharacters();
                 break;
             case 'hideEventVisual':
-                // 隐藏事件画面
                 this.hideEventVisual();
                 break;
             case 'finishGame':
-                // 游戏结束（淡出到指定颜色）
                 this.finishGame(action.bgColor, action.duration);
                 break;
             case 'finishGameNoTransition':
-                // 游戏结束（无转场效果）
                 this.finishGameNoTransition(action.bgColor, action.duration);
                 break;
             case 'chapterEnd':
-                // 章节结束
                 this.chapterEnd(action.bgColor, action.duration);
                 break;
             case 'fadeOutWhite':
@@ -551,139 +634,112 @@ const gameEngine = {
                 this.fadeOut(action.duration || 1000, 'white');
                 break;
             case 'windowMode':
-                // 窗口模式
+                // 窗口模式切换
                 this.setWindowMode(action.visible);
                 break;
             case 'novelMode':
-                // 小说模式
+                // 小说模式切换
                 this.setNovelMode(action.visible);
                 break;
             case 'backgroundChange':
-                // 背景变更
+                // 背景切换（带动画）
                 this.backgroundChangeWithTransition(action);
                 break;
             case 'backgroundChangeNoTransition':
-                // 背景变更无转场
+                // 背景切换（无动画）
                 this.backgroundChangeWithoutTransition(action);
                 break;
             case 'backgroundErase':
-                // 背景消除
                 this.backgroundErase(action);
                 break;
             case 'eventShow':
-                // 事件显示
                 this.eventShow(action);
                 break;
             case 'eventHide':
-                // 事件消除
                 this.eventHide(action);
                 break;
             case 'whiteOut':
-                // 白色覆盖
                 this.whiteOut(action.time);
                 break;
             case 'hideCharacter':
-                // 隐藏角色
                 this.hideCharacter(action.time);
                 break;
             case 'betaFuraShow':
-                // 单色显示
                 this.betaFuraShow(action);
                 break;
             case 'betaFuraEnd':
-                // 单色结束
                 this.betaFuraEnd(action);
                 break;
             case 'eventBlurShow':
-                // 事件模糊显示
                 this.eventBlurShow(action);
                 break;
             case 'eventBlurRestore':
-                // 事件模糊恢复
                 this.eventBlurRestore(action);
                 break;
             case 'sepiaStart':
-                // 怀旧滤镜开始
                 this.sepiaStart();
                 break;
             case 'sepiaEnd':
-                // 怀旧滤镜结束
                 this.sepiaEnd();
                 break;
             case 'sepiaStartWithWhiteout':
-                // 怀旧滤镜开始・白色覆盖
                 this.sepiaStartWithWhiteout(action.time);
                 break;
             case 'sepiaEndWithWhiteout':
-                // 怀旧滤镜结束・白色覆盖
                 this.sepiaEndWithWhiteout(action.time);
                 break;
             case 'fadeoutSepiaEnd':
-                // 暗转怀旧滤镜结束
                 this.fadeoutSepiaEnd();
                 break;
             case 'flashbackStart':
-                // 回忆开始
                 this.flashbackStart(action);
                 break;
             case 'flashbackEnd':
-                // 回忆结束
                 this.flashbackEnd(action);
                 break;
             case 'negaposiFlip':
-                // 负正反转
                 this.negaposiFlip(action);
                 break;
             case 'negaposiFlipEnd':
-                // 负正反转结束
                 this.negaposiFlipEnd(action);
                 break;
             case 'affinityChange':
-                // 好感度变化
                 this.affinityChange(action);
                 break;
             case 'affinityUpShow':
-                // 好感度上升演出
                 this.affinityUpShow(action);
                 break;
             case 'affinityDownShow':
-                // 好感度下降演出
                 this.affinityDownShow(action);
                 break;
             case 'conditional':
-                // 条件判断
+                // 条件判断开始
                 this.handleConditional(action);
                 break;
             case 'conditionalElse':
-                // 条件否则
+                // 条件判断else分支
                 this.handleConditionalElse();
                 break;
             case 'conditionalEnd':
-                // 条件结束
+                // 条件判断结束
                 this.handleConditionalEnd();
                 break;
             case 'addSelection':
-                // 添加选项
                 this.addSelection(action);
                 break;
             case 'showSelections':
-                // 显示选项
                 this.showSelections();
                 break;
             case 'returnToMenu':
-                // 返回主菜单
                 this.returnToMenu();
                 break;
             case 'waitForClick':
-                // 等待用户点击继续
-                // 不执行任何操作，等待用户点击
+                // 等待用户点击（不执行任何操作）
                 break;
             case 'povShow':
-                // 显示POV视角指示器
                 this.showPovIndicator(action.povName);
                 break;
             case 'povStop':
-                // 隐藏POV视角指示器
                 this.hidePovIndicator();
                 break;
             default:
@@ -691,8 +747,15 @@ const gameEngine = {
         }
     },
     
-    // 淡出效果
+    /**
+     * 淡出效果
+     * 创建覆盖层并逐渐增加不透明度，实现淡出到指定颜色的效果
+     * @param {number} duration - 淡出持续时间（毫秒）
+     * @param {string} backgroundColor - 淡出目标颜色
+     * @param {Function} [callback] - 淡出完成后的回调函数
+     */
     fadeOut: function(duration, backgroundColor, callback) {
+        // 创建淡出覆盖层
         const overlay = document.createElement('div');
         overlay.id = 'fade-overlay';
         overlay.style.position = 'absolute';
@@ -705,7 +768,7 @@ const gameEngine = {
         overlay.style.opacity = '0';
         document.body.appendChild(overlay);
         
-        // 动画效果
+        // 计算动画参数
         let startOpacity = 0;
         const interval = 16; // 约60fps
         const steps = duration / interval;
@@ -715,7 +778,6 @@ const gameEngine = {
             startOpacity += opacityStep;
             if (startOpacity >= 1) {
                 overlay.style.opacity = '1';
-                // 淡出完成后执行回调或继续下一行
                 if (callback && typeof callback === 'function') {
                     callback();
                 } else {
@@ -732,7 +794,12 @@ const gameEngine = {
         requestAnimationFrame(fadeStep);
     },
     
-    // 淡入效果
+    /**
+     * 淡入效果
+     * 创建覆盖层并逐渐降低不透明度，实现从指定颜色淡入的效果
+     * @param {number} duration - 淡入持续时间（毫秒）
+     * @param {string} backgroundColor - 淡入起始颜色
+     */
     fadeIn: function(duration, backgroundColor) {
         const overlay = document.createElement('div');
         overlay.id = 'fade-overlay';
@@ -746,7 +813,6 @@ const gameEngine = {
         overlay.style.opacity = '1';
         document.body.appendChild(overlay);
         
-        // 动画效果
         let startOpacity = 1;
         const interval = 16; // 约60fps
         const steps = duration / interval;
@@ -757,7 +823,7 @@ const gameEngine = {
             if (startOpacity <= 0) {
                 overlay.style.opacity = '0';
                 document.body.removeChild(overlay);
-                // 淡入完成后自动执行下一行
+                
                 setTimeout(() => {
                     this.nextLine();
                 }, 100);
@@ -770,36 +836,47 @@ const gameEngine = {
         requestAnimationFrame(fadeStep);
     },
     
-    // 清除姓名框
+    /**
+     * 清除姓名框
+     * 清空姓名文本并隐藏姓名框
+     */
     clearNameBox: function() {
         this.elements.nameBox.textContent = '';
         this.elements.nameBox.style.display = 'none';
     },
     
-    // 隐藏文本框
+    /**
+     * 隐藏文本框
+     */
     hideTextBox: function() {
         this.elements.textContainer.style.display = 'none';
     },
     
-    // 显示文本框
+    /**
+     * 显示文本框
+     */
     showTextBox: function() {
         this.elements.textContainer.style.display = 'flex';
     },
     
-    // 处理场景结束
+    /**
+     * 处理场景结束逻辑
+     * 标记场景完成并显示点击提示
+     */
     handleEndOfScene: function() {
         // 标记当前场景为已完成
         this.markSceneCompleted();
         
-        // 在实际游戏中，这里可能需要跳转到下一个场景
-        // 或者显示一个提示让玩家手动跳转
         console.log("场景结束，等待用户操作或自动跳转");
         
-        // 添加一个点击提示
+        // 显示点击提示
         this.addClickPrompt();
     },
     
-    // 添加点击提示
+    /**
+     * 添加点击提示
+     * 在屏幕上显示“点击继续”提示，3秒后自动消失
+     */
     addClickPrompt: function() {
         let prompt = document.querySelector('.click-prompt');
         if (!prompt) {
@@ -817,20 +894,24 @@ const gameEngine = {
         }, 3000);
     },
     
-    // 带分段等待的文本显示（支持文本内的[s]标签）
+    /**
+     * 带分段等待的文本显示
+     * 支持文本内的[s]标签，实现分段显示和点击继续功能
+     * @param {string} text - 要显示的文本内容
+     */
     typeTextWithSplits: function(text) {
-        // 重置文本框（根据模式选择容器）
+        // 根据模式选择文本容器并清空
         if (this.state.novelMode) {
             this.elements.novelTextBox.textContent = '';
         } else {
             this.elements.textBox.textContent = '';
         }
         
-        // 分割文本，按[s]标签分段
+        // 按[s]标签分割文本
         const segments = text.split(/\[s\]/i);
         
         if (segments.length <= 1) {
-            // 没有[s]标签，使用原来的方式
+            // 没有[s]标签，使用普通打字机效果
             this.typeText(text);
             return;
         }
@@ -844,15 +925,20 @@ const gameEngine = {
         this.displayTextSegment(0);
     },
     
-    // 显示文本片段（累积显示模式-优化版）
+    /**
+     * 显示文本片段（累积显示模式）
+     * 逐段显示文本，每段显示后等待用户点击
+     * @param {number} segmentIndex - 要显示的分段索引
+     */
     displayTextSegment: function(segmentIndex) {
         if (segmentIndex >= this.state.textSegments.length) {
-            // 所有片段都显示完毕
+            // 所有片段都显示完毕，重置状态
             this.state.textSegments = null;
             this.state.currentSegment = 0;
             this.state.waitingForSegmentClick = false;
             this.state.audioSegments = null;      
             this.state.currentAudioSegment = 0;   
+            this.state.textFullyDisplayed = true;
             return;
         }
         
@@ -866,12 +952,12 @@ const gameEngine = {
                 cumulativeText += this.state.textSegments[i];
             }
             
-            // 只对新增的部分使用打字效果
+            // 根据是否为第一段选择不同的显示方式
             if (segmentIndex === 0) {
                 // 第一段，使用完整打字效果
                 this.typeText(cumulativeText);
             } else {
-                // 后续段落，先显示已有的内容，只对新增部分打字
+                // 后续段落，先显示已有内容，只对新增部分打字
                 this.showCumulativeText(cumulativeText, segmentIndex);
             }
             
@@ -885,7 +971,12 @@ const gameEngine = {
         }
     },
     
-    // 显示累积文本
+    /**
+     * 显示累积文本
+     * 先显示已有内容，然后对新增部分使用打字效果
+     * @param {string} fullText - 完整的累积文本
+     * @param {number} currentSegment - 当前分段索引
+     */
     showCumulativeText: function(fullText, currentSegment) {
         // 计算之前的内容长度
         let previousLength = 0;
@@ -893,7 +984,6 @@ const gameEngine = {
             previousLength += this.state.textSegments[i].length;
         }
         
-        // 根据当前模式选择文本容器
         const targetBox = this.state.novelMode ? this.elements.novelTextBox : this.elements.textBox;
         
         // 显示已有的内容
@@ -908,12 +998,15 @@ const gameEngine = {
         }
     },
     
-    // 追加打字效果
+    /**
+     * 追加打字效果
+     * 在现有文本基础上继续打字显示
+     * @param {string} text - 要追加显示的文本
+     */
     typeTextAppend: function(text) {
         let i = 0;
         const speed = 30;
         
-        // 根据当前模式选择文本容器
         const targetBox = this.state.novelMode ? this.elements.novelTextBox : this.elements.textBox;
         
         this.state.typingActive = true;
@@ -922,23 +1015,25 @@ const gameEngine = {
             if (i < text.length) {
                 targetBox.textContent += text.charAt(i);
                 i++;
-                // 保存定时器 ID，以便可以被清除
                 this.state.typingTimerId = setTimeout(typeWriter, speed);
             } else {
                 this.state.typingActive = false;
                 this.state.typingTimerId = null;
+                this.state.textFullyDisplayed = true;
             }
         };
         
         typeWriter();
     },
     
-    // 显示下一段
+    /**
+     * 显示下一段文本
+     */
     displayNextSegment: function() {
         if (this.state.textSegments && this.state.currentSegment < this.state.textSegments.length - 1) {
             this.displayTextSegment(this.state.currentSegment + 1);
         } else {
-            // 所有片段显示完毕
+            // 所有片段显示完毕，重置状态
             this.state.textSegments = null;
             this.state.currentSegment = 0;
             this.state.waitingForSegmentClick = false;
@@ -947,13 +1042,17 @@ const gameEngine = {
         }
     },
     
-    // 显示点击提示
+    /**
+     * 显示点击提示（占位函数）
+     */
     showClickPrompt: function() {
-        // 可以在这里添加视觉提示，比如闪烁光标等
         console.log("等待点击继续...");
     },
     
-    // 处理分段文本的点击
+    /**
+     * 处理分段文本的点击事件
+     * 用户点击后显示下一段文本并切换音频
+     */
     handleSegmentClick: function() {
         if (this.state.waitingForSegmentClick) {
             this.state.waitingForSegmentClick = false;
@@ -971,17 +1070,21 @@ const gameEngine = {
         }
     },
     
-    // 隐藏点击提示
+    /**
+     * 隐藏点击提示（占位函数）
+     */
     hideClickPrompt: function() {
-        // 清除点击提示
         console.log("点击提示已隐藏");
     },
     
-    // 打字机效果显示文本
+    /**
+     * 打字机效果显示文本
+     * 逐字符显示文本，支持HTML标签处理
+     * @param {string} text - 要显示的文本内容
+     */
     typeText: function(text) {
         let processedText = this.processLineBreaks(text);
         
-        // 根据当前模式选择文本容器
         const targetBox = this.state.novelMode ? this.elements.novelTextBox : this.elements.textBox;
             
         targetBox.innerHTML = '';
@@ -1012,18 +1115,23 @@ const gameEngine = {
                     i++;
                 }
                     
-                // 保存定时器 ID，以便可以被清除
                 this.state.typingTimerId = setTimeout(typeWriter, speed);
             } else {
                 this.state.typingActive = false;
                 this.state.typingTimerId = null;
+                this.state.textFullyDisplayed = true;
             }
         };
             
         typeWriter();
     },
     
-    // 处理换行标签
+    /**
+     * 处理换行标签
+     * 将多种换行标记格式统一转换为HTML <br> 标签
+     * @param {string} text - 原始文本
+     * @returns {string} - 处理后的文本
+     */
     processLineBreaks: function(text) {
         if (!text) return text;
         
@@ -1035,39 +1143,77 @@ const gameEngine = {
             .replace(/\n/g, '<br>');          // 普通换行符
     },
     
-    // 下一行
+    /**
+     * 推进到下一行对话
+     * 处理打字机效果、文本完整显示、场景结束等逻辑
+     */
     nextLine: function() {
-        if (this.state.choicesActive) return; // 如果正在显示选项，则不处理
+        // 如果选项菜单激活，不处理
+        if (this.state.choicesActive) return; 
         
-        // 清除可能存在的音频序列状态
+        // 清除音频序列状态
         this.state.audioSegments = null;
         this.state.currentAudioSegment = 0;
         
-        // 如果正在打字，立即停止打字效果并清空文本
+        // 如果正在打字，立即停止并显示完整文本
         if (this.state.typingActive) {
-            // 清除定时器，立即停止打字
+            // 清除定时器
             if (this.state.typingTimerId !== null) {
                 clearTimeout(this.state.typingTimerId);
                 this.state.typingTimerId = null;
             }
             this.state.typingActive = false;
-            // 清空文本框，准备显示下一句
-            this.elements.textBox.innerHTML = '';
+            
+            // 根据模式选择文本容器
+            const targetBox = this.state.novelMode ? this.elements.novelTextBox : this.elements.textBox;
+            
+            // 获取当前应该显示的完整文本
+            let fullText = '';
+            if (this.state.textSegments) {
+                // 对于分段文本，累积显示到当前段
+                for (let i = 0; i <= this.state.currentSegment; i++) {
+                    fullText += this.state.textSegments[i];
+                }
+            } else {
+                // 对于普通文本，从当前行获取
+                const currentLine = this.sceneData.story[this.state.currentLine];
+                if (currentLine && currentLine.text) {
+                    fullText = this.processLineBreaks(currentLine.text);
+                }
+            }
+            
+            // 立即显示完整文本
+            targetBox.innerHTML = fullText;
+            
+            // 设置标志，表示文本已完整显示，下次点击才进入下一行
+            this.state.textFullyDisplayed = true;
+            return;
         }
         
+        // 检查是否已经完整显示了当前文本
+        if (this.state.textFullyDisplayed) {
+            this.state.textFullyDisplayed = false;
+            // 重置分段状态
+            this.state.textSegments = null;
+            this.state.currentSegment = 0;
+            this.state.waitingForSegmentClick = false;
+        }
+        
+        // 推进到下一行
         this.state.currentLine++;
         
         if (this.state.currentLine < this.sceneData.story.length) {
             this.displayLine(this.state.currentLine);
         } else {
-            // 如果已经到了故事的最后一行，触发 [next] 行为
+            // 到达场景末尾
             console.log("到达场景末尾，准备跳转...");
-            // 在实际应用中，这里应该跳转到下一个场景
-            // this.goToNextScene(); 
         }
     },
     
-    // 开始快进
+    /**
+     * 开始快进模式
+     * 按住Ctrl键时快速推进对话
+     */
     startFastForward: function() {
         if (this.state.fastForwardActive || this.state.choicesActive) return;
         
@@ -1077,17 +1223,19 @@ const gameEngine = {
         // 立即执行一次
         this.nextLine();
         
-        // 然后每 50ms 自动执行一次，实现快进效果
+        // 每50ms自动执行一次，实现快进效果
         this.state.fastForwardTimerId = setInterval(() => {
             if (!this.state.fastForwardActive || this.state.choicesActive) {
                 this.stopFastForward();
                 return;
             }
             this.nextLine();
-        }, 50); // 50ms 间隔，可以根据需要调整
+        }, 50); 
     },
     
-    // 停止快进
+    /**
+     * 停止快进模式
+     */
     stopFastForward: function() {
         if (!this.state.fastForwardActive) return;
         
@@ -1101,36 +1249,46 @@ const gameEngine = {
         console.log("停止快进");
     },
     
-    // 跳转到下一个场景
+    /**
+     * 跳转到指定场景
+     * @param {string} sceneUrl - 目标场景的URL
+     */
     goToScene: function(sceneUrl) {
-        // 在跳转前停止所有音频，包括BGM
+        // 停止所有音频
         this.stopAllAudioWithBGM();
-        // 清理POV状态
+        // 清除POV状态
         this.clearPovState();
+        // 跳转页面
         window.location.href = sceneUrl;
     },
     
-    // 设置背景
+    /**
+     * 设置背景图片
+     * @param {string} imagePath - 背景图片路径
+     */
     setBackground: function(imagePath) {
         this.elements.backgroundContainer.style.backgroundImage = `url('${imagePath}')`;
         this.elements.backgroundContainer.style.backgroundSize = 'cover';
         this.elements.backgroundContainer.style.backgroundPosition = 'center';
     },
     
-    // 播放音频
+    /**
+     * 播放音频
+     * 根据音频类型（BGM/语音）选择对应的播放器，处理浏览器自动播放限制
+     * @param {string} audioKey - 音频键名，从场景数据的bgm或audio中查找
+     */
     playAudio: function(audioKey) {
         let audioPath = null;
         let isBgm = false;
         
-        // 首先检查bgm对象中是否存在该音频
+        // 优先检查是否为BGM
         if (this.sceneData.bgm && this.sceneData.bgm[audioKey]) {
             audioPath = this.sceneData.bgm[audioKey];
-            isBgm = true;  // 严格根据是否在bgm数组内判断
+            isBgm = true;  
         } 
-        // 如果不是BGM，则检查audio对象
+        // 否则检查是否为普通音频
         else if (this.sceneData.audio && this.sceneData.audio[audioKey]) {
             audioPath = this.sceneData.audio[audioKey];
-            // 不再根据音频键名判断，只有在bgm数组内的才算BGM
             isBgm = false;
         }
         
@@ -1141,19 +1299,19 @@ const gameEngine = {
         
         console.log("播放音频:", audioKey, "路径:", audioPath, "是否为BGM:", isBgm);
         
-        // 根据是否为背景音乐决定播放方式
+        // BGM处理逻辑
         if (isBgm) {
-            // 背景音乐，使用循环播放
-            // 检查是否已经在播放相同的BGM，如果是则无需重新播放
+            // 如果当前播放的不是同一个BGM，则重新加载
             if (this.elements.bgmPlayer.src !== audioPath) {
                 this.elements.bgmPlayer.src = audioPath;
                 this.elements.bgmPlayer.loop = true;
-                // 仅在更换BGM时尝试播放，捕获可能的自动播放策略错误
+                
                 const playPromise = this.elements.bgmPlayer.play();
                 if (playPromise !== undefined) {
                     playPromise.catch(error => {
                         console.log("BGM播放失败，请注意浏览器自动播放策略限制，可能需要用户交互后才能播放:", error);
-                        // 在自动播放被阻止时，设置音量为0来“解锁”音频
+                        
+                        // 尝试解锁音频上下文
                         this.elements.bgmPlayer.volume = 0;
                         this.elements.bgmPlayer.play().then(() => {
                             this.elements.bgmPlayer.volume = 1;
@@ -1164,12 +1322,11 @@ const gameEngine = {
                     });
                 }
             } else {
-                // 如果BGM相同且已在播放，只需确保loop属性设置正确
+                // 如果是同一个BGM，确保循环播放
                 this.elements.bgmPlayer.loop = true;
             }
         } else {
-            // 音效或语音，不循环
-            // 只停止语音和音效，保留BGM播放
+            // 非BGM音频（语音/音效）处理
             this.elements.voicePlayer.pause();
             this.elements.sePlayer.pause();
             this.elements.voicePlayer.loop = false;
@@ -1178,7 +1335,8 @@ const gameEngine = {
             if (playPromise !== undefined) {
                 playPromise.catch(error => {
                     console.log("音频播放失败，请注意浏览器自动播放策略限制:", error);
-                    // 同样尝试解锁语音播放
+                    
+                    // 尝试解锁音频上下文
                     this.elements.voicePlayer.volume = 0;
                     this.elements.voicePlayer.play().then(() => {
                         this.elements.voicePlayer.volume = 1;
@@ -1191,31 +1349,42 @@ const gameEngine = {
         }
     },
     
-    // 解析音频序列（支持[a]标签）
+    /**
+     * 解析音频序列
+     * 将包含[a]标签的音频字符串分割成数组
+     * @param {string} audioStr - 音频序列字符串，如 "audio1[a]audio2[a]audio3"
+     * @returns {Array} - 音频键名数组
+     */
     parseAudioSequence: function(audioStr) {
         if (!audioStr || typeof audioStr !== 'string') {
             return [];
         }
         
-        // 按[a]标签分割音频键名
+        // 按[a]标签分割并过滤空字符串
         const segments = audioStr.split(/\[a\]/i);
         return segments.filter(seg => seg.trim().length > 0);
     },
     
-    // 停止所有音频（保留BGM）
+    /**
+     * 停止所有音频（不含BGM）
+     */
     stopAllAudio: function() {
         this.elements.voicePlayer.pause();
         this.elements.sePlayer.pause();
     },
     
-    // 停止所有音频（包括BGM）
+    /**
+     * 停止所有音频（包括BGM）
+     */
     stopAllAudioWithBGM: function() {
         this.elements.bgmPlayer.pause();
         this.elements.sePlayer.pause();
         this.elements.voicePlayer.pause();
     },
     
-    // 停止单独的BGM播放
+    /**
+     * 停止BGM播放
+     */
     stopBGM: function() {
         if (this.elements.bgmPlayer) {
             this.elements.bgmPlayer.pause();
@@ -1224,11 +1393,15 @@ const gameEngine = {
         }
     },
     
-    // 淡出当前BGM并播放新BGM
+    /**
+     * 淡出当前BGM并播放新BGM
+     * 实现平滑的BGM切换效果
+     * @param {string} newBgmKey - 新BGM的键名
+     */
     fadeOutAndPlayBGM: function(newBgmKey) {
         const bgmPlayer = this.elements.bgmPlayer;
         
-        // 检查新BGM是否存在
+        // 查找新BGM路径
         let audioPath = null;
         if (this.sceneData.bgm && this.sceneData.bgm[newBgmKey]) {
             audioPath = this.sceneData.bgm[newBgmKey];
@@ -1254,25 +1427,25 @@ const gameEngine = {
             return;
         }
         
-        // 淡出当前BGM
+        // 淡出参数设置
         const fadeDuration = 1000; // 1秒淡出
-        const fadeSteps = 20; // 分20步完成淡出
+        const fadeSteps = 20; 
         const fadeInterval = fadeDuration / fadeSteps;
         const volumeStep = bgmPlayer.volume / fadeSteps;
         let currentStep = 0;
         
+        // 执行淡出动画
         const fadeOutInterval = setInterval(() => {
             currentStep++;
             bgmPlayer.volume = Math.max(0, bgmPlayer.volume - volumeStep);
             
             if (currentStep >= fadeSteps) {
-                // 淡出完成
                 clearInterval(fadeOutInterval);
                 bgmPlayer.volume = 0;
                 bgmPlayer.pause();
                 bgmPlayer.currentTime = 0;
                 
-                // 播放新BGM
+                // 加载并播放新BGM
                 bgmPlayer.src = audioPath;
                 bgmPlayer.loop = true;
                 bgmPlayer.volume = 1;
@@ -1288,7 +1461,10 @@ const gameEngine = {
         }, fadeInterval);
     },
     
-    // 播放视频
+    /**
+     * 播放视频
+     * @param {string} videoKey - 视频键名，从场景数据的videos中查找
+     */
     playVideo: function(videoKey) {
         if (!this.elements.videoPlayer || !this.elements.mainVideo) {
             console.log('视频播放器未找到');
@@ -1302,30 +1478,32 @@ const gameEngine = {
             return;
         }
         
-        // 设置视频源并播放
+        // 设置视频源
         this.elements.mainVideo.src = videoPath;
         
         // 显示视频播放器
         this.elements.videoPlayer.style.display = 'block';
         
-        // 播放视频
         this.elements.mainVideo.play().catch(e => console.log('视频播放失败:', e));
         
-        // 添加右键跳过功能
+        // 设置跳过视频的快捷键
         this.setupVideoSkip();
     },
     
-    // 设置视频跳过功能（右键）
+    /**
+     * 设置视频跳过功能
+     * 支持右键点击和ESC键跳过视频
+     */
     setupVideoSkip: function() {
         const self = this;
         
-        // 阻止右键菜单
+        // 右键点击跳过
         this.elements.videoPlayer.oncontextmenu = function(e) {
             e.preventDefault();
             self.skipVideo();
         };
         
-        // 监听键盘事件（ESC键跳过）
+        // ESC键跳过
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && self.elements.videoPlayer.style.display === 'block') {
                 self.skipVideo();
@@ -1333,43 +1511,51 @@ const gameEngine = {
         });
     },
     
-    // 跳过视频
+    /**
+     * 跳过视频
+     * 隐藏视频播放器并继续下一行
+     */
     skipVideo: function() {
         if (this.elements.videoPlayer && this.elements.mainVideo) {
             this.elements.videoPlayer.style.display = 'none';
             this.elements.mainVideo.pause();
             this.elements.mainVideo.currentTime = 0;
             
-            // 继续游戏
+            // 继续下一行
             this.nextLine();
         }
     },
     
-    // 设置全屏小说模式
+    /**
+     * 设置全屏小说模式
+     * @param {boolean} enabled - 是否启用小说模式
+     */
     setNovelMode: function(enabled) {
         this.state.novelMode = enabled;
         
         if (enabled) {
-            // 隐藏角色和文本框，但保持背景可见
+            // 隐藏角色立绘和对话框
             this.elements.characterContainer.style.display = 'none';
             this.elements.textContainer.style.display = 'none';
             
-            // 显示全屏小说模式（背景通过半透明遮罩可见）
+            // 显示全屏小说容器
             this.elements.novelModeContainer.style.display = 'flex';
             
-            // 将当前文本复制到全屏模式（保持HTML格式）
+            // 转移文本内容到小说模式文本框
             this.elements.novelTextBox.innerHTML = this.elements.textBox.innerHTML;
         } else {
-            // 隐藏全屏小说模式
+            // 隐藏全屏小说容器
             this.elements.novelModeContainer.style.display = 'none';
             
-            // 恢复原有UI元素
+            // 恢复角色立绘和对话框
             this.elements.characterContainer.style.display = '';
             this.elements.textContainer.style.display = 'flex';
         }
     },
     
-    // 隐藏所有角色
+    /**
+     * 隐藏所有角色立绘
+     */
     hideAllCharacters: function() {
         const characters = this.elements.characterContainer.querySelectorAll('.character');
         characters.forEach(char => {
@@ -1378,10 +1564,10 @@ const gameEngine = {
         });
     },
     
-    // 隐藏事件画面
+    /**
+     * 隐藏事件CG和特效层
+     */
     hideEventVisual: function() {
-        // 在当前实现中，这可能涉及特定的事件图像层
-        // 目前简化为清除背景容器的一些效果
         const eventElements = document.querySelectorAll('.event-image, .effect-layer');
         eventElements.forEach(el => {
             el.style.opacity = '0';
@@ -1389,27 +1575,33 @@ const gameEngine = {
         });
     },
     
-    // 游戏结束（淡出到指定颜色）
+    /**
+     * 游戏结束（带淡出效果）
+     * @param {string} bgColor - 淡出背景颜色
+     * @param {number} duration - 淡出持续时间
+     */
     finishGame: function(bgColor, duration) {
         this.clearNameBox();
         this.hideTextBox();
         
-        // 隐藏所有角色
         this.hideAllCharacters();
         
-        // 淡出到指定背景色
+        // 执行淡出效果
         this.fadeOut(duration || 1500, bgColor || 'black');
     },
     
-    // 游戏结束（无转场效果）
+    /**
+     * 游戏结束（无转场效果）
+     * @param {string} bgColor - 背景颜色
+     * @param {number} duration - 持续时间
+     */
     finishGameNoTransition: function(bgColor, duration) {
         this.clearNameBox();
         this.hideTextBox();
         
-        // 隐藏所有角色
         this.hideAllCharacters();
         
-        // 直接设置背景色，无过渡效果
+        // 创建覆盖层，直接显示不淡出
         const overlay = document.createElement('div');
         overlay.id = 'fade-overlay';
         overlay.style.position = 'absolute';
@@ -1427,26 +1619,30 @@ const gameEngine = {
         }, duration || 1500);
     },
     
-    // 章节结束
+    /**
+     * 章节结束
+     * 淡出后返回主菜单
+     * @param {string} bgColor - 淡出背景颜色
+     * @param {number} duration - 淡出持续时间
+     */
     chapterEnd: function(bgColor, duration) {
         this.clearNameBox();
         this.hideTextBox();
         
-        // 隐藏所有角色
         this.hideAllCharacters();
         
-        // 使用左右wipe效果淡出
-        // 由于我们没有具体的wipe效果，使用普通的淡出代替
-        // 使用回调函数在淡出完成后执行下一步
+        // 淡出后返回主菜单
         this.fadeOut(duration || 1500, bgColor || 'black', () => {
-            // 淡出完成后，可以返回主菜单或其他操作
             setTimeout(() => {
                 this.returnToMenu();
             }, 100);
         });
     },
     
-    // 窗口模式
+    /**
+     * 设置窗口模式
+     * @param {boolean} visible - 是否显示文本框
+     */
     setWindowMode: function(visible) {
         this.hideTextBox();
         
@@ -1455,73 +1651,84 @@ const gameEngine = {
         }
     },
     
-    // 背景变更（带转场）
+    /**
+     * 背景切换（带动画）
+     * 先淡出，切换背景，再淡入
+     * @param {Object} options - 切换选项
+     */
     backgroundChangeWithTransition: function(options) {
         this.clearNameBox();
         this.hideTextBox();
         
-        // 隐藏所有角色
         this.hideAllCharacters();
         
-        // 先淡出到黑色
+        // 淡出后切换背景并淡入
         this.fadeOut(200, 'black', () => {
-            // 更改背景
             this.setBackgroundWithPosition(options);
-            
-            // 然后淡入
+                    
             this.fadeIn(options.time || 1000, 'black');
         });
     },
     
-    // 背景变更（无转场）
+    /**
+     * 背景切换（无动画）
+     * 直接切换背景，然后淡入
+     * @param {Object} options - 切换选项
+     */
     backgroundChangeWithoutTransition: function(options) {
         this.clearNameBox();
         this.hideTextBox();
         
-        // 隐藏所有角色
         this.hideAllCharacters();
         
-        // 直接更改背景
+        // 直接设置背景
         this.setBackgroundWithPosition(options);
         
-        // 然后淡入
         this.fadeIn(options.time || 1000, 'transparent');
     },
     
-    // 带位置参数的背景设置
+    /**
+     * 根据配置设置背景位置
+     * @param {Object} options - 背景配置选项
+     */
     setBackgroundWithPosition: function(options) {
-        // 这里可以扩展以支持背景的位置和缩放参数
-        // 暂时仅使用默认背景设置
+        // 使用通配符背景（如果存在）
         if (this.sceneData.background['*']) {
             this.setBackground(this.sceneData.background['*']);
         }
     },
     
-    // 背景消除
+    /**
+     * 背景消除
+     * 隐藏背景并淡入指定颜色
+     * @param {Object} options - 消除选项，包含time和transition
+     */
     backgroundErase: function(options) {
         this.clearNameBox();
         this.hideTextBox();
         
-        // 隐藏所有角色
         this.hideAllCharacters();
         
-        // 隐藏背景
+        // 隐藏背景容器
         this.elements.backgroundContainer.style.visibility = 'hidden';
         
-        // 使用转场效果
+        // 淡入过渡色
         this.fadeIn(options.time || 1000, options.transition || 'black');
     },
     
-    // 事件显示
+    /**
+     * 显示事件CG
+     * 创建并淡入事件图片
+     * @param {Object} options - 显示选项，包含file、opacity、time等
+     */
     eventShow: function(options) {
         this.clearNameBox();
         this.hideTextBox();
         
-        // 隐藏所有角色
         this.hideAllCharacters();
         
-        // 显示事件图像
         if (options.file && this.sceneData.events && this.sceneData.events[options.file]) {
+            // 创建事件图片元素
             const eventImg = document.createElement('img');
             eventImg.id = 'event-image';
             eventImg.src = this.sceneData.events[options.file];
@@ -1536,7 +1743,7 @@ const gameEngine = {
             
             document.body.appendChild(eventImg);
             
-            // 淡入效果
+            // 执行淡入动画
             let opacity = 0;
             const fadeInInterval = setInterval(() => {
                 opacity += 0.05;
@@ -1544,7 +1751,6 @@ const gameEngine = {
                     opacity = options.opacity / 255;
                     clearInterval(fadeInInterval);
                     
-                    // 淡入完成后继续
                     setTimeout(() => {
                         this.nextLine();
                     }, 100);
@@ -1552,19 +1758,22 @@ const gameEngine = {
                 eventImg.style.opacity = opacity;
             }, options.time / 20);
         } else {
-            // 如果没有找到事件图像，直接继续
             setTimeout(() => {
                 this.nextLine();
             }, 100);
         }
     },
     
-    // 事件消除
+    /**
+     * 隐藏事件CG
+     * 淡出并移除事件图片
+     * @param {Object} options - 隐藏选项
+     */
     eventHide: function(options) {
         this.clearNameBox();
         this.hideTextBox();
         
-        // 获取事件图像并淡出
+        // 查找并淡出事件图片
         const eventImg = document.getElementById('event-image');
         if (eventImg) {
             let opacity = parseFloat(eventImg.style.opacity) || 1;
@@ -1575,7 +1784,7 @@ const gameEngine = {
                     clearInterval(fadeOutInterval);
                     eventImg.remove();
                     
-                    // 淡出完成后继续
+                    // 继续下一行
                     setTimeout(() => {
                         this.nextLine();
                     }, 100);
@@ -1583,19 +1792,21 @@ const gameEngine = {
                 eventImg.style.opacity = opacity;
             }, options.time / 20);
         } else {
-            // 如果没有找到事件图像，直接继续
             setTimeout(() => {
                 this.nextLine();
             }, 100);
         }
     },
     
-    // 白色覆盖
+    /**
+     * 白色闪屏效果
+     * 先淡入白色覆盖层，再淡出，实现闪屏转场效果
+     * @param {number} time - 动画持续时间（毫秒）
+     */
     whiteOut: function(time) {
         this.clearNameBox();
         this.hideTextBox();
         
-        // 隐藏所有角色
         this.hideAllCharacters();
         
         // 创建白色覆盖层
@@ -1611,7 +1822,7 @@ const gameEngine = {
         overlay.style.opacity = '0';
         document.body.appendChild(overlay);
         
-        // 淡入效果
+        // 执行淡入动画
         let opacity = 0;
         const fadeInterval = setInterval(() => {
             opacity += 0.05;
@@ -1619,7 +1830,7 @@ const gameEngine = {
                 opacity = 1;
                 clearInterval(fadeInterval);
                 
-                // 淡出效果
+                // 淡入完成后执行淡出动画
                 const fadeOutInterval = setInterval(() => {
                     opacity -= 0.05;
                     if (opacity <= 0) {
@@ -1627,7 +1838,7 @@ const gameEngine = {
                         clearInterval(fadeOutInterval);
                         overlay.remove();
                         
-                        // 完成后继续
+                        // 继续下一行
                         setTimeout(() => {
                             this.nextLine();
                         }, 100);
@@ -1639,11 +1850,16 @@ const gameEngine = {
         }, time / 20);
     },
     
-    // 隐藏角色
+    /**
+     * 隐藏角色立绘（带动画）
+     * 所有角色同时淡出
+     * @param {number} time - 淡出持续时间（毫秒）
+     */
     hideCharacter: function(time) {
         const characters = this.elements.characterContainer.querySelectorAll('.character');
         if (characters.length > 0) {
             let completedCount = 0;
+            // 对所有角色执行淡出动画
             characters.forEach(char => {
                 let opacity = parseFloat(char.style.opacity) || 1;
                 const fadeInterval = setInterval(() => {
@@ -1654,7 +1870,7 @@ const gameEngine = {
                         char.style.visibility = 'hidden';
                         completedCount++;
                         
-                        // 当所有角色都隐藏后继续
+                        // 所有角色都淡出完成后继续下一行
                         if (completedCount === characters.length) {
                             setTimeout(() => {
                                 this.nextLine();
@@ -1665,58 +1881,20 @@ const gameEngine = {
                 }, time / 20);
             });
         } else {
-            // 如果没有角色需要隐藏，直接继续
+            // 没有角色时直接继续
             setTimeout(() => {
                 this.nextLine();
             }, 100);
         }
     },
     
-    // 自定义淡出函数，支持回调
-    fadeOut: function(duration, backgroundColor, callback) {
-        const overlay = document.createElement('div');
-        overlay.id = 'fade-overlay';
-        overlay.style.position = 'absolute';
-        overlay.style.top = '0';
-        overlay.style.left = '0';
-        overlay.style.width = '100%';
-        overlay.style.height = '100%';
-        overlay.style.backgroundColor = backgroundColor;
-        overlay.style.zIndex = '999';
-        overlay.style.opacity = '0';
-        document.body.appendChild(overlay);
-        
-        // 动画效果
-        let startOpacity = 0;
-        const interval = 16; // 约60fps
-        const steps = duration / interval;
-        const opacityStep = 1 / steps;
-        
-        const fadeStep = () => {
-            startOpacity += opacityStep;
-            if (startOpacity >= 1) {
-                overlay.style.opacity = '1';
-                // 淡出完成后执行回调或继续下一行
-                if (callback && typeof callback === 'function') {
-                    callback();
-                } else {
-                    setTimeout(() => {
-                        this.nextLine();
-                    }, 100);
-                }
-            } else {
-                overlay.style.opacity = startOpacity;
-                requestAnimationFrame(fadeStep);
-            }
-        };
-        
-        requestAnimationFrame(fadeStep);
-    },
-    
-    // 单色显示
+    /**
+     * 单色显示效果（淡出黑色覆盖层）
+     * 创建黑色覆盖层并逐渐淡出
+     * @param {Object} options - 包含time参数
+     */
     betaFuraShow: function(options) {
-        // 显示当前背景，使用圆形展开效果
-        // 由于无法直接实现圆形展开，使用淡入效果模拟
+        // 创建黑色覆盖层
         const overlay = document.createElement('div');
         overlay.id = 'circle-expand-overlay';
         overlay.style.position = 'absolute';
@@ -1729,7 +1907,7 @@ const gameEngine = {
         overlay.style.opacity = '1';
         document.body.appendChild(overlay);
         
-        // 模拟圆形展开效果，逐渐降低遮罩透明度
+        // 执行淡出动画
         let opacity = 1;
         const intervalTime = 16;
         const steps = options.time / intervalTime;
@@ -1742,7 +1920,6 @@ const gameEngine = {
                 clearInterval(animInterval);
                 overlay.remove();
                 
-                // 执行下一步
                 setTimeout(() => {
                     this.nextLine();
                 }, 100);
@@ -1753,14 +1930,18 @@ const gameEngine = {
         const animInterval = setInterval(animate, intervalTime);
     },
     
-    // 单色结束
+    /**
+     * 单色效果结束（淡入黑色覆盖层）
+     * 清除UI元素，创建黑色覆盖层并淡入
+     * @param {Object} options - 配置选项
+     */
     betaFuraEnd: function(options) {
-        // 隐藏所有内容并使用普通过渡效果
+        // 清除UI元素
         this.clearNameBox();
         this.hideTextBox();
         this.hideAllCharacters();
         
-        // 创建一个临时遮罩
+        // 创建黑色覆盖层
         const overlay = document.createElement('div');
         overlay.id = 'temp-overlay';
         overlay.style.position = 'absolute';
@@ -1773,10 +1954,10 @@ const gameEngine = {
         overlay.style.opacity = '0';
         document.body.appendChild(overlay);
         
-        // 淡入遮罩
+        // 执行淡入动画
         let opacity = 0;
         const intervalTime = 16;
-        const steps = 500 / intervalTime; // 使用固定500ms
+        const steps = 500 / intervalTime; 
         const opacityStep = 1 / steps;
         
         const fadeIn = () => {
@@ -1785,15 +1966,14 @@ const gameEngine = {
                 opacity = 1;
                 clearInterval(fadeInInterval);
                 
-                // 然后淡出
+                
                 const fadeOut = () => {
                     opacity -= opacityStep;
                     if (opacity <= 0) {
                         opacity = 0;
                         clearInterval(fadeOutInterval);
                         overlay.remove();
-                        
-                        // 执行下一步
+                                        
                         setTimeout(() => {
                             this.nextLine();
                         }, 100);
@@ -1809,15 +1989,18 @@ const gameEngine = {
         const fadeInInterval = setInterval(fadeIn, intervalTime);
     },
     
-    // 事件模糊显示
+    /**
+     * 显示模糊事件CG
+     * 创建带有模糊效果的事件图片并淡入
+     * @param {Object} options - 包含file、blur、time等参数
+     */
     eventBlurShow: function(options) {
         this.clearNameBox();
         this.hideTextBox();
         
-        // 隐藏所有角色
         this.hideAllCharacters();
         
-        // 显示事件图像并应用模糊效果
+        // 如果存在事件图片，创建并淡入
         if (options.file && this.sceneData.events && this.sceneData.events[options.file]) {
             const eventImg = document.createElement('img');
             eventImg.id = 'event-blur-image';
@@ -1828,13 +2011,14 @@ const gameEngine = {
             eventImg.style.transform = 'translate(-50%, -50%)';
             eventImg.style.maxWidth = '100%';
             eventImg.style.maxHeight = '100%';
+            // 应用模糊滤镜
             eventImg.style.filter = `blur(${options.blur}px)`;
             eventImg.style.opacity = '0';
             eventImg.style.zIndex = '500';
             
             document.body.appendChild(eventImg);
             
-            // 淡入效果
+            // 执行淡入动画
             let opacity = 0;
             const intervalTime = 16;
             const steps = options.time / intervalTime;
@@ -1846,7 +2030,6 @@ const gameEngine = {
                     opacity = 1;
                     clearInterval(fadeInInterval);
                     
-                    // 淡入完成后继续
                     setTimeout(() => {
                         this.nextLine();
                     }, 100);
@@ -1854,23 +2037,27 @@ const gameEngine = {
                 eventImg.style.opacity = opacity;
             }, intervalTime);
         } else {
-            // 如果没有找到事件图像，直接继续
             setTimeout(() => {
                 this.nextLine();
             }, 100);
         }
     },
     
-    // 事件模糊恢复
+    /**
+     * 恢复模糊事件CG（清除模糊并淡出）
+     * @param {Object} options - 包含time参数
+     */
     eventBlurRestore: function(options) {
         this.clearNameBox();
         this.hideTextBox();
         
-        // 获取事件图像并移除模糊效果
+        // 查找模糊事件图片
         const eventImg = document.getElementById('event-blur-image');
         if (eventImg) {
+            // 清除模糊效果
             eventImg.style.filter = 'blur(0px)';
             
+            // 执行淡出动画
             let opacity = 1;
             const intervalTime = 16;
             const steps = options.time / intervalTime;
@@ -1883,7 +2070,6 @@ const gameEngine = {
                     clearInterval(fadeInterval);
                     eventImg.remove();
                     
-                    // 执行下一步
                     setTimeout(() => {
                         this.nextLine();
                     }, 100);
@@ -1891,45 +2077,52 @@ const gameEngine = {
                 eventImg.style.opacity = opacity;
             }, intervalTime);
         } else {
-            // 如果没有找到事件图像，直接继续
             setTimeout(() => {
                 this.nextLine();
             }, 100);
         }
     },
     
-    // 怀旧滤镜开始
+    /**
+     * 开始怀旧滤镜（棕褐色调）
+     * 对整个页面应用grayscale和sepia滤镜
+     */
     sepiaStart: function() {
-        // 应用怀旧滤镜效果（棕褐色调）
+        // 应用怀旧滤镜
         document.body.style.filter = 'grayscale(100%) sepia(100%)';
         
-        // 效果应用完成后继续
         setTimeout(() => {
             this.nextLine();
         }, 100);
     },
     
-    // 怀旧滤镜结束
+    /**
+     * 结束怀旧滤镜
+     * 移除所有CSS滤镜效果
+     */
     sepiaEnd: function() {
-        // 移除怀旧滤镜效果
+        // 清除滤镜
         document.body.style.filter = 'none';
         
-        // 效果移除完成后继续
         setTimeout(() => {
             this.nextLine();
         }, 100);
     },
     
-    // 怀旧滤镜开始・白色覆盖
+    /**
+     * 怀旧滤镜开始（带白屏转场）
+     * 先应用怀旧滤镜，然后执行白屏闪动效果
+     * @param {number} time - 动画持续时间
+     */
     sepiaStartWithWhiteout: function(time) {
         this.clearNameBox();
         this.hideTextBox();
         this.hideAllCharacters();
         
-        // 先应用怀旧滤镜
+        // 应用怀旧滤镜
         document.body.style.filter = 'grayscale(100%) sepia(100%)';
         
-        // 然后白色覆盖
+        // 创建白色覆盖层并执行淡入淡出动画
         const overlay = document.createElement('div');
         overlay.id = 'white-overlay-temp';
         overlay.style.position = 'absolute';
@@ -1942,10 +2135,9 @@ const gameEngine = {
         overlay.style.opacity = '0';
         document.body.appendChild(overlay);
         
-        // 淡入淡出效果
         let opacity = 0;
         const intervalTime = 16;
-        const steps = time / intervalTime / 2; // 分为两半，一半淡入一半淡出
+        const steps = time / intervalTime / 2; 
         const opacityStep = 1 / steps;
         
         const fadeIn = () => {
@@ -1954,15 +2146,13 @@ const gameEngine = {
                 opacity = 1;
                 clearInterval(fadeInInterval);
                 
-                // 淡出
                 const fadeOut = () => {
                     opacity -= opacityStep;
                     if (opacity <= 0) {
                         opacity = 0;
                         clearInterval(fadeOutInterval);
                         overlay.remove();
-                        
-                        // 执行下一步
+                                        
                         setTimeout(() => {
                             this.nextLine();
                         }, 100);
@@ -1978,16 +2168,19 @@ const gameEngine = {
         const fadeInInterval = setInterval(fadeIn, intervalTime);
     },
     
-    // 怀旧滤镜结束・白色覆盖
+    /**
+     * 怀旧滤镜结束（带白屏转场）
+     * 清除怀旧滤镜，执行白屏闪动效果
+     * @param {number} time - 动画持续时间
+     */
     sepiaEndWithWhiteout: function(time) {
         this.clearNameBox();
         this.hideTextBox();
         this.hideAllCharacters();
         
-        // 移除怀旧滤镜
+        // 清除怀旧滤镜
         document.body.style.filter = 'none';
         
-        // 白色覆盖
         const overlay = document.createElement('div');
         overlay.id = 'white-overlay-end';
         overlay.style.position = 'absolute';
@@ -2000,7 +2193,6 @@ const gameEngine = {
         overlay.style.opacity = '0';
         document.body.appendChild(overlay);
         
-        // 淡入淡出效果
         let opacity = 0;
         const intervalTime = 16;
         const steps = time / intervalTime / 2;
@@ -2012,15 +2204,13 @@ const gameEngine = {
                 opacity = 1;
                 clearInterval(fadeInInterval);
                 
-                // 淡出
                 const fadeOut = () => {
                     opacity -= opacityStep;
                     if (opacity <= 0) {
                         opacity = 0;
                         clearInterval(fadeOutInterval);
                         overlay.remove();
-                        
-                        // 执行下一步
+                                        
                         setTimeout(() => {
                             this.nextLine();
                         }, 100);
@@ -2036,25 +2226,32 @@ const gameEngine = {
         const fadeInInterval = setInterval(fadeIn, intervalTime);
     },
     
-    // 暗转怀旧滤镜结束
+    /**
+     * 暗转怀旧滤镜结束
+     * 先淡出到黑色，然后清除怀旧滤镜
+     */
     fadeoutSepiaEnd: function() {
-        // 先应用暗转
+        // 淡出到黑色
         this.fadeOut(1000, 'black', () => {
-            // 暗转完成后移除怀旧滤镜
+            // 清除怀旧滤镜
             document.body.style.filter = 'none';
             
-            // 然后继续执行下一行
+            // 继续下一行
             this.nextLine();
         });
     },
     
-    // 回忆开始
+    /**
+     * 回忆场景开始
+     * 创建黑屏收缩、内容展开、应用怀旧滤镜和白色边框的效果
+     * @param {Object} options - 包含time参数
+     */
     flashbackStart: function(options) {
         this.clearNameBox();
         this.hideTextBox();
         this.hideAllCharacters();
         
-        // 创建黑色背景
+        // 创建黑色背景层
         const blackBg = document.createElement('div');
         blackBg.id = 'flashback-black-bg';
         blackBg.style.position = 'absolute';
@@ -2067,7 +2264,7 @@ const gameEngine = {
         blackBg.style.opacity = '1';
         document.body.appendChild(blackBg);
         
-        // 涡旋闭合效果（用淡出模拟）
+        
         let opacity = 1;
         const intervalTime = 16;
         const steps = options.time / intervalTime / 2;
@@ -2081,7 +2278,7 @@ const gameEngine = {
                 
                 blackBg.style.opacity = opacity;
                 
-                // 然后显示回忆内容（显示正常背景和可能的事件图像）
+                // 黑屏收缩完成后，创建回忆内容层
                 const recallContent = document.createElement('div');
                 recallContent.id = 'recall-content';
                 recallContent.style.position = 'absolute';
@@ -2093,7 +2290,7 @@ const gameEngine = {
                 recallContent.style.opacity = '0';
                 document.body.appendChild(recallContent);
                 
-                // 涡旋开启效果（用淡入模拟）
+                // 执行回忆内容展开动画
                 let contentOpacity = 0;
                 const openInterval = setInterval(() => {
                     contentOpacity += opacityStep;
@@ -2105,7 +2302,7 @@ const gameEngine = {
                         // 应用怀旧滤镜
                         document.body.style.filter = 'grayscale(100%) sepia(100%)';
                         
-                        // 添加白色框架效果
+                        // 添加白色边框
                         const whiteFrame = document.createElement('div');
                         whiteFrame.id = 'white-frame';
                         whiteFrame.style.position = 'absolute';
@@ -2118,7 +2315,6 @@ const gameEngine = {
                         whiteFrame.style.zIndex = '602';
                         document.body.appendChild(whiteFrame);
                         
-                        // 执行下一步
                         setTimeout(() => {
                             this.nextLine();
                         }, 100);
@@ -2131,19 +2327,23 @@ const gameEngine = {
         }, intervalTime);
     },
     
-    // 回忆结束
+    /**
+     * 回忆场景结束
+     * 移除白色边框，执行黑屏展开效果，清除怀旧滤镜
+     * @param {Object} options - 包含time参数
+     */
     flashbackEnd: function(options) {
         this.clearNameBox();
         this.hideTextBox();
         this.hideAllCharacters();
         
-        // 移除白色框架
+        // 移除白色边框
         const whiteFrame = document.getElementById('white-frame');
         if (whiteFrame) {
             whiteFrame.remove();
         }
         
-        // 涡旋闭合效果（先回到黑屏）
+        // 创建黑色背景层用于过渡
         const blackBg = document.createElement('div');
         blackBg.id = 'flashback-end-black-bg';
         blackBg.style.position = 'absolute';
@@ -2156,7 +2356,7 @@ const gameEngine = {
         blackBg.style.opacity = '0';
         document.body.appendChild(blackBg);
         
-        // 涡旋闭合效果
+        
         let opacity = 0;
         const intervalTime = 16;
         const steps = options.time / intervalTime / 2;
@@ -2169,10 +2369,10 @@ const gameEngine = {
                 clearInterval(closeInterval);
                 blackBg.style.opacity = opacity;
                 
-                // 结束怀旧滤镜
+                // 黑屏完全展开后，清除怀旧滤镜
                 document.body.style.filter = 'none';
                 
-                // 涡旋开启效果（恢复正常场景）
+                // 执行黑屏收缩动画
                 let openOpacity = 1;
                 const openInterval = setInterval(() => {
                     openOpacity -= opacityStep;
@@ -2181,7 +2381,6 @@ const gameEngine = {
                         clearInterval(openInterval);
                         blackBg.remove();
                         
-                        // 执行下一步
                         setTimeout(() => {
                             this.nextLine();
                         }, 100);
@@ -2195,52 +2394,64 @@ const gameEngine = {
         }, intervalTime);
     },
     
-    // 负正反转
+    /**
+     * 负片反转效果开始
+     * 对页面应用invert滤镜实现颜色反转
+     * @param {Object} options - 配置选项
+     */
     negaposiFlip: function(options) {
-        // 应用负正反转效果
+        // 如果尚未应用反转滤镜，则添加
         const currentFilter = document.body.style.filter;
         if (!currentFilter.includes('invert')) {
             document.body.style.filter = currentFilter + ' invert(100%)';
         }
         
-        // 效果应用完成后继续
         setTimeout(() => {
             this.nextLine();
         }, 100);
     },
     
-    // 负正反转结束
+    /**
+     * 负片反转效果结束
+     * 移除invert滤镜恢复正常显示
+     * @param {Object} options - 配置选项
+     */
     negaposiFlipEnd: function(options) {
-        // 移除负正反转效果
+        // 移除反转滤镜
         let currentFilter = document.body.style.filter;
         if (currentFilter.includes('invert(100%)')) {
             currentFilter = currentFilter.replace(' invert(100%)', '').replace('invert(100%)', '');
             document.body.style.filter = currentFilter;
         }
         
-        // 效果移除完成后继续
         setTimeout(() => {
             this.nextLine();
         }, 100);
     },
     
-    // 初始化好感度系统
+    /**
+     * 初始化好感度系统
+     * 确保affinity对象存在
+     */
     initAffinitySystem: function() {
         if (!this.state.affinity) {
             this.state.affinity = {};
         }
     },
     
-    // 好感度变化
+    /**
+     * 好感度变化
+     * 修改指定角色的好感度值，并显示相应的演出效果
+     * @param {Object} options - 包含flag（角色标识）、add（变化值）等参数
+     */
     affinityChange: function(options) {
-        // 初始化好感度系统
         this.initAffinitySystem();
         
-        // 更新指定flag的好感度值
+        // 获取当前好感度并累加
         const currentValue = this.state.affinity[options.flag] || 0;
         this.state.affinity[options.flag] = currentValue + options.add;
         
-        // 显示演出效果（根据增加或减少）
+        // 根据变化值正负显示不同演出
         if (options.add > 0) {
             // 好感度上升
             this.affinityUpShow({flag: options.flag, add: options.add, time: 1000});
@@ -2248,22 +2459,24 @@ const gameEngine = {
             // 好感度下降
             this.affinityDownShow({flag: options.flag, add: options.add, time: 1000});
         } else {
-            // 如果没有变化，直接继续
+            // 无变化，直接继续
             this.nextLine();
         }
     },
     
-    // 好感度上升演出
+    /**
+     * 好感度上升演出效果
+     * 显示金色的“+X”文字并向上飘动消失
+     * @param {Object} options - 包含flag、add、time等参数
+     */
     affinityUpShow: function(options) {
-        // 播放音效
         this.playAffinitySound('up');
         
-        // 如果禁用了演出效果则跳过
         if (this.state.disableLVE) {
             return;
         }
         
-        // 创建好感度上升视觉效果
+        // 创建好感度上升特效元素
         const effectDiv = document.createElement('div');
         effectDiv.id = 'affinity-up-effect';
         effectDiv.textContent = `+${options.add || 1}`;
@@ -2282,36 +2495,37 @@ const gameEngine = {
         
         document.body.appendChild(effectDiv);
         
-        // 动画效果：向上移动并淡出
+        // 执行上升和淡出动画
         setTimeout(() => {
             effectDiv.style.transform = 'translate(-50%, -100px)';
             effectDiv.style.opacity = '0';
         }, 50);
         
-        // 移除元素
+        // 动画结束后移除元素
         setTimeout(() => {
             if (document.contains(effectDiv)) {
                 document.body.removeChild(effectDiv);
             }
         }, 1050);
         
-        // 等待演出结束后继续
         setTimeout(() => {
             this.nextLine();
         }, options.time || 1000);
     },
     
-    // 好感度下降演出
+    /**
+     * 好感度下降演出效果
+     * 显示红色的“X”文字并向下飘动消失
+     * @param {Object} options - 包含flag、add、time等参数
+     */
     affinityDownShow: function(options) {
-        // 播放音效
         this.playAffinitySound('down');
         
-        // 如果禁用了演出效果则跳过
         if (this.state.disableLVE) {
             return;
         }
         
-        // 创建好感度下降视觉效果
+        // 创建好感度下降特效元素
         const effectDiv = document.createElement('div');
         effectDiv.id = 'affinity-down-effect';
         effectDiv.textContent = `${options.add || -1}`;
@@ -2330,53 +2544,53 @@ const gameEngine = {
         
         document.body.appendChild(effectDiv);
         
-        // 动画效果：向下移动并淡出
+        // 执行下降和淡出动画
         setTimeout(() => {
             effectDiv.style.transform = 'translate(-50%, +100px)';
             effectDiv.style.opacity = '0';
         }, 50);
         
-        // 移除元素
+        // 动画结束后移除元素
         setTimeout(() => {
             if (document.contains(effectDiv)) {
                 document.body.removeChild(effectDiv);
             }
         }, 1050);
         
-        // 等待演出结束后继续
         setTimeout(() => {
             this.nextLine();
         }, options.time || 1000);
     },
     
-    // 播放好感度音效
+    /**
+     * 播放好感度变化音效
+     * @param {string} type - 音效类型，'up'或'down'
+     */
     playAffinitySound: function(type) {
-        // 这里可以播放特定的音效，暂时使用系统音效或跳过
-        // 在实际实现中，可以根据type播放不同的音效
+        // TODO: 实现好感度音效播放
         if (type === 'up') {
-            // 播放好感度上升音效
             console.log('播放好感度上升音效');
         } else if (type === 'down') {
-            // 播放好感度下降音效
             console.log('播放好感度下降音效');
         }
     },
     
-    // 解析并计算条件表达式
+    /**
+     * 评估条件表达式
+     * 支持f.variableName语法访问好感度值
+     * @param {string} conditionStr - 条件表达式字符串，如 "f.love > 5"
+     * @returns {boolean} - 条件评估结果
+     */
     evaluateCondition: function(conditionStr) {
         try {
-            // 替换表达式中的特殊符号和变量引用
-            // 例如将 f.yurina 替换为 this.state.affinity['yurina']
             let expr = conditionStr.trim();
             
-            // 处理 f.变量名 的情况
+            // 将f.variableName替换为实际的好感度值
             expr = expr.replace(/f\.([a-zA-Z0-9_]+)/g, (match, varName) => {
                 return `(this.state.affinity['${varName}'] || 0)`;
             });
             
-            // 评估表达式
-            // 注意：在生产环境中，应使用更安全的表达式解析库
-            // 这里使用 Function 构造器以避免直接使用 eval
+            // 执行表达式并返回布尔结果
             const result = new Function('game', `return ${expr}`).call(null, this);
             return !!result;
         } catch (e) {
@@ -2385,55 +2599,66 @@ const gameEngine = {
         }
     },
     
-    // 处理条件判断
+    /**
+     * 处理条件判断开始
+     * 评估条件并将结果压入栈中
+     * @param {Object} action - 包含condition属性的动作对象
+     */
     handleConditional: function(action) {
         const result = this.evaluateCondition(action.condition);
         this.state.conditionalStack.push(result);
         this.state.currentConditionResult = result;
         
-        // 如果条件为假，跳过后续内容直到遇到else或endif
+        // 如果条件为假，跳过条件块
         if (!result) {
-            // 查找匹配的endif或else
             this.skipConditionalBlock();
         } else {
             this.nextLine();
         }
     },
     
-    // 处理条件否则
+    /**
+     * 处理条件判断else分支
+     * 根据之前的条件结果决定是否跳过else块
+     */
     handleConditionalElse: function() {
-        // 获取栈顶的条件结果
+        // 获取上一个条件的结果
         const conditionResult = this.state.conditionalStack[this.state.conditionalStack.length - 1];
         
         if (conditionResult) {
-            // 如果前面的条件为真，则跳过else块
+            // 如果之前条件为真，跳过else块
             this.skipConditionalBlock();
         } else {
-            // 如果前面的条件为假，则执行else块
+            // 如果之前条件为假，执行else块
             this.nextLine();
         }
     },
     
-    // 处理条件结束
+    /**
+     * 处理条件判断结束
+     * 弹出条件栈并继续下一行
+     */
     handleConditionalEnd: function() {
-        // 弹出条件栈
         this.state.conditionalStack.pop();
         this.nextLine();
     },
     
-    // 跳过条件块
+    /**
+     * 跳过条件块
+     * 推进到下一行（实际跳过逻辑由shouldSkipLine处理）
+     */
     skipConditionalBlock: function() {
-        // 这里需要跳过到匹配的endif或else
-        // 由于我们的架构限制，我们需要在解析层面处理
-        // 当前实现是在解析时处理，所以只需继续到下一行
-        // 实际的跳过逻辑需要在解析story数组时实现
         this.nextLine();
     },
     
-    // 添加选项
+    /**
+     * 添加选项到待显示列表
+     * 只在条件为真时添加
+     * @param {Object} action - 包含text和target的选项对象
+     */
     addSelection: function(action) {
         if (this.state.currentConditionResult !== false) {
-            // 只有条件为真时才添加选项
+            // 将选项添加到待显示列表
             this.state.pendingSelections.push({
                 text: action.text,
                 target: action.target
@@ -2443,58 +2668,66 @@ const gameEngine = {
         this.nextLine();
     },
     
-    // 显示选项
+    /**
+     * 显示所有待选选项
+     * 将pendingSelections转换为选项菜单
+     */
     showSelections: function() {
         if (this.state.pendingSelections.length > 0) {
-            // 显示收集到的选项
+            // 显示选项菜单
             this.showChoices(this.state.pendingSelections.map(sel => ({
                 text: sel.text,
                 target: sel.target
             })));
             
-            // 清空待处理选项列表
+            // 清空待选列表
             this.state.pendingSelections = [];
         }
     },
     
-    // 检查是否应该跳过当前行（基于条件判断）
+    /**
+     * 检查当前行是否应该被跳过
+     * 基于条件判断栈的状态决定
+     * @param {number} index - 行索引
+     * @returns {boolean} - 是否应该跳过
+     */
     shouldSkipLine: function(index) {
         const line = this.sceneData.story[index];
         
-        // 如果有活动的条件判断，检查当前行是否在被跳过的块内
+        // 如果有活跃的条件判断
         if (this.state.conditionalStack.length > 0) {
-            // 检查是否是条件相关的命令
+            // 检查是否为条件命令
             if (line.command) {
                 const parsedCommand = this.parseCommand(line.command);
                 
                 if (parsedCommand.type === 'conditional') {
-                    // 如果当前条件为false，需要跳过此行及之后的内容直到else或endif
+                    // 评估新条件
                     const result = this.evaluateCondition(parsedCommand.condition);
                     if (!result) {
-                        // 将结果压入栈中
+                        // 条件为假，压入false并跳过
                         this.state.conditionalStack.push(false);
-                        return true; // 跳过此行
+                        return true;
                     } else {
-                        // 条件为真，执行此行
+                        // 条件为真，压入true并继续
                         this.state.conditionalStack.push(true);
                         return false;
                     }
                 } else if (parsedCommand.type === 'conditionalElse') {
-                    // 获取上一个条件的结果
+                    // 检查上一个条件结果
                     const prevResult = this.state.conditionalStack[this.state.conditionalStack.length - 1];
-                    // 如果之前条件为真，则跳过else块
+                    // 如果上一个条件为真，跳过else块
                     return prevResult === true;
                 } else if (parsedCommand.type === 'conditionalEnd') {
-                    // 弹出条件栈
+                    // 条件块结束，弹出栈
                     this.state.conditionalStack.pop();
-                    return false; // endif行本身不跳过
+                    return false; 
                 }
             }
             
-            // 检查当前条件栈状态
+            // 检查条件栈中是否有false，如果有则跳过当前行
             for (let i = 0; i < this.state.conditionalStack.length; i++) {
                 if (!this.state.conditionalStack[i]) {
-                    // 如果任何一层条件为false，则跳过当前行
+                    // 外层条件为假，跳过此行
                     return true;
                 }
             }
@@ -2503,35 +2736,41 @@ const gameEngine = {
         return false;
     },
     
-    // 返回主菜单
+    /**
+     * 返回主菜单
+     * 保存进度、清除POV状态，然后跳转到index.html
+     */
     returnToMenu: function() {
-        // 标记当前场景为已完成
         this.markSceneCompleted();
         
-        // 清理POV状态
         this.clearPovState();
         
-        // 延迟跳转，给用户时间阅读最后的文本
+        // 延迟跳转以确保音频停止
         setTimeout(() => {
-            // 在跳转前停止所有音频，包括BGM
             this.stopAllAudioWithBGM();
             window.location.href = '../index.html';
-        }, 1000); // 1秒后跳转
+        }, 1000); 
     },
     
-    // 标记当前场景为已完成
+    /**
+     * 标记当前场景为已完成
+     * 将当前页面文件名添加到completedScenes并保存
+     */
     markSceneCompleted: function() {
-        // 获取当前页面的文件名
+        // 获取当前页面文件名
         const currentPage = window.location.pathname.split('/').pop();
         
-        // 检查是否已经在完成列表中
+        // 如果未记录，则添加并保存
         if (!this.state.completedScenes.includes(currentPage)) {
             this.state.completedScenes.push(currentPage);
             this.saveProgress();
         }
     },
     
-    // 保存进度到本地存储
+    /**
+     * 保存游戏进度到localStorage
+     * 包括已完成场景列表、好感度等数据
+     */
     saveProgress: function() {
         const progressData = {
             completedScenes: this.state.completedScenes,
@@ -2545,7 +2784,10 @@ const gameEngine = {
         console.log('进度已保存:', progressData);
     },
     
-    // 加载进度从本地存储
+    /**
+     * 从localStorage加载游戏进度
+     * @returns {Object|null} - 加载的进度数据，失败返回null
+     */
     loadProgress: function() {
         const progressData = localStorage.getItem('gameProgress');
         if (progressData) {
@@ -2565,17 +2807,27 @@ const gameEngine = {
         return null;
     },
     
-    // 获取特定场景的完成状态
+    /**
+     * 检查指定场景是否已完成
+     * @param {string} sceneFileName - 场景文件名
+     * @returns {boolean} - 是否已完成
+     */
     isSceneCompleted: function(sceneFileName) {
         return this.state.completedScenes.includes(sceneFileName);
     },
     
-    // 获取所有完成的场景列表
+    /**
+     * 获取已完成场景列表的副本
+     * @returns {Array} - 已完成场景文件名数组
+     */
     getCompletedScenes: function() {
-        return [...this.state.completedScenes]; // 返回副本以防止意外修改
+        return [...this.state.completedScenes]; 
     },
     
-    // 重置进度
+    /**
+     * 重置游戏进度
+     * 清除所有存档数据，包括已完成场景和好感度
+     */
     resetProgress: function() {
         this.state.completedScenes = [];
         this.state.affinity = {};
@@ -2583,32 +2835,38 @@ const gameEngine = {
         console.log('进度已重置');
     },
     
-    // 保存当前场景的唯一标识符到存档
+    /**
+     * 保存当前场景标记
+     * 记录玩家已进入过的场景，用于进度追踪
+     */
     saveCurrentSceneMarker: function() {
-        // 自动获取当前页面文件名作为场景ID
+        // 获取当前页面文件名作为场景ID
         const currentPage = window.location.pathname.split('/').pop();
         const sceneId = currentPage.replace('.html', '');
         
-        // 将当前场景ID和值保存到存档数据中
+        // 加载现有进度或使用默认数据
         const progressData = this.loadProgress() || this.getDefaultProgressData();
         
-        // 添加场景标识符到存档数据
+        // 确保sceneMarkers对象存在
         progressData.sceneMarkers = progressData.sceneMarkers || {};
         
-        // 只有当前场景还没有标记时才设置
+        // 如果该场景尚未标记，则添加标记
         if (!progressData.sceneMarkers.hasOwnProperty(sceneId)) {
             progressData.sceneMarkers[sceneId] = 1;
             
             // 更新时间戳
             progressData.timestamp = Date.now();
             
-            // 保存回localStorage
+            // 保存到localStorage
             localStorage.setItem('gameProgress', JSON.stringify(progressData));
             console.log(`场景标识符已保存: ${sceneId} = 1`);
         }
     },
     
-    // 获取默认的进度数据
+    /**
+     * 获取默认进度数据
+     * @returns {Object} - 包含completedScenes、timestamp、gameState、sceneMarkers的默认对象
+     */
     getDefaultProgressData: function() {
         return {
             completedScenes: [],
@@ -2620,7 +2878,9 @@ const gameEngine = {
         };
     },
     
-    // 切换上下文菜单显示/隐藏
+    /**
+     * 切换右键菜单显示/隐藏
+     */
     toggleContextMenu: function() {
         if (!this.elements.contextMenu || !this.elements.contextMenuBackdrop) {
             console.warn('上下文菜单元素未找到');
@@ -2628,49 +2888,59 @@ const gameEngine = {
         }
         
         if (this.elements.contextMenu.classList.contains('show')) {
+            // 隐藏菜单
             this.elements.contextMenu.classList.remove('show');
             this.elements.contextMenuBackdrop.style.display = 'none';
         } else {
+            // 显示菜单
             this.elements.contextMenu.classList.add('show');
             this.elements.contextMenuBackdrop.style.display = 'block';
         }
     },
     
-    // 显示POV视角指示器
+    /**
+     * 显示POV视角指示器
+     * 在屏幕上显示当前叙事视角名称
+     * @param {string} povName - 视角名称
+     */
     showPovIndicator: function(povName) {
-        // 如果已经存在，先移除旧的
+        // 如果已有POV指示器，先移除
         if (this.state.povIndicator && this.state.povIndicator.parentNode) {
             this.state.povIndicator.parentNode.removeChild(this.state.povIndicator);
         }
         
-        // 创建新的POV指示器
+        // 创建新的POV指示器元素
         const povElement = document.createElement('div');
         povElement.className = 'pov-indicator';
         povElement.textContent = `当前叙事视角 ${povName}`;
         
         document.body.appendChild(povElement);
         
-        // 更新状态
         this.state.povActive = true;
         this.state.povIndicator = povElement;
         
         console.log('POV视角已显示:', povName);
     },
     
-    // 隐藏POV视角指示器
+    /**
+     * 隐藏POV视角指示器
+     * 移除指示器并重置状态
+     */
     hidePovIndicator: function() {
         if (this.state.povIndicator && this.state.povIndicator.parentNode) {
             this.state.povIndicator.parentNode.removeChild(this.state.povIndicator);
         }
         
-        // 更新状态
         this.state.povActive = false;
         this.state.povIndicator = null;
         
         console.log('POV视角已隐藏');
     },
     
-    // 清理POV状态（用于场景切换时）
+    /**
+     * 清除POV状态
+     * 隐藏POV指示器并重置相关状态
+     */
     clearPovState: function() {
         this.hidePovIndicator();
     }
