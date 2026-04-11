@@ -2969,26 +2969,73 @@ const gameEngine = {
             const content = instr.slice(1, -1).trim();
             const parts = content.split(/\s+/);
             
-            // 处理消失指令
-            if (parts[0] === '消失' && parts.length >= 2) {
+            // 处理消失指令（支持中英文）
+            if ((parts[0] === '消失' || parts[0] === 'hide' || parts[0] === 'remove') && parts.length >= 2) {
                 const charId = parts[1];
                 this.removeChar(charId);
                 return;
             }
 
-            // 处理显示/更新指令：最后一个部分是图片ID，前面的是修饰词
-            if (parts.length >= 2) {
-                const charId = parts[parts.length - 1];
-                const modifiers = parts.slice(0, -1).join(' '); // 保留空格分隔
-                this.updateChar(charId, modifiers);
+            // 处理显示/更新指令
+            if (parts.length >= 1) {
+                // 如果只有一个部分，视为仅包含角色ID，使用默认修饰词
+                if (parts.length === 1) {
+                    const charId = parts[0];
+                    // 检查是否为有效的角色ID（不是修饰词）
+                    if (!this.isModifierKeyword(charId)) {
+                        // 仅包含角色ID，使用空修饰词字符串，将应用默认值
+                        this.updateChar(charId, '');
+                    }
+                } else {
+                    // 有多个部分，最后一个部分是图片ID，前面的是修饰词
+                    const charId = parts[parts.length - 1];
+                    const modifiers = parts.slice(0, -1).join(' '); // 保留空格分隔
+                    this.updateChar(charId, modifiers);
+                }
             }
         });
     },
 
     /**
+     * 判断是否为修饰词关键词
+     * @param {string} word - 待检查的单词
+     * @returns {boolean} - 如果是修饰词关键词返回true，否则返回false
+     */
+    isModifierKeyword: function(word) {
+        // 水平位置关键词
+        const positionKeywords = ['左左', 'leftl', '左', 'left', '左右', 'leftr', '中', 'middle', 'center', '右左', 'rightl', '右', 'right', '右右', 'rightr'];
+        // 垂直位置关键词
+        const verticalKeywords = ['下', 'down', '中下', 'downm', '下下', 'downd', 'bottom', '上', 'up', '中上', 'upm', '上上', 'upu', 'top'];
+        // 层级关键词
+        const layerKeywords = ['前', 'front', '后', 'back'];
+        // 动画关键词
+        const animationKeywords = ['瞬', 'moment', 'instant'];
+        // 消失指令关键词
+        const removeKeywords = ['消失', 'hide', 'remove'];
+        
+        // 检查是否匹配任何关键词
+        if (positionKeywords.includes(word)) return true;
+        if (verticalKeywords.includes(word)) return true;
+        if (layerKeywords.includes(word)) return true;
+        if (animationKeywords.includes(word)) return true;
+        if (removeKeywords.includes(word)) return true;
+        
+        // 检查是否以 x: 或 y: 开头
+        if (word.startsWith('x:') || word.startsWith('y:')) return true;
+        
+        // 检查是否为百分比缩放（以%结尾且不是x:或y:格式）
+        if (word.endsWith('%') && !word.startsWith('x:') && !word.startsWith('y:')) {
+            const percentValue = parseFloat(word.slice(0, -1));
+            if (!isNaN(percentValue)) return true;
+        }
+        
+        return false;
+    },
+
+    /**
      * 更新或创建单个立绘
      * @param {string} charId - 立绘ID (如 lh01)
-     * @param {string} modifiers - 修饰词组合 (如 "左 前" 或 "中 10% 后" 或 "瞬 左")
+     * @param {string} modifiers - 修饰词组合 (如 "左 前" 或 "中 10% 后" 或 "瞬 左" 或 "left front" 等中英文混合)
      */
     updateChar: function(charId, modifiers) {
         // 获取路径
@@ -3020,39 +3067,42 @@ const gameEngine = {
 
         // 解析修饰词并应用样式
         const props = this.parseCharModifiers(modifiers);
-        
-        // 检查是否包含"瞬"指令
+                
+        // 检查是否包含“瞬”指令
         const isInstant = props.instant;
-        
+                
         if (isInstant) {
             // 禁用过渡动画，实现瞬间切换
             charEl.style.transition = 'none';
         }
-        
+                
         // 应用样式
         charEl.style.left = props.left;
         charEl.style.bottom = props.bottom;
         charEl.style.zIndex = props.zIndex;
         charEl.style.visibility = 'visible';
         charEl.style.opacity = '1';
-        
+                
         // 应用缩放：通过调整实际高度来实现，确保放大后的图片完整显示
         // 基准高度为容器的 100%，根据 scale 比例调整
         charEl.style.height = `${props.scale * 100}%`;
-        
-        // 保持水平居中对齐
+                
+        // 应用水平对齐变换
+        // 无论是否使用精确坐标，都需要translateX(-50%)来让立绘的中心点对齐
+        // 文字指令模式：left为百分比值（如50%），需要translateX(-50%)居中
+        // 精确坐标模式：left为calc(50% + x%)，也需要translateX(-50%)让立绘中心对齐到计算后的位置
         charEl.style.transform = 'translateX(-50%)';
-        
+                
         if (isInstant) {
             // 强制浏览器重绘，确保样式立即应用
             void charEl.offsetHeight;
-            
+                    
             // 短暂延时后恢复过渡动画，确保后续移动仍有平滑效果
             setTimeout(() => {
                 charEl.style.transition = 'all 0.5s ease';
             }, 50);
         }
-
+        
         // 更新状态记录
         this.state.activeChars[charId] = { path, ...props };
     },
@@ -3070,9 +3120,21 @@ const gameEngine = {
     },
 
     /**
-     * 解析立绘修饰词
-     * @param {string} mods - 修饰词字符串 (如 "左 下" 或 "中 10% 前" 或 "瞬 左")，空格分隔
-     * @returns {Object} - 包含 left, zIndex, clipPath, scale, bottom, instant 的对象
+     * 解析立绘修饰词（支持中英文混合 + 精确坐标）
+     * @param {string} mods - 修饰词字符串 (如 "左 下" 或 "中 10% 前" 或 "瞬 左" 或 "left down" 或 "x:10% y:-5%" 等)，空格分隔
+     * @returns {Object} - 包含 left, zIndex, clipPath, scale, bottom, instant, preciseX, preciseY 的对象
+     * 
+     * 支持的关键词映射：
+     * 水平位置：左左/leftl, 左/left, 左右/leftr, 中/middle/center, 右左/rightl, 右/right, 右右/rightr
+     * 垂直位置：下/down, 中下/downm, 下下/downd/bottom
+     * 层级：前/front, 后/back
+     * 动画：瞬/moment/instant
+     * 消失：消失/hide/remove (在 renderChars 中处理)
+     * 精确坐标：x:百分比 (以中心为基准), y:百分比 (以底部为基准)
+     * 
+     * 优先级规则：
+     * - 如果指定了 x: 参数，则忽略所有水平位置文字关键词
+     * - 如果指定了 y: 参数，则忽略所有垂直位置文字关键词
      */
     parseCharModifiers: function(mods) {
         let left = '50%'; // 默认中
@@ -3081,49 +3143,130 @@ const gameEngine = {
         let scale = 1; // 默认缩放比例 100%
         let bottom = '0'; // 默认底部位置
         let instant = false; // 默认不禁用动画
-
+        let preciseX = null; // 精确X坐标（以屏幕中心为0%）
+        let preciseY = null; // 精确Y坐标（以屏幕底部为0%）
+    
         // 将修饰词按空格分割为数组，便于精确匹配
         const modArray = mods.split(' ').filter(Boolean);
-
-        // 提取位置关键词
-        const posKeywords = ['左左', '左', '左右', '中', '右左', '右', '右右'];
-        for (const kw of posKeywords) {
-            if (modArray.includes(kw)) {
-                switch(kw) {
-                    case '左左': left = '15%'; break;
-                    case '左': left = '25%'; break;
-                    case '左右': left = '35%'; break;
-                    case '中': left = '50%'; break;
-                    case '右左': left = '65%'; break;
-                    case '右': left = '75%'; break;
-                    case '右右': left = '85%'; break;
+    
+        // 定义中英文关键词映射表
+        const positionMap = {
+            '左左': 'leftl', 'leftl': 'leftl',
+            '左': 'left', 'left': 'left',
+            '左右': 'leftr', 'leftr': 'leftr',
+            '中': 'middle', 'middle': 'middle', 'center': 'middle',
+            '右左': 'rightl', 'rightl': 'rightl',
+            '右': 'right', 'right': 'right',
+            '右右': 'rightr', 'rightr': 'rightr'
+        };
+    
+        const verticalMap = {
+            '下': 'down', 'down': 'down',
+            '中下': 'downm', 'downm': 'downm',
+            '下下': 'downd', 'downd': 'downd', 'bottom': 'downd',
+            '上': 'up', 'up': 'up',
+            '中上': 'upm', 'upm': 'upm',
+            '上上': 'upu', 'upu': 'upu', 'top': 'upu'
+        };
+    
+        const layerMap = {
+            '前': 'front', 'front': 'front',
+            '后': 'back', 'back': 'back'
+        };
+    
+        const animationMap = {
+            '瞬': 'instant', 'moment': 'instant', 'instant': 'instant'
+        };
+    
+        // 第一步：检测精确坐标指令（具有最高优先级）
+        for (const mod of modArray) {
+            // 检测 x: 格式
+            if (mod.startsWith('x:')) {
+                const value = mod.substring(2);
+                if (value.endsWith('%')) {
+                    const percentValue = parseFloat(value.slice(0, -1));
+                    if (!isNaN(percentValue)) {
+                        preciseX = percentValue;
+                    }
                 }
-                break; // 取第一个匹配的位置
+            }
+            // 检测 y: 格式
+            if (mod.startsWith('y:')) {
+                const value = mod.substring(2);
+                if (value.endsWith('%')) {
+                    const percentValue = parseFloat(value.slice(0, -1));
+                    if (!isNaN(percentValue)) {
+                        preciseY = percentValue;
+                    }
+                }
             }
         }
-
-        // 提取垂直位置关键词
-        if (modArray.includes('下下')) {
-            bottom = '-65%';
-        } else if (modArray.includes('中下')) {
-            bottom = '-50%';
-        } else if (modArray.includes('下')) {
-            bottom = '-25%';
+    
+        // 第二步：如果没有精确X坐标，则解析水平位置关键词
+        if (preciseX === null) {
+            for (const mod of modArray) {
+                if (positionMap.hasOwnProperty(mod)) {
+                    const normalized = positionMap[mod];
+                    switch(normalized) {
+                        case 'leftl': left = '15%'; break;
+                        case 'left': left = '25%'; break;
+                        case 'leftr': left = '35%'; break;
+                        case 'middle': left = '50%'; break;
+                        case 'rightl': left = '65%'; break;
+                        case 'right': left = '75%'; break;
+                        case 'rightr': left = '85%'; break;
+                    }
+                    break; // 取第一个匹配的位置
+                }
+            }
+        } else {
+            // 如果有精确X坐标，计算left值（以50%为中心点）
+            left = `calc(50% + ${preciseX}%)`;
         }
-
-        // 提取层级关键词
-        if (modArray.includes('前')) zIndexOffset = 1;
-        if (modArray.includes('后')) zIndexOffset = -1;
-
-        // 提取"瞬"指令关键词
-        if (modArray.includes('瞬')) {
-            instant = true;
+    
+        // 第三步：如果没有精确Y坐标，则解析垂直位置关键词
+        if (preciseY === null) {
+            for (const mod of modArray) {
+                if (verticalMap.hasOwnProperty(mod)) {
+                    const normalized = verticalMap[mod];
+                    switch(normalized) {
+                        case 'down': bottom = '-25%'; break;
+                        case 'downm': bottom = '-50%'; break;
+                        case 'downd': bottom = '-65%'; break;
+                        case 'up': bottom = '25%'; break;
+                        case 'upm': bottom = '50%'; break;
+                        case 'upu': bottom = '65%'; break;
+                    }
+                    break; // 取第一个匹配的垂直位置
+                }
+            }
+        } else {
+            // 如果有精确Y坐标，直接使用（正值向上，负值向下）
+            bottom = `${preciseY}%`;
         }
-
-        // 提取百分比缩放关键词
+    
+        // 第四步：提取层级关键词（取第一个匹配的）
         for (const mod of modArray) {
-            // 检查是否以 % 结尾
-            if (mod.endsWith('%')) {
+            if (layerMap.hasOwnProperty(mod)) {
+                const normalized = layerMap[mod];
+                if (normalized === 'front') zIndexOffset = 1;
+                if (normalized === 'back') zIndexOffset = -1;
+                break; // 取第一个匹配的层级
+            }
+        }
+    
+        // 第五步：提取“瞬”指令关键词（取第一个匹配的）
+        for (const mod of modArray) {
+            if (animationMap.hasOwnProperty(mod)) {
+                instant = true;
+                break; // 取第一个匹配的动画指令
+            }
+        }
+    
+        // 第六步：提取百分比缩放关键词
+        for (const mod of modArray) {
+            // 检查是否以 % 结尾，但不是 x: 或 y: 格式
+            if (mod.endsWith('%') && !mod.startsWith('x:') && !mod.startsWith('y:')) {
                 const percentValue = parseFloat(mod.slice(0, -1));
                 if (!isNaN(percentValue)) {
                     // 计算公式：最终缩放比例 = 1 + (输入百分比数值 / 100)
@@ -3138,14 +3281,16 @@ const gameEngine = {
                 }
             }
         }
-
+    
         return {
             left,
             zIndex: 10 + zIndexOffset,
             clipPath,
             scale,
             bottom,
-            instant
+            instant,
+            preciseX,
+            preciseY
         };
     }
 };
