@@ -6,6 +6,8 @@
 
 如果要使用本模板，请根据license.txt中的指引进行修改本项目
 
+本引擎的教学网页：[https://1145141919810tonny.github.io/Shioriteaching/](https://1145141919810tonny.github.io/Shioriteaching/)
+
 # Shiori 命名缘起
 
 “Shiori”（栞），在日语中意为“书签”。
@@ -23,6 +25,10 @@
 ## 快捷键
 - esc：打开游戏上下文菜单
 - ctrl：快进剧情
+
+# V1.1.0更新内容（2026/4/11）
+- **立绘指令系统增强**：新增了详细的人物立绘差分控制指令，完整使用说明请参考 [illustration.md](../../illustration.md)
+- **教学网页上线**：提供了系统化的在线教程与代码示例，请访问 https://1145141919810tonny.github.io/Shioriteaching/ 查看
 
 # V1.0.13更新内容（2026/4/10 20:10）
 - 将原本混淆的CG与背景图片（BG）进行明确区分
