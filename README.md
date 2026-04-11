@@ -26,7 +26,35 @@
 - esc：打开游戏上下文菜单
 - ctrl：快进剧情
 
-# V1.1.0更新内容（2026/4/11）
+# V1.1.1更新内容（2026/4/11）
+
+## 立绘指令系统全面增强
+
+### 1. 中英文混合指令支持
+- 所有立绘修饰词支持中英文别名，可在同一指令中自由混合使用
+- 示例：`[中 front lh01]`, `[left down 前 lh02]`
+- 详见 [illustration.md](assets/chars/illustration.md) 第2章
+
+### 2. 精确坐标控制系统
+- 新增基于百分比的精确坐标控制：`x:`（水平）和 `y:`（垂直）
+- X轴以屏幕中心为0%，Y轴以屏幕底部为0%
+- 精确坐标优先于文字指令：`[x:10% 左 lh01]` 使用 x:10%，忽略“左”
+- 示例：`[x:10% y:-5% lh01]`, `[瞬 x:-20% y:15% lh02]`
+- 详见 [illustration.md](assets/chars/illustration.md) 第3章
+
+### 3. 简化立绘指令
+- 支持仅包含角色ID的简化写法，自动应用默认值（居中、底部对齐）
+- 示例：`[lh01]` 等同于 `[中 lh01]`
+- 详见 [illustration.md](assets/chars/illustration.md) 第1章基本语法
+
+### 4. 向上偏移关键词
+- 新增垂直位置的向上偏移指令，与向下偏移对应
+- 向上：`上/up` (25%), `中上/upm` (50%), `上上/upu/top` (65%)
+- 向下：`下/down` (-25%), `中下/downm` (-50%), `下下/downd/bottom` (-65%)
+- 示例：`[中 上 lh01]`, `[middle upm front lh02]`
+- 详见 [illustration.md](assets/chars/illustration.md) 第5章
+
+# V1.1.0更新内容（2026/4/11 13:35）
 - **立绘指令系统增强**：新增了详细的人物立绘差分控制指令，完整使用说明请参考 [illustration.md](assets/chars/illustration.md)
 - **教学网页上线**：提供了系统化的在线教程与代码示例，请访问 https://1145141919810tonny.github.io/Shioriteaching/ 查看
 
