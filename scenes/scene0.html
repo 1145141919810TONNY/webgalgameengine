@@ -6,67 +6,109 @@
     <title>场景模板</title>
     <link rel="icon" type="image/png" href="../icon/icon-32.png">
     <link rel="stylesheet" href="../style.css">
+    <!-- 引入资源集中配置文件 -->
     <script src="../bgm_config.js"></script>
     <script src="../cg_config.js"></script>
     <script src="../bg_config.js"></script>
+    <script src="../illustration.js"></script>
     <script src="../modules/progress_api.js"></script>
 </head>
 <body>
+    <!-- 背景容器 -->
     <div id="background-container"></div>
+    
+    <!-- 角色立绘容器 -->
     <div id="character-container"></div>
+    
+    <!-- 文本框区域 -->
     <div id="text-box-container">
         <div id="name-box">[姓名]</div>
         <div id="text-box">[文本]</div>
     </div>
+    
+    <!-- 选项容器 -->
     <div id="options-container"></div>
+    
+    <!-- 全屏文本模式 -->
     <div id="novel-mode-container">
         <div id="novel-text-box">[全屏文本]</div>
     </div>
+    
+    <!-- 音频播放器 -->
     <audio id="bgm-player" loop></audio>
     <audio id="se-player"></audio>
     <audio id="voice-player"></audio>
+    
+    <!-- 视频播放器 -->
     <div id="video-player" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:100; background-color:black;">
         <video id="main-video" style="width:100%; height:100%; object-fit:contain;" controls>
             您的浏览器不支持视频播放。
         </video>
     </div>
+    
+    <!-- 上下文菜单遮罩层 -->
     <div id="context-menu-backdrop" class="context-menu-backdrop"></div>
+    
+    <!-- 上下文菜单 -->
     <div id="context-menu" class="context-menu">
         <ul>
             <li onclick="window.location.href='../saves.html'">进度管理</li>
             <li onclick="window.location.href='../index.html'">返回标题页面</li>
         </ul>
     </div>
+    
+    <!-- 引擎脚本 -->
     <script src="../engine.js"></script>
     <script>
         // 场景模板数据
         const sceneData = {
-            background: BG_CONFIG_SUB,
+            background: BG_CONFIG_SUB,  // 使用背景图片集中配置（子目录路径）
             bgm: BGM_CONFIG_SUB,  // 使用 BGM 集中配置（子目录路径）
-            audio: {},
+            audio: {
+                // 音效和语音定义示例
+                // 'sfx1': '../assets/audio/sound_effect1.wav',
+                // 'voice1': '../assets/audio/voice1.mp3'
+            },
             story: [
+                // --- 第一节：完整属性展示与说明 ---
                 { 
-                    text: "欢迎使用场景模板", 
-                    speaker: "系统",
-                    background: null,
-                    bgm: null,
-                    audio: null,
-                    command: null,
-                    action: null
+                    text: "这是第一句对白，展示了所有可用的基础属性。", 
+                    speaker: "角色A",   // [可选] 说话人姓名，若不显示名字请删除此项
+                    background: "背景_示例",  // [可选] 背景图 ID，引用自 bg_config.js；设为 null 则不改变当前背景
+                    bgm: "bgm_示例",         // [可选] BGM ID，引用自 bgm_config.js；设为 null 则不改变当前 BGM
+                    audio: "音效_示例",      // [可选] 音效或语音 ID，引用自 sceneData.audio；设为 null 则不播放
+                    chars: "[中 角色_示例]",  // [可选] 立绘指令，支持位置、缩放等控制（详见 illustration.md）
+                    command: "[pov 视角示例]",// [可选] 引擎指令，如 [pov], [wait], [fadeout] 等
+                    action: null             // [可选] 动作对象，用于分支选项、场景跳转等
                 },
-                { 
-                    text: "这是一个基本的场景模板，您可以复制此文件开始编写新的剧情", 
+
+                // --- 第二节：立绘控制演示 ---
+                {
+                    text: "现在展示如何切换不同的角色立绘。",
                     speaker: "系统", 
-                    background: null,
-                    bgm: null,
-                    audio: null,
-                    action: null
+                    chars: "[左 角色B],[右 角色C]" // 同时显示两个角色在不同位置
                 },
+                {
+                    text: "使用‘消失’指令可以移除指定的立绘。",
+                    speaker: "系统",
+                    chars: "[消失 角色B]"
+                },
+
+                // --- 第三节：指令与文本分段 ---
+                {
+                    text: "这是一段长文本，[s]点击鼠标后会显示这一段。",
+                    speaker: "角色A"
+                },
+                {
+                    text: "",
+                    command: "[wait]" // 暂停剧情，等待玩家点击后继续
+                },
+
                 /*这是直接跳转下一个页面
                 { 
-                    text: "她生气地离开了...（这是一个坏结局）", 
+                    text: "选项内容", 
                     speaker: "旁白", 
-                    background: "badend1",
+                    background: "bg1",
                     audio: null,
                     action: {
                         type: "nextScene",
@@ -93,9 +135,11 @@
             ]
         };
         
+        // 初始化游戏
         document.addEventListener('DOMContentLoaded', () => {
             gameEngine.init(sceneData);
         });
+        
     </script>
 </body>
 </html>
