@@ -30,10 +30,33 @@ body {
 #character-container {
     position: absolute;
     bottom: 0;
+    left: 0;
     width: 100%;
-    height: calc(100% - 200px);
+    height: 75%; /* 立绘容器高度为屏幕的 75% */
     pointer-events: none;
     z-index: 1;
+    /* overflow: visible 允许放大的立绘完整显示 */
+}
+
+/* 动态立绘样式 */
+.character-img {
+    position: absolute;
+    bottom: 0;
+    height: 100%; /* 默认高度为容器高度的 100%，可通过 JS 动态调整 */
+    width: auto;
+    object-fit: contain;
+    object-position: bottom center;
+    transform-origin: bottom center; /* 以底部中心为缩放原点 */
+    transform: translateX(-50%);
+    transition: all 0.5s ease;
+    filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.3));
+    /* 禁止用户选中和拖拽 */
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: none;
 }
 
 /* 文本框容器 - 默认状态 */
@@ -64,6 +87,11 @@ body {
     font-weight: 900; /* 加粗 */
     position: relative;
     top: -5px;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    cursor: default;
 }
 
 /* 文本框 */
@@ -72,6 +100,11 @@ body {
     line-height: 1.6;
     margin-top: 5px; /* 在姓名框下方一点 */
     flex-grow: 1;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    cursor: default;
 }
 
 /* 全屏小说模式容器 */
