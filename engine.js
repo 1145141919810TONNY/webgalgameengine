@@ -51,7 +51,9 @@ const gameEngine = {
         // POV视角指示器DOM元素
         povIndicator: null,
         // 文本是否已完整显示（用于控制点击行为）
-        textFullyDisplayed: false
+        textFullyDisplayed: false,
+        // 当前激活的立绘状态 { id: { path, left, zIndex, clipPath } }
+        activeChars: {}
     },
     
     elements: {
@@ -360,6 +362,11 @@ const gameEngine = {
         // 处理动作指令（如背景切换、特效等）
         if (line.action) {
             this.handleAction(line.action);
+        }
+        
+        // 处理立绘指令
+        if (line.chars) {
+            this.renderChars(line.chars);
         }
         
         // 更新当前行号
@@ -2943,5 +2950,202 @@ const gameEngine = {
      */
     clearPovState: function() {
         this.hidePovIndicator();
+    },
+
+    /**
+     * 解析并渲染立绘指令
+     * @param {string} charString - 立绘指令字符串，如 "[左 lh01],[右 前 lh02]" 或 "[消失 lh01]"
+     * 支持空格分隔的修饰词，顺序无关
+     */
+    renderChars: function(charString) {
+        if (!charString || typeof charString !== 'string') return;
+
+        // 匹配所有 [内容] 格式的指令
+        const instructions = charString.match(/\[([^\]]+)\]/g);
+        if (!instructions) return;
+
+        instructions.forEach(instr => {
+            // 去除方括号
+            const content = instr.slice(1, -1).trim();
+            const parts = content.split(/\s+/);
+            
+            // 处理消失指令
+            if (parts[0] === '消失' && parts.length >= 2) {
+                const charId = parts[1];
+                this.removeChar(charId);
+                return;
+            }
+
+            // 处理显示/更新指令：最后一个部分是图片ID，前面的是修饰词
+            if (parts.length >= 2) {
+                const charId = parts[parts.length - 1];
+                const modifiers = parts.slice(0, -1).join(' '); // 保留空格分隔
+                this.updateChar(charId, modifiers);
+            }
+        });
+    },
+
+    /**
+     * 更新或创建单个立绘
+     * @param {string} charId - 立绘ID (如 lh01)
+     * @param {string} modifiers - 修饰词组合 (如 "左 前" 或 "中 10% 后" 或 "瞬 左")
+     */
+    updateChar: function(charId, modifiers) {
+        // 获取路径
+        let path = null;
+        if (typeof CHAR_CONFIG_SUB !== 'undefined' && CHAR_CONFIG_SUB[charId]) {
+            path = CHAR_CONFIG_SUB[charId];
+        } else if (typeof CHAR_CONFIG !== 'undefined' && CHAR_CONFIG[charId]) {
+            path = CHAR_CONFIG[charId];
+        }
+
+        if (!path) {
+            console.warn(`立绘 ${charId} 未在配置文件中找到`);
+            return;
+        }
+
+        // 查找或创建 DOM 元素（确保唯一性）
+        let charEl = document.getElementById(`char-${charId}`);
+        if (!charEl) {
+            charEl = document.createElement('img');
+            charEl.id = `char-${charId}`;
+            charEl.className = 'character-img';
+            this.elements.characterContainer.appendChild(charEl);
+        }
+
+        // 更新图片源（如果需要）
+        if (charEl.src !== path) {
+            charEl.src = path;
+        }
+
+        // 解析修饰词并应用样式
+        const props = this.parseCharModifiers(modifiers);
+        
+        // 检查是否包含"瞬"指令
+        const isInstant = props.instant;
+        
+        if (isInstant) {
+            // 禁用过渡动画，实现瞬间切换
+            charEl.style.transition = 'none';
+        }
+        
+        // 应用样式
+        charEl.style.left = props.left;
+        charEl.style.bottom = props.bottom;
+        charEl.style.zIndex = props.zIndex;
+        charEl.style.visibility = 'visible';
+        charEl.style.opacity = '1';
+        
+        // 应用缩放：通过调整实际高度来实现，确保放大后的图片完整显示
+        // 基准高度为容器的 100%，根据 scale 比例调整
+        charEl.style.height = `${props.scale * 100}%`;
+        
+        // 保持水平居中对齐
+        charEl.style.transform = 'translateX(-50%)';
+        
+        if (isInstant) {
+            // 强制浏览器重绘，确保样式立即应用
+            void charEl.offsetHeight;
+            
+            // 短暂延时后恢复过渡动画，确保后续移动仍有平滑效果
+            setTimeout(() => {
+                charEl.style.transition = 'all 0.5s ease';
+            }, 50);
+        }
+
+        // 更新状态记录
+        this.state.activeChars[charId] = { path, ...props };
+    },
+
+    /**
+     * 移除指定立绘
+     * @param {string} charId - 立绘ID
+     */
+    removeChar: function(charId) {
+        const charEl = document.getElementById(`char-${charId}`);
+        if (charEl) {
+            charEl.remove();
+        }
+        delete this.state.activeChars[charId];
+    },
+
+    /**
+     * 解析立绘修饰词
+     * @param {string} mods - 修饰词字符串 (如 "左 下" 或 "中 10% 前" 或 "瞬 左")，空格分隔
+     * @returns {Object} - 包含 left, zIndex, clipPath, scale, bottom, instant 的对象
+     */
+    parseCharModifiers: function(mods) {
+        let left = '50%'; // 默认中
+        let zIndexOffset = 0;
+        let clipPath = 'none'; // 默认不裁剪
+        let scale = 1; // 默认缩放比例 100%
+        let bottom = '0'; // 默认底部位置
+        let instant = false; // 默认不禁用动画
+
+        // 将修饰词按空格分割为数组，便于精确匹配
+        const modArray = mods.split(' ').filter(Boolean);
+
+        // 提取位置关键词
+        const posKeywords = ['左左', '左', '左右', '中', '右左', '右', '右右'];
+        for (const kw of posKeywords) {
+            if (modArray.includes(kw)) {
+                switch(kw) {
+                    case '左左': left = '15%'; break;
+                    case '左': left = '25%'; break;
+                    case '左右': left = '35%'; break;
+                    case '中': left = '50%'; break;
+                    case '右左': left = '65%'; break;
+                    case '右': left = '75%'; break;
+                    case '右右': left = '85%'; break;
+                }
+                break; // 取第一个匹配的位置
+            }
+        }
+
+        // 提取垂直位置关键词
+        if (modArray.includes('下下')) {
+            bottom = '-65%';
+        } else if (modArray.includes('中下')) {
+            bottom = '-50%';
+        } else if (modArray.includes('下')) {
+            bottom = '-25%';
+        }
+
+        // 提取层级关键词
+        if (modArray.includes('前')) zIndexOffset = 1;
+        if (modArray.includes('后')) zIndexOffset = -1;
+
+        // 提取"瞬"指令关键词
+        if (modArray.includes('瞬')) {
+            instant = true;
+        }
+
+        // 提取百分比缩放关键词
+        for (const mod of modArray) {
+            // 检查是否以 % 结尾
+            if (mod.endsWith('%')) {
+                const percentValue = parseFloat(mod.slice(0, -1));
+                if (!isNaN(percentValue)) {
+                    // 计算公式：最终缩放比例 = 1 + (输入百分比数值 / 100)
+                    // 0 或 0% 仍保持 100% 大小
+                    scale = 1 + (percentValue / 100);
+                    // 确保缩放比例为正数
+                    if (scale <= 0) {
+                        console.warn(`缩放比例不能为负数或零，已重置为默认值 100%`);
+                        scale = 1;
+                    }
+                    break; // 只使用第一个百分比值
+                }
+            }
+        }
+
+        return {
+            left,
+            zIndex: 10 + zIndexOffset,
+            clipPath,
+            scale,
+            bottom,
+            instant
+        };
     }
 };
