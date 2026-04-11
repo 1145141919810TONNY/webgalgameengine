@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>差分测试模板</title>
+    <link rel="icon" type="image/png" href="../icon/icon-32.png">
+    <link rel="stylesheet" href="../style.css">
+    <script src="../bgm_config.js"></script>
+    <script src="../cg_config.js"></script>
+    <script src="../bg_config.js"></script>
+    <script src="../illustration.js"></script>
+    <script src="../modules/progress_api.js"></script>
+</head>
+<body>
+    <div id="background-container"></div>
+    <div id="character-container"></div>
+    <div id="text-box-container">
+        <div id="name-box">[姓名]</div>
+        <div id="text-box">[文本]</div>
+    </div>
+    <div id="options-container"></div>
+    <div id="novel-mode-container">
+        <div id="novel-text-box">[全屏文本]</div>
+    </div>
+    <audio id="bgm-player" loop></audio>
+    <audio id="se-player"></audio>
+    <audio id="voice-player"></audio>
+    <div id="video-player" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:100; background-color:black;">
+        <video id="main-video" style="width:100%; height:100%; object-fit:contain;" controls>
+            您的浏览器不支持视频播放。
+        </video>
+    </div>
+    <div id="context-menu-backdrop" class="context-menu-backdrop"></div>
+    <div id="context-menu" class="context-menu">
+        <ul>
+            <li onclick="window.location.href='../saves.html'">进度管理</li>
+            <li onclick="window.location.href='../index.html'">返回标题页面</li>
+        </ul>
+    </div>
+    <script src="../engine.js"></script>
+    <script>
+        // 场景模板数据
+        const sceneData = {
+            background: BG_CONFIG_SUB,
+            bgm: BGM_CONFIG_SUB,  // 使用 BGM 集中配置（子目录路径）
+            audio: {},
+            story: [
+                { 
+                    text: "欢迎使用立绘指令测试场景。本测试将演示精确坐标控制系统及所有修饰词功能。", 
+                    speaker: "系统",
+                    background: "bg_001_00_00",
+                    bgm: null,
+                    audio: null,
+                    command: null,
+                    action: null
+                },
+                
+                // ========== 精确坐标控制系统测试 ==========
+                {
+                    text: "【精确坐标-1】X轴基准点 - [x:0% lh1] (屏幕中心，等同于'中')",
+                    speaker: "系统",
+                    chars: "[x:0% lh1],[中 后 lh5]"
+                },
+                {
+                    text: "【精确坐标-2】X轴正值 - [x:15% lh1] (向右平移15%)",
+                    speaker: "系统",
+                    chars: "[x:15% lh1]"
+                },
+                {
+                    text: "【精确坐标-3】X轴负值 - [x:-15% lh1] (向左平移15%)",
+                    speaker: "系统",
+                    chars: "[x:-15% lh1]"
+                },
+                {
+                    text: "【精确坐标-4】Y轴基准点 - [y:0% lh1] (底部对齐，默认值)",
+                    speaker: "系统",
+                    chars: "[y:0% lh1]"
+                },
+                {
+                    text: "【精确坐标-5】Y轴正值 - [y:10% lh1] (向上移动10%)",
+                    speaker: "系统",
+                    chars: "[y:10% lh1]"
+                },
+                {
+                    text: "【精确坐标-6】Y轴负值 - [y:-20% lh1] (向下移动20%，部分隐藏)",
+                    speaker: "系统",
+                    chars: "[y:-20% lh1]"
+                },
+                {
+                    text: "【精确坐标-7】XY组合 - [x:10% y:5% lh1] (向右10%，向上5%)",
+                    speaker: "系统",
+                    chars: "[x:10% y:5% lh1]"
+                },
+                {
+                    text: "【精确坐标-8】负值组合 - [x:-10% y:-15% lh1] (向左10%，向下15%)",
+                    speaker: "系统",
+                    chars: "[x:-10% y:-15% lh1]"
+                },
+                {
+                    text: "【精确坐标-9】仅X轴 - [x:20% lh1] (X精确，Y默认)",
+                    speaker: "系统",
+                    chars: "[x:20% lh1]"
+                },
+                {
+                    text: "【精确坐标-10】仅Y轴 - [y:15% lh1] (X默认居中，Y精确)",
+                    speaker: "系统",
+                    chars: "[y:15% lh1]"
+                },
+                {
+                    text: "【精确坐标-11】结合层级 - [x:10% y:5% front lh1] (精确坐标+顶层)",
+                    speaker: "系统",
+                    chars: "[x:10% y:5% front lh1]"
+                },
+                {
+                    text: "【精确坐标-12】结合缩放 - [x:-10% y:10% 15% lh1] (精确坐标+放大15%)。lh2作为参照缩小至75%",
+                    speaker: "系统",
+                    chars: "[中 -25% lh2],[x:-10% y:10% 15% lh1]"
+                },
+                {
+                    text: "移除参照立绘",
+                    speaker: "系统",
+                    chars: "[消失 lh2]"
+                },
+                {
+                    text: "【精确坐标-13】结合瞬移 - [瞬 x:20% y:-10% lh1] (瞬移+精确坐标)。lh2作为位置参照",
+                    speaker: "系统",
+                    chars: "[x:-20% y:10% lh2],[瞬 x:20% y:-10% lh1]"
+                },
+                {
+                    text: "移除参照立绘",
+                    speaker: "系统",
+                    chars: "[hide lh2]"
+                },
+                {
+                    text: "【精确坐标-14】中英文混合 - [x:10% front instant lh1] (精确坐标+英文层级+英文瞬移)",
+                    speaker: "系统",
+                    chars: "[x:10% front instant lh1]"
+                },
+                {
+                    text: "【精确坐标-15】大偏移量 - [x:30% y:25% lh1] (大幅向右30%，向上25%)",
+                    speaker: "系统",
+                    chars: "[x:30% y:25% lh1]"
+                },
+                {
+                    text: "【精确坐标-16】极端负值 - [x:-25% y:-30% lh1] (大幅向左25%，向下30%，大部分隐藏)",
+                    speaker: "系统",
+                    chars: "[x:-25% y:-30% lh1]"
+                },
+                
+                // ========== 精确坐标与文字指令冲突测试 ==========
+                {
+                    text: "【冲突测试-1】x:优先于中文水平 - [x:10% 左 lh1] (应使用x:10%，忽略'左')",
+                    speaker: "系统",
+                    chars: "[x:10% 左 lh1]"
+                },
+                {
+                    text: "【冲突测试-2】x:优先于英文水平 - [x:15% right lh1] (应使用x:15%，忽略'right')",
+                    speaker: "系统",
+                    chars: "[x:15% right lh1]"
+                },
+                {
+                    text: "【冲突测试-3】y:优先于中文垂直 - [y:10% 下 lh1] (应使用y:10%，忽略'下')",
+                    speaker: "系统",
+                    chars: "[y:10% 下 lh1]"
+                },
+                {
+                    text: "【冲突测试-4】y:优先于英文垂直 - [y:15% down lh1] (应使用y:15%，忽略'down')",
+                    speaker: "系统",
+                    chars: "[y:15% down lh1]"
+                },
+                {
+                    text: "【冲突测试-5】xy同时优先 - [x:10% y:10% 中 下 lh1] (应使用x:10%,y:10%，忽略'中'和'下')",
+                    speaker: "系统",
+                    chars: "[x:10% y:10% 中 下 lh1]"
+                },
+                {
+                    text: "【冲突测试-6】仅x精确 - [x:10% 下 lh1] (x使用精确值10%，y使用'下'=-25%)",
+                    speaker: "系统",
+                    chars: "[x:10% 下 lh1]"
+                },
+                {
+                    text: "【冲突测试-7】仅y精确 - [中 y:15% lh1] (x使用'中'=50%，y使用精确值15%)",
+                    speaker: "系统",
+                    chars: "[中 y:15% lh1]"
+                },
+                {
+                    text: "【冲突测试-8】复杂混合 - [x:-10% 右 y:10% 前 10% lh1] (x精确,y精确,层级'前',缩放10%)",
+                    speaker: "系统",
+                    chars: "[x:-10% 右 y:10% 前 10% lh1]"
+                },
+                {
+                    text: "【冲突测试-9】中英文混合冲突 - [x:10% left y:10% down lh1] (x,y精确，忽略left和down)",
+                    speaker: "系统",
+                    chars: "[x:10% left y:10% down lh1]"
+                },
+                {
+                    text: "【冲突测试-10】多重水平冲突 - [x:10% 左 右 middle lh1] (应使用x:10%，忽略所有水平关键词)",
+                    speaker: "系统",
+                    chars: "[x:10% 左 右 middle lh1]"
+                },
+                {
+                    text: "【冲突测试-11】多重垂直冲突 - [y:10% 下 中下 down lh1] (应使用y:10%，忽略所有垂直关键词)",
+                    speaker: "系统",
+                    chars: "[y:10% 下 中下 down lh1]"
+                },
+                {
+                    text: "【冲突测试-12】完整冲突 - [x:15% 左 右 y:10% 下 down 前 back 10% lh1] (每类取第一个或精确值)",
+                    speaker: "系统",
+                    chars: "[x:15% 左 右 y:10% 下 down 前 back 10% lh1]"
+                },
+                
+                // ========== 清除立绘 ==========
+                {
+                    text: "清除所有立绘，准备进入原有测试",
+                    speaker: "系统",
+                    chars: "[消失 lh1],[消失 lh2]"
+                },
+                
+                // ========== 仅角色ID默认行为测试 ==========
+                {
+                    text: "【默认行为-1】仅角色ID - [lh1] (应等同于'[中 lh1]'，居中显示)",
+                    speaker: "系统",
+                    chars: "[lh1]"
+                },
+                {
+                    text: "【默认行为-2】对比测试 - 上面是[lh1]，下面是[中 lh5]，两者应该都居中。lh5作为参照",
+                    speaker: "系统",
+                    chars: "[中 lh5]"
+                },
+                {
+                    text: "【默认行为-3】再次测试仅ID - [lh2] (应该也居中)。lh1和lh2都应该居中，形成对比",
+                    speaker: "系统",
+                    chars: "[lh2]"
+                },
+                {
+                    text: "清除立绘，继续原有测试",
+                    speaker: "系统",
+                    chars: "[消失 lh1],[消失 lh2],[消失 lh5]"
+                },
+                
+                // ========== 原有水平位置测试 ==========
+                {
+                    text: "【测试1】最左侧 - [左左 lh1] (left: 15%)",
+                    speaker: "系统",
+                    chars: "[左左 lh1]"
+                },
+                {
+                    text: "【测试2】偏左侧 - [左 lh1] (left: 25%)",
+                    speaker: "系统",
+                    chars: "[左 lh1]"
+                },
+                {
+                    text: "【测试3】微偏左 - [左右 lh1] (left: 35%)",
+                    speaker: "系统",
+                    chars: "[左右 lh1]"
+                },
+                {
+                    text: "【测试4】居中 - [中 lh1] (left: 50%，默认位置)",
+                    speaker: "系统",
+                    chars: "[中 lh1]"
+                },
+                {
+                    text: "【测试5】微偏右 - [右左 lh1] (left: 65%)",
+                    speaker: "系统",
+                    chars: "[右左 lh1]"
+                },
+                {
+                    text: "【测试6】偏右侧 - [右 lh1] (left: 75%)",
+                    speaker: "系统",
+                    chars: "[右 lh1]"
+                },
+                {
+                    text: "【测试7】最右侧 - [右右 lh1] (left: 85%)",
+                    speaker: "系统",
+                    chars: "[右右 lh1]"
+                },
+                
+                // ========== 垂直位置测试 ==========
+                {
+                    text: "【测试8】垂直位置 - [中 下 lh1] (向下偏移25%)",
+                    speaker: "系统",
+                    chars: "[中 下 lh1]"
+                },
+                {
+                    text: "【测试9】垂直位置 - [中 中下 lh1] (向下偏移50%)",
+                    speaker: "系统",
+                    chars: "[中 中下 lh1]"
+                },
+                {
+                    text: "【测试10】垂直位置 - [中 下下 lh1] (向下偏移65%)",
+                    speaker: "系统",
+                    chars: "[中 下下 lh1]"
+                },
+                
+                // ========== 层级控制测试 ==========
+                {
+                    text: "【测试11】层级控制 - [中 前 lh1] (zIndex: 11, 顶层)。lh1在前(顶层)，lh2作为参照放大至125%",
+                    speaker: "系统",
+                    chars: "[中 25% lh2],[中 前 lh1]"
+                },
+                {
+                    text: "移除参照立绘",
+                    speaker: "系统",
+                    chars: "[消失 lh2]"
+                },
+                {
+                    text: "【测试12】层级控制 - [中 后 lh1] (zIndex: 9, 底层)。lh1在后(底层)，lh2作为参照缩小至75%",
+                    speaker: "系统",
+                    chars: "[中 -25% lh2],[中 后 lh1]"
+                },
+                {
+                    text: "移除参照立绘",
+                    speaker: "系统",
+                    chars: "[消失 lh2]"
+                },
+                
+                // ========== 缩放比例测试 ==========
+                {
+                    text: "【测试13】放大效果 - [中 10% lh1] (放大到110%)",
+                    speaker: "系统",
+                    chars: "[中 10% lh1]"
+                },
+                {
+                    text: "【测试14】缩小效果 - [中 -20% lh1] (缩小到80%)",
+                    speaker: "系统",
+                    chars: "[中 -20% lh1]"
+                },
+                {
+                    text: "【测试15】零缩放 - [中 0% lh1] (保持100%默认大小)",
+                    speaker: "系统",
+                    chars: "[中 0% lh1]"
+                },
+                
+                // ========== 动画控制测试 ==========
+                {
+                    text: "【测试16】瞬移效果 - [瞬 左 lh1] (瞬间移动，无过渡动画)。注意：lh2作为位置参照",
+                    speaker: "系统",
+                    chars: "[右 lh2],[瞬 左 lh1]"
+                },
+                {
+                    text: "移除参照立绘",
+                    speaker: "系统",
+                    chars: "[消失 lh2]"
+                },
+                {
+                    text: "【测试17】普通移动 - [右 lh1] (有0.5s平滑过渡动画)。对比上一步的瞬移效果",
+                    speaker: "系统",
+                    chars: "[右 lh1]"
+                },
+                
+                // ========== 组合指令测试 ==========
+                {
+                    text: "【测试18】水平+垂直 - [左 下 lh1] (左侧+向下25%)",
+                    speaker: "系统",
+                    chars: "[左 下 lh1]"
+                },
+                {
+                    text: "【测试19】水平+缩放 - [中 15% lh1] (居中+放大15%)",
+                    speaker: "系统",
+                    chars: "[中 15% lh1]"
+                },
+                {
+                    text: "【测试20】垂直+缩放 - [中 中下 -10% lh1] (向下50%+缩小10%)",
+                    speaker: "系统",
+                    chars: "[中 中下 -10% lh1]"
+                },
+                {
+                    text: "【测试21】水平+层级 - [右 前 lh1] (右侧+顶层)",
+                    speaker: "系统",
+                    chars: "[右 前 lh1]"
+                },
+                {
+                    text: "【测试22】三属性组合 - [左 下 10% lh1] (左侧+向下25%+放大10%)",
+                    speaker: "系统",
+                    chars: "[左 下 10% lh1]"
+                },
+                {
+                    text: "【测试23】四属性组合 - [右 中下 前 -15% lh1] (右侧+向下50%+顶层+缩小15%)",
+                    speaker: "系统",
+                    chars: "[右 中下 前 -15% lh1]"
+                },
+                {
+                    text: "【测试24】完整组合 - [中 下下 20% 前 lh1] (全部属性：居中+向下65%+放大20%+顶层)",
+                    speaker: "系统",
+                    chars: "[中 下下 20% 前 lh1]"
+                },
+                
+                // ========== 瞬移组合测试 ==========
+                {
+                    text: "【测试25】瞬移+位置 - [瞬 左 下 lh1] (瞬间移动到左侧+向下25%)。注意：lh2作为位置参照",
+                    speaker: "系统",
+                    chars: "[右 中下 lh2],[瞬 左 下 lh1]"
+                },
+                {
+                    text: "移除参照立绘",
+                    speaker: "系统",
+                    chars: "[消失 lh2]"
+                },
+                {
+                    text: "【测试26】瞬移+缩放 - [瞬 中 15% lh1] (瞬间移动+放大25%)",
+                    speaker: "系统",
+                    chars: "[瞬 中 15% lh1]"
+                },
+                {
+                    text: "【测试27】瞬移+多属性 - [瞬 右 中下 前 -10% lh1] (瞬间移动+全部属性)。lh1在前(顶层)，lh2作为参照放大至125%",
+                    speaker: "系统",
+                    chars: "[中 25% lh2],[瞬 右 中下 前 -10% lh1]"
+                },
+                {
+                    text: "移除参照立绘",
+                    speaker: "系统",
+                    chars: "[消失 lh2]"
+                },
+                
+                // ========== 结束清理 ==========
+                {
+                    text: "【测试28】清除立绘 - [消失 lh1]",
+                    speaker: "系统",
+                    chars: "[消失 lh1],[消失 lh2]"
+                },
+                
+                // ========== 英文别名测试 ==========
+                {
+                    text: "【测试29】纯中文基础 - [左 lh1] (验证原有中文指令完全兼容)",
+                    speaker: "系统",
+                    chars: "[左 lh1]"
+                },
+                {
+                    text: "【测试30】纯中文组合 - [中 前 10% lh1] (中文多属性组合)",
+                    speaker: "系统",
+                    chars: "[中 前 10% lh1]"
+                },
+                {
+                    text: "【测试31】纯中文消失 - [消失 lh1] (验证原有消失指令)",
+                    speaker: "系统",
+                    chars: "[消失 lh1]"
+                },
+                {
+                    text: "【测试32】纯英文水平位置 - [left lh1] (等同于'左')",
+                    speaker: "系统",
+                    chars: "[left lh1]"
+                },
+                {
+                    text: "【测试33】纯英文居中 - [middle lh1] (等同于'中')",
+                    speaker: "系统",
+                    chars: "[middle lh1]"
+                },
+                {
+                    text: "【测试34】纯英文center别名 - [center lh1] (等同于'中')",
+                    speaker: "系统",
+                    chars: "[center lh1]"
+                },
+                {
+                    text: "【测试35】纯英文右侧 - [right lh1] (等同于'右')",
+                    speaker: "系统",
+                    chars: "[right lh1]"
+                },
+                {
+                    text: "【测试36】纯英文垂直位置 - [down lh1] (等同于'下')",
+                    speaker: "系统",
+                    chars: "[middle down lh1]"
+                },
+                {
+                    text: "【测试37】纯英文层级 - [front lh1] (等同于'前',顶层)",
+                    speaker: "系统",
+                    chars: "[middle front lh1]"
+                },
+                {
+                    text: "【测试38】纯英文瞬移 - [instant right lh1] (等同于'瞬 右')。lh2作为参照",
+                    speaker: "系统",
+                    chars: "[left lh2],[instant right lh1]"
+                },
+                {
+                    text: "移除参照立绘",
+                    speaker: "系统",
+                    chars: "[hide lh2]"
+                },
+                {
+                    text: "【测试39】纯英文消失 - [remove lh1] (等同于'消失')",
+                    speaker: "系统",
+                    chars: "[remove lh1]"
+                },
+                
+                // ========== 中英文混合测试 ==========
+                {
+                    text: "【测试40】中文+英文层级 - [中 front lh1] (中文位置+英文层级)",
+                    speaker: "系统",
+                    chars: "[中 front lh1]"
+                },
+                {
+                    text: "【测试41】英文+中文垂直 - [left 下 lh1] (英文位置+中文垂直)",
+                    speaker: "系统",
+                    chars: "[left 下 lh1]"
+                },
+                {
+                    text: "【测试42】混合缩放 - [right front 10% lh1] (英文位置+英文层级+缩放)",
+                    speaker: "系统",
+                    chars: "[right front 10% lh1]"
+                },
+                {
+                    text: "【测试43】混合瞬移 - [瞬 middle down lh1] (中文动画+英文位置+英文垂直)",
+                    speaker: "系统",
+                    chars: "[瞬 middle down lh1]"
+                },
+                {
+                    text: "【测试44】复杂混合 - [left 中下 front -10% lh1] (四属性中英文混合)",
+                    speaker: "系统",
+                    chars: "[left 中下 front -10% lh1]"
+                },
+                
+                // ========== 冲突场景测试（关键！） ==========
+                {
+                    text: "【测试45-冲突1】中文水平冲突 - [左 右 lh1] (应取第一个'左'=25%，忽略'右')",
+                    speaker: "系统",
+                    chars: "[左 右 lh1]"
+                },
+                {
+                    text: "【测试46-冲突2】英文水平冲突 - [left right lh1] (应取第一个'left'=25%，忽略'right')",
+                    speaker: "系统",
+                    chars: "[left right lh1]"
+                },
+                {
+                    text: "【测试47-冲突3】中英水平冲突 - [左 right lh1] (应取第一个'左'=25%，忽略'right')",
+                    speaker: "系统",
+                    chars: "[左 right lh1]"
+                },
+                {
+                    text: "【测试48-冲突4】中英水平冲突2 - [right 左 lh1] (应取第一个'right'=75%，忽略'左')",
+                    speaker: "系统",
+                    chars: "[right 左 lh1]"
+                },
+                {
+                    text: "【测试49-冲突5】中文垂直冲突 - [下 中下 lh1] (应取第一个'下'=-25%，忽略'中下')",
+                    speaker: "系统",
+                    chars: "[中 下 中下 lh1]"
+                },
+                {
+                    text: "【测试50-冲突6】英文垂直冲突 - [down downm lh1] (应取第一个'down'=-25%，忽略'downm')",
+                    speaker: "系统",
+                    chars: "[middle down downm lh1]"
+                },
+                {
+                    text: "【测试51-冲突7】中英垂直冲突 - [下 downm lh1] (应取第一个'下'=-25%，忽略'downm')",
+                    speaker: "系统",
+                    chars: "[中 下 downm lh1]"
+                },
+                {
+                    text: "【测试52-冲突8】中文层级冲突 - [前 后 lh1] (应取第一个'前'=zIndex:11，忽略'后')。lh2作为参照缩小至75%",
+                    speaker: "系统",
+                    chars: "[中 -25% lh2],[中 前 后 lh1]"
+                },
+                {
+                    text: "移除参照立绘",
+                    speaker: "系统",
+                    chars: "[消失 lh2]"
+                },
+                {
+                    text: "【测试53-冲突9】英文层级冲突 - [front back lh1] (应取第一个'front'=zIndex:11，忽略'back')。lh2作为参照放大至125%",
+                    speaker: "系统",
+                    chars: "[中 25% lh2],[middle front back lh1]"
+                },
+                {
+                    text: "移除参照立绘",
+                    speaker: "系统",
+                    chars: "[hide lh2]"
+                },
+                {
+                    text: "【测试54-冲突10】中英层级冲突 - [前 back lh1] (应取第一个'前'=zIndex:11，忽略'back')。lh2作为参照",
+                    speaker: "系统",
+                    chars: "[left lh2],[中 前 back lh1]"
+                },
+                {
+                    text: "移除参照立绘",
+                    speaker: "系统",
+                    chars: "[remove lh2]"
+                },
+                {
+                    text: "【测试55-冲突11】多重冲突 - [左 右 中 lh1] (应取第一个'左'=25%，忽略后续所有水平位置)",
+                    speaker: "系统",
+                    chars: "[左 右 中 lh1]"
+                },
+                {
+                    text: "【测试56-冲突12】跨类型无冲突 - [左 下 前 lh1] (不同类型可同时存在，全部生效)",
+                    speaker: "系统",
+                    chars: "[左 下 前 lh1]"
+                },
+                {
+                    text: "【测试57-冲突13】复杂冲突 - [left right 下 downm front back 10% lh1] (每类取第一个：left=25%, down=-25%, front=zIndex:11, scale=110%)",
+                    speaker: "系统",
+                    chars: "[left right 下 downm front back 10% lh1]"
+                },
+                {
+                    text: "【测试58-冲突14】center与middle冲突 - [center middle lh1] (应取第一个'center'=50%，两者都映射到middle)",
+                    speaker: "系统",
+                    chars: "[center middle lh1]"
+                },
+                {
+                    text: "【测试59-冲突15】瞬移冲突 - [瞬 instant 左 lh1] (应取第一个'瞬'，两个都启用instant模式)",
+                    speaker: "系统",
+                    chars: "[右 lh2],[瞬 instant 左 lh1]"
+                },
+                {
+                    text: "移除参照立绘",
+                    speaker: "系统",
+                    chars: "[消失 lh2]"
+                },
+                
+                // ========== 边界情况测试 ==========
+                {
+                    text: "【测试60】仅角色ID - [lh1] (无任何修饰词，使用默认值：中, bottom:0, zIndex:10, scale:100%)",
+                    speaker: "系统",
+                    chars: "[lh1]"
+                },
+                {
+                    text: "【测试61】仅缩放 - [20% lh1] (仅缩放，位置使用默认)",
+                    speaker: "系统",
+                    chars: "[20% lh1]"
+                },
+                {
+                    text: "【测试62】负缩放 - [-30% lh1] (缩小到70%)",
+                    speaker: "系统",
+                    chars: "[-30% lh1]"
+                },
+                {
+                    text: "【测试63】零缩放 - [0% lh1] (保持100%默认大小)",
+                    speaker: "系统",
+                    chars: "[0% lh1]"
+                },
+                {
+                    text: "【测试64】极端缩放 - [100% lh1] (放大到200%)",
+                    speaker: "系统",
+                    chars: "[100% lh1]"
+                },
+                
+                // ========== 最终清理 ==========
+                {
+                    text: "【测试65】清除所有立绘",
+                    speaker: "系统",
+                    chars: "[消失 lh1],[消失 lh2]"
+                },
+                {
+                    text: "🎉 所有测试完成！您已成功体验立绘系统的完整功能，包括：\n✅ 纯中文指令（向后兼容）\n✅ 纯英文指令\n✅ 中英文混合指令\n✅ 冲突处理机制\n✅ 边界情况处理",
+                    speaker: "系统",
+                    chars: null
+                }
+            ]
+        };
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            gameEngine.init(sceneData);
+        });
+    </script>
+</body>
+</html>
