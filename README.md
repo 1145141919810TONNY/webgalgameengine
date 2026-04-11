@@ -167,6 +167,7 @@ galgame-engine/
 ├── bg_config.js          # 背景图片集中配置文件<br>
 ├── bgm_config.js         # BGM 集中配置文件<br>
 ├── cg_config.js          # CG 集中配置文件<br>
+├── illustration.js       # 立绘集中配置文件<br>
 ├── launch_game.bat       # 批处理启动脚本<br>
 ├── icon/                 # 浏览器图标文件夹<br>
 │   └── icon-32.png       # 浏览器页面图标<br>
