@@ -27,7 +27,7 @@
 - ctrl：快进剧情
 
 # V1.1.0更新内容（2026/4/11）
-- **立绘指令系统增强**：新增了详细的人物立绘差分控制指令，完整使用说明请参考 [illustration.md](../../illustration.md)
+- **立绘指令系统增强**：新增了详细的人物立绘差分控制指令，完整使用说明请参考 [illustration.md](assets/chars/illustration.md)
 - **教学网页上线**：提供了系统化的在线教程与代码示例，请访问 https://1145141919810tonny.github.io/Shioriteaching/ 查看
 
 # V1.0.13更新内容（2026/4/10 20:10）
