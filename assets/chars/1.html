@@ -642,9 +642,9 @@
                 
                 // --- 基础功能测试 ---
                 {
-                    text: "【动作-1】后退基础 - [中 back lh1] (Y轴+10%, 缩放-10%, 层级强制变后)。lh2作为参照放大至125%",
+                    text: "【动作-1】后退基础 - [中 retreat lh1] (Y轴+10%, 缩放-10%, 层级强制变后)。lh2作为参照放大至125%",
                     speaker: "系统",
-                    chars: "[中 25% lh2],[中 back lh1]"
+                    chars: "[中 25% lh2],[中 retreat lh1]"
                 },
                 {
                     text: "移除参照立绘",
@@ -714,9 +714,9 @@
                 
                 // --- 动作 vs 瞬移优先级测试 ---
                 {
-                    text: "【动作-11】瞬移被屏蔽(中) - [瞬 back lh1] ('瞬'应被忽略，后退动画正常播放)",
+                    text: "【动作-11】瞬移被屏蔽(中) - [瞬 retreat lh1] ('瞬'应被忽略，后退动画正常播放)",
                     speaker: "系统",
-                    chars: "[瞬 back lh1]"
+                    chars: "[瞬 retreat lh1]"
                 },
                 {
                     text: "【动作-12】instant被屏蔽(英) - [instant scare lh1] ('instant'应被忽略，吓一跳动画正常播放)",
@@ -741,9 +741,9 @@
                     chars: "[forward scare lh1]"
                 },
                 {
-                    text: "【动作-15】多动作取第一个(英) - [back scare lh1] (只执行'back'，忽略'scare')",
+                    text: "【动作-15】多动作取第一个(英) - [retreat scare lh1] (只执行'retreat'，忽略'scare')",
                     speaker: "系统",
-                    chars: "[back scare lh1]"
+                    chars: "[retreat scare lh1]"
                 },
                 {
                     text: "【动作-16】多动作取第一个(混) - [shake cshake lh1] (只执行'shake'，忽略'cshake')",
@@ -758,9 +758,9 @@
                 
                 // --- 动作与位置组合测试 ---
                 {
-                    text: "【动作-18】后退+左侧 - [左 back lh1] (左侧位置 + 后退效果)",
+                    text: "【动作-18】后退+左侧 - [左 retreat lh1] (左侧位置 + 后退效果)",
                     speaker: "系统",
-                    chars: "[左 back lh1]"
+                    chars: "[左 retreat lh1]"
                 },
                 {
                     text: "【动作-18.5】前进+右侧 - [right forward lh1] (右侧位置 + 前进效果)",
@@ -790,9 +790,9 @@
                 
                 // --- 动作与垂直位置组合测试 ---
                 {
-                    text: "【动作-23】后退+向下 - [中 下 back lh1] (向下25% + 后退效果，后退会再向上10%)",
+                    text: "【动作-23】后退+向下 - [中 下 retreat lh1] (向下25% + 后退效果，后退会再向上10%)",
                     speaker: "系统",
-                    chars: "[中 下 back lh1]"
+                    chars: "[中 下 retreat lh1]"
                 },
                 {
                     text: "【动作-23.5】前进+向上 - [middle up forward lh1] (向上25% + 前进效果，前进会再向下10%)",
@@ -812,9 +812,9 @@
                 
                 // --- 动作与缩放组合测试 ---
                 {
-                    text: "【动作-26】后退+缩放 - [中 20% back lh1] (基准缩放120%，后退后变为110%)",
+                    text: "【动作-26】后退+缩放 - [中 20% retreat lh1] (基准缩放120%，后退后变为110%)",
                     speaker: "系统",
-                    chars: "[中 20% back lh1]"
+                    chars: "[中 20% retreat lh1]"
                 },
                 {
                     text: "【动作-26.5】前进+缩放 - [中 10% forward lh1] (基准缩放110%，前进后变为120%)",
@@ -834,9 +834,9 @@
                 
                 // --- 动作与层级组合测试 ---
                 {
-                    text: "【动作-29】后退+前层 - [中 front back lh1] (指定'前'但后退会强制变'后'，zIndex=9)。lh2作为参照缩小至75%",
+                    text: "【动作-29】后退+前层 - [中 front retreat lh1] (指定'前'但后退会强制变'后'，zIndex=9)。lh2作为参照缩小至75%",
                     speaker: "系统",
-                    chars: "[中 -25% lh2],[中 front back lh1]"
+                    chars: "[中 -25% lh2],[中 front retreat lh1]"
                 },
                 {
                     text: "移除参照立绘",
@@ -866,9 +866,9 @@
                 
                 // --- 复杂组合测试 ---
                 {
-                    text: "【动作-32】完整组合(后退) - [左 下 front 10% back lh1] (左侧+向下+前层+放大10%+后退，后退会强制变后层)",
+                    text: "【动作-32】完整组合(后退) - [左 下 front 10% retreat lh1] (左侧+向下+前层+放大10%+后退，后退会强制变后层)",
                     speaker: "系统",
-                    chars: "[左 下 front 10% back lh1]"
+                    chars: "[左 下 front 10% retreat lh1]"
                 },
                 {
                     text: "【动作-32.5】完整组合(前进) - [右 上 back 10% forward lh1] (右侧+向上+后层+放大10%+前进，前进会强制变前层)",
@@ -898,9 +898,9 @@
                 
                 // --- 精确坐标与动作组合测试 ---
                 {
-                    text: "【动作-37】后退+精确坐标 - [x:10% y:5% back lh1] (精确坐标 + 后退效果)",
+                    text: "【动作-37】后退+精确坐标 - [x:10% y:5% retreat lh1] (精确坐标 + 后退效果)",
                     speaker: "系统",
-                    chars: "[x:10% y:5% back lh1]"
+                    chars: "[x:10% y:5% retreat lh1]"
                 },
                 {
                     text: "【动作-37.5】前进+精确坐标 - [x:-10% y:10% forward lh1] (精确坐标 + 前进效果)",
@@ -930,9 +930,9 @@
                 
                 // --- 中英文混合动作测试 ---
                 {
-                    text: "【动作-42】中英混合(后退) - [中 back lh1] (中文位置 + 英文动作)",
+                    text: "【动作-42】中英混合(后退) - [中 retreat lh1] (中文位置 + 英文动作)",
                     speaker: "系统",
-                    chars: "[中 back lh1]"
+                    chars: "[中 retreat lh1]"
                 },
                 {
                     text: "【动作-42.5】中英混合(前进) - [left 前进 lh1] (英文位置 + 中文动作)",
@@ -960,9 +960,9 @@
                     chars: "[结束发抖 lh1]"
                 },
                 {
-                    text: "【动作-47】复杂中英混合 - [左 front 10% back lh1] (中文位置 + 英文层级 + 缩放 + 英文动作)",
+                    text: "【动作-47】复杂中英混合 - [左 front 10% retreat lh1] (中文位置 + 英文层级 + 缩放 + 英文动作)",
                     speaker: "系统",
-                    chars: "[左 front 10% back lh1]"
+                    chars: "[左 front 10% retreat lh1]"
                 },
                 {
                     text: "【动作-48】多语言动作别名 - [中 scare lh1] (scare是jumpscare/startle的缩写)",
@@ -1073,9 +1073,9 @@
                 
                 // --- 特殊场景测试 ---
                 {
-                    text: "【动作-59】后退已在后层 - [中 back lh1] (已是后层，zIndex保持9)",
+                    text: "【动作-59】后退已在后层 - [中 retreat lh1] (已是后层，zIndex保持9)",
                     speaker: "系统",
-                    chars: "[中 back lh1]"
+                    chars: "[中 retreat lh1]"
                 },
                 {
                     text: "【动作-59.5】前进已在前层 - [中 forward lh1] (已是前层，zIndex保持11)",
@@ -1083,9 +1083,9 @@
                     chars: "[中 forward lh1]"
                 },
                 {
-                    text: "【动作-60】连续后退 - [中 back lh1] (再次后退，Y轴再+10%，缩放再-10%)",
+                    text: "【动作-60】连续后退 - [中 retreat lh1] (再次后退，Y轴再+10%，缩放再-10%)",
                     speaker: "系统",
-                    chars: "[中 back lh1]"
+                    chars: "[中 retreat lh1]"
                 },
                 {
                     text: "【动作-60.5】连续前进 - [中 forward lh1] (再次前进，Y轴再-10%，缩放再+10%)",
