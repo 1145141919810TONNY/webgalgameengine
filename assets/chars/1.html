@@ -633,14 +633,484 @@
                     chars: "[100% lh1]"
                 },
                 
+                // ========== 立绘动作指令系统测试 ==========
+                {
+                    text: "清除所有立绘，准备进入动作指令测试",
+                    speaker: "系统",
+                    chars: "[消失 lh1],[消失 lh2]"
+                },
+                
+                // --- 基础功能测试 ---
+                {
+                    text: "【动作-1】后退基础 - [中 back lh1] (Y轴+10%, 缩放-10%, 层级强制变后)。lh2作为参照放大至125%",
+                    speaker: "系统",
+                    chars: "[中 25% lh2],[中 back lh1]"
+                },
+                {
+                    text: "移除参照立绘",
+                    speaker: "系统",
+                    chars: "[消失 lh2]"
+                },
+                {
+                    text: "【动作-1.5】前进基础 - [中 forward lh1] (Y轴-10%, 缩放+10%, 层级强制变前)。lh2作为参照缩小至75%",
+                    speaker: "系统",
+                    chars: "[中 -25% lh2],[中 forward lh1]"
+                },
+                {
+                    text: "移除参照立绘",
+                    speaker: "系统",
+                    chars: "[消失 lh2]"
+                },
+                {
+                    text: "【动作-2】吓一跳基础 - [中 scare lh1] (先放大7%再缩小7%，重复2次，总时长1秒)",
+                    speaker: "系统",
+                    chars: "[中 scare lh1]"
+                },
+                {
+                    text: "【动作-3】发抖基础 - [中 shake lh1] (X轴左右偏移±2%，重复3次，总时长约480ms)",
+                    speaker: "系统",
+                    chars: "[中 shake lh1]"
+                },
+                {
+                    text: "【动作-4】持续发抖启动 - [中 cshake lh1] (持续左右抖动，需要手动停止)",
+                    speaker: "系统",
+                    chars: "[中 cshake lh1]"
+                },
+                {
+                    text: "【动作-5】结束发抖 - [sshake lh1] (停止持续发抖，恢复原位)",
+                    speaker: "系统",
+                    chars: "[sshake lh1]"
+                },
+                {
+                    text: "【动作-6】中文后退 - [中 后退 lh1] (验证中文指令等价性)",
+                    speaker: "系统",
+                    chars: "[中 后退 lh1]"
+                },
+                {
+                    text: "【动作-6.5】中文前进 - [中 前进 lh1] (验证中文指令等价性)",
+                    speaker: "系统",
+                    chars: "[中 前进 lh1]"
+                },
+                {
+                    text: "【动作-7】中文吓一跳 - [中 吓一跳 lh1] (验证中文指令等价性)",
+                    speaker: "系统",
+                    chars: "[中 吓一跳 lh1]"
+                },
+                {
+                    text: "【动作-8】中文发抖 - [中 发抖 lh1] (验证中文指令等价性)",
+                    speaker: "系统",
+                    chars: "[中 发抖 lh1]"
+                },
+                {
+                    text: "【动作-9】中文持续发抖 - [中 持续发抖 lh1] (验证中文指令等价性)",
+                    speaker: "系统",
+                    chars: "[中 持续发抖 lh1]"
+                },
+                {
+                    text: "【动作-10】中文结束发抖 - [结束发抖 lh1] (验证中文指令等价性)",
+                    speaker: "系统",
+                    chars: "[结束发抖 lh1]"
+                },
+                
+                // --- 动作 vs 瞬移优先级测试 ---
+                {
+                    text: "【动作-11】瞬移被屏蔽(中) - [瞬 back lh1] ('瞬'应被忽略，后退动画正常播放)",
+                    speaker: "系统",
+                    chars: "[瞬 back lh1]"
+                },
+                {
+                    text: "【动作-12】instant被屏蔽(英) - [instant scare lh1] ('instant'应被忽略，吓一跳动画正常播放)",
+                    speaker: "系统",
+                    chars: "[instant scare lh1]"
+                },
+                {
+                    text: "【动作-13】瞬移被屏蔽(混合) - [瞬 吓一跳 lh1] (中文'瞬'被忽略，吓一跳动画正常播放)",
+                    speaker: "系统",
+                    chars: "[瞬 吓一跳 lh1]"
+                },
+                
+                // --- 多动作互斥测试 ---
+                {
+                    text: "【动作-14】多动作取第一个(中) - [后退 吓一跳 lh1] (只执行'后退'，忽略'吓一跳')",
+                    speaker: "系统",
+                    chars: "[后退 吓一跳 lh1]"
+                },
+                {
+                    text: "【动作-14.5】多动作取第一个(前进) - [forward scare lh1] (只执行'forward'，忽略'scare')",
+                    speaker: "系统",
+                    chars: "[forward scare lh1]"
+                },
+                {
+                    text: "【动作-15】多动作取第一个(英) - [back scare lh1] (只执行'back'，忽略'scare')",
+                    speaker: "系统",
+                    chars: "[back scare lh1]"
+                },
+                {
+                    text: "【动作-16】多动作取第一个(混) - [shake cshake lh1] (只执行'shake'，忽略'cshake')",
+                    speaker: "系统",
+                    chars: "[shake cshake lh1]"
+                },
+                {
+                    text: "【动作-17】三个动作指令 - [后退 发抖 吓一跳 lh1] (只执行最左边的'后退')",
+                    speaker: "系统",
+                    chars: "[后退 发抖 吓一跳 lh1]"
+                },
+                
+                // --- 动作与位置组合测试 ---
+                {
+                    text: "【动作-18】后退+左侧 - [左 back lh1] (左侧位置 + 后退效果)",
+                    speaker: "系统",
+                    chars: "[左 back lh1]"
+                },
+                {
+                    text: "【动作-18.5】前进+右侧 - [right forward lh1] (右侧位置 + 前进效果)",
+                    speaker: "系统",
+                    chars: "[right forward lh1]"
+                },
+                {
+                    text: "【动作-19】吓一跳+右侧 - [right scare lh1] (右侧位置 + 吓一跳效果)",
+                    speaker: "系统",
+                    chars: "[right scare lh1]"
+                },
+                {
+                    text: "【动作-20】发抖+居中 - [中 shake lh1] (居中位置 + 发抖效果)",
+                    speaker: "系统",
+                    chars: "[中 shake lh1]"
+                },
+                {
+                    text: "【动作-21】持续发抖+左侧 - [left cshake lh1] (左侧位置 + 持续发抖)",
+                    speaker: "系统",
+                    chars: "[left cshake lh1]"
+                },
+                {
+                    text: "【动作-22】结束发抖 - [sshake lh1] (停止上一步的持续发抖)",
+                    speaker: "系统",
+                    chars: "[sshake lh1]"
+                },
+                
+                // --- 动作与垂直位置组合测试 ---
+                {
+                    text: "【动作-23】后退+向下 - [中 下 back lh1] (向下25% + 后退效果，后退会再向上10%)",
+                    speaker: "系统",
+                    chars: "[中 下 back lh1]"
+                },
+                {
+                    text: "【动作-23.5】前进+向上 - [middle up forward lh1] (向上25% + 前进效果，前进会再向下10%)",
+                    speaker: "系统",
+                    chars: "[middle up forward lh1]"
+                },
+                {
+                    text: "【动作-24】吓一跳+向上 - [middle up scare lh1] (向上25% + 吓一跳效果)",
+                    speaker: "系统",
+                    chars: "[middle up scare lh1]"
+                },
+                {
+                    text: "【动作-25】发抖+中下 - [中 downm shake lh1] (向下50% + 发抖效果)",
+                    speaker: "系统",
+                    chars: "[中 downm shake lh1]"
+                },
+                
+                // --- 动作与缩放组合测试 ---
+                {
+                    text: "【动作-26】后退+缩放 - [中 20% back lh1] (基准缩放120%，后退后变为110%)",
+                    speaker: "系统",
+                    chars: "[中 20% back lh1]"
+                },
+                {
+                    text: "【动作-26.5】前进+缩放 - [中 10% forward lh1] (基准缩放110%，前进后变为120%)",
+                    speaker: "系统",
+                    chars: "[中 10% forward lh1]"
+                },
+                {
+                    text: "【动作-27】吓一跳+缩放 - [中 10% scare lh1] (基于110%缩放的吓一跳动画)",
+                    speaker: "系统",
+                    chars: "[中 10% scare lh1]"
+                },
+                {
+                    text: "【动作-28】发抖+缩小 - [middle -15% shake lh1] (基于85%缩放的发抖动画)",
+                    speaker: "系统",
+                    chars: "[middle -15% shake lh1]"
+                },
+                
+                // --- 动作与层级组合测试 ---
+                {
+                    text: "【动作-29】后退+前层 - [中 front back lh1] (指定'前'但后退会强制变'后'，zIndex=9)。lh2作为参照缩小至75%",
+                    speaker: "系统",
+                    chars: "[中 -25% lh2],[中 front back lh1]"
+                },
+                {
+                    text: "移除参照立绘",
+                    speaker: "系统",
+                    chars: "[消失 lh2]"
+                },
+                {
+                    text: "【动作-29.5】前进+后层 - [中 back forward lh1] (指定'后'但前进会强制变'前'，zIndex=11)。lh2作为参照放大至125%",
+                    speaker: "系统",
+                    chars: "[中 25% lh2],[中 back forward lh1]"
+                },
+                {
+                    text: "移除参照立绘",
+                    speaker: "系统",
+                    chars: "[消失 lh2]"
+                },
+                {
+                    text: "【动作-30】吓一跳+前层 - [中 front scare lh1] (顶层 + 吓一跳效果，层级不变)",
+                    speaker: "系统",
+                    chars: "[中 front scare lh1]"
+                },
+                {
+                    text: "【动作-31】发抖+后层 - [middle back shake lh1] (底层 + 发抖效果)",
+                    speaker: "系统",
+                    chars: "[middle back shake lh1]"
+                },
+                
+                // --- 复杂组合测试 ---
+                {
+                    text: "【动作-32】完整组合(后退) - [左 下 front 10% back lh1] (左侧+向下+前层+放大10%+后退，后退会强制变后层)",
+                    speaker: "系统",
+                    chars: "[左 下 front 10% back lh1]"
+                },
+                {
+                    text: "【动作-32.5】完整组合(前进) - [右 上 back 10% forward lh1] (右侧+向上+后层+放大10%+前进，前进会强制变前层)",
+                    speaker: "系统",
+                    chars: "[右 上 back 10% forward lh1]"
+                },
+                {
+                    text: "【动作-33】完整组合(吓一跳) - [right upm 15% scare lh1] (右侧+向上50%+放大15%+吓一跳)",
+                    speaker: "系统",
+                    chars: "[right upm 15% scare lh1]"
+                },
+                {
+                    text: "【动作-34】完整组合(发抖) - [左 leftl downm shake lh1] (微偏左+向下50%+发抖)",
+                    speaker: "系统",
+                    chars: "[左 leftl downm shake lh1]"
+                },
+                {
+                    text: "【动作-35】完整组合(持续发抖) - [右 中下 -10% cshake lh1] (右侧+向下50%+缩小10%+持续发抖)",
+                    speaker: "系统",
+                    chars: "[右 中下 -10% cshake lh1]"
+                },
+                {
+                    text: "【动作-36】结束发抖 - [sshake lh1] (停止上一步的持续发抖)",
+                    speaker: "系统",
+                    chars: "[sshake lh1]"
+                },
+                
+                // --- 精确坐标与动作组合测试 ---
+                {
+                    text: "【动作-37】后退+精确坐标 - [x:10% y:5% back lh1] (精确坐标 + 后退效果)",
+                    speaker: "系统",
+                    chars: "[x:10% y:5% back lh1]"
+                },
+                {
+                    text: "【动作-37.5】前进+精确坐标 - [x:-10% y:10% forward lh1] (精确坐标 + 前进效果)",
+                    speaker: "系统",
+                    chars: "[x:-10% y:10% forward lh1]"
+                },
+                {
+                    text: "【动作-38】吓一跳+精确坐标 - [x:-10% y:10% scare lh1] (精确坐标 + 吓一跳效果)",
+                    speaker: "系统",
+                    chars: "[x:-10% y:10% scare lh1]"
+                },
+                {
+                    text: "【动作-39】发抖+精确X - [x:15% shake lh1] (精确X坐标 + 发抖效果)",
+                    speaker: "系统",
+                    chars: "[x:15% shake lh1]"
+                },
+                {
+                    text: "【动作-40】持续发抖+精确Y - [y:15% cshake lh1] (精确Y坐标 + 持续发抖)",
+                    speaker: "系统",
+                    chars: "[y:15% cshake lh1]"
+                },
+                {
+                    text: "【动作-41】结束发抖 - [sshake lh1] (停止上一步的持续发抖)",
+                    speaker: "系统",
+                    chars: "[sshake lh1]"
+                },
+                
+                // --- 中英文混合动作测试 ---
+                {
+                    text: "【动作-42】中英混合(后退) - [中 back lh1] (中文位置 + 英文动作)",
+                    speaker: "系统",
+                    chars: "[中 back lh1]"
+                },
+                {
+                    text: "【动作-42.5】中英混合(前进) - [left 前进 lh1] (英文位置 + 中文动作)",
+                    speaker: "系统",
+                    chars: "[left 前进 lh1]"
+                },
+                {
+                    text: "【动作-43】中英混合(吓一跳) - [left 吓一跳 lh1] (英文位置 + 中文动作)",
+                    speaker: "系统",
+                    chars: "[left 吓一跳 lh1]"
+                },
+                {
+                    text: "【动作-44】中英混合(发抖) - [中 下 shake lh1] (中文位置+垂直 + 英文动作)",
+                    speaker: "系统",
+                    chars: "[中 下 shake lh1]"
+                },
+                {
+                    text: "【动作-45】中英混合(持续发抖) - [right 持续发抖 lh1] (英文位置 + 中文动作)",
+                    speaker: "系统",
+                    chars: "[right 持续发抖 lh1]"
+                },
+                {
+                    text: "【动作-46】结束发抖 - [结束发抖 lh1] (中文停止指令)",
+                    speaker: "系统",
+                    chars: "[结束发抖 lh1]"
+                },
+                {
+                    text: "【动作-47】复杂中英混合 - [左 front 10% back lh1] (中文位置 + 英文层级 + 缩放 + 英文动作)",
+                    speaker: "系统",
+                    chars: "[左 front 10% back lh1]"
+                },
+                {
+                    text: "【动作-48】多语言动作别名 - [中 scare lh1] (scare是jumpscare/startle的缩写)",
+                    speaker: "系统",
+                    chars: "[中 scare lh1]"
+                },
+                {
+                    text: "【动作-49】持续发抖英文 - [middle cshake lh1] (cshake是continuous_shake的缩写)",
+                    speaker: "系统",
+                    chars: "[middle cshake lh1]"
+                },
+                {
+                    text: "【动作-50】结束发抖英文 - [sshake lh1] (sshake是stop_shake的缩写)",
+                    speaker: "系统",
+                    chars: "[sshake lh1]"
+                },
+                
+                // --- 动作状态管理测试 ---
+                {
+                    text: "【动作-51】多次启动持续发抖 - [中 cshake lh1] (第一次启动)",
+                    speaker: "系统",
+                    chars: "[中 cshake lh1]"
+                },
+                {
+                    text: "【动作-52】再次启动持续发抖 - [中 cshake lh1] (应重启定时器，继续抖动)",
+                    speaker: "系统",
+                    chars: "[中 cshake lh1]"
+                },
+                {
+                    text: "【动作-53】结束发抖 - [sshake lh1] (成功停止)",
+                    speaker: "系统",
+                    chars: "[sshake lh1]"
+                },
+                {
+                    text: "【动作-54】无状态下结束发抖 - [sshake lh1] (应无错误，静默处理)",
+                    speaker: "系统",
+                    chars: "[sshake lh1]"
+                },
+                
+                // --- 动作与消失指令测试 ---
+                {
+                    text: "【动作-55】持续发抖中消失 - [中 cshake lh1] (启动持续发抖)",
+                    speaker: "系统",
+                    chars: "[中 cshake lh1]"
+                },
+                {
+                    text: "【动作-56】消失立绘 - [消失 lh1] (应自动停止持续发抖并移除立绘)",
+                    speaker: "系统",
+                    chars: "[消失 lh1]"
+                },
+                {
+                    text: "【动作-57】英文消失 - [中 cshake lh1] (重新启动持续发抖)",
+                    speaker: "系统",
+                    chars: "[中 cshake lh1]"
+                },
+                {
+                    text: "【动作-58】英文消失立绘 - [remove lh1] (应自动停止持续发抖并移除立绘)",
+                    speaker: "系统",
+                    chars: "[remove lh1]"
+                },
+                
+                // --- 清除所有立绘测试 ---
+                {
+                    text: "【清除全部-1】准备多立绘场景 - 同时显示3个立绘",
+                    speaker: "系统",
+                    chars: "[左 lh1],[中 lh2],[右 lh5]"
+                },
+                {
+                    text: "【清除全部-2】中文清除全部 - [消失 全部] (应清除所有立绘)",
+                    speaker: "系统",
+                    chars: "[消失 全部]"
+                },
+                {
+                    text: "【清除全部-3】再次准备多立绘 - [左 lh1],[中 lh2],[右 lh5]",
+                    speaker: "系统",
+                    chars: "[左 lh1],[中 lh2],[右 lh5]"
+                },
+                {
+                    text: "【清除全部-4】英文清除全部(hide) - [hide all] (应清除所有立绘)",
+                    speaker: "系统",
+                    chars: "[hide all]"
+                },
+                {
+                    text: "【清除全部-5】再次准备多立绘 - [左 lh1],[中 lh2],[右 lh5]",
+                    speaker: "系统",
+                    chars: "[左 lh1],[中 lh2],[右 lh5]"
+                },
+                {
+                    text: "【清除全部-6】英文清除全部(remove) - [remove all] (应清除所有立绘)",
+                    speaker: "系统",
+                    chars: "[remove all]"
+                },
+                {
+                    text: "【清除全部-7】带持续发抖的清除 - [左 cshake lh1],[中 lh2],[右 lh5] (lh1持续发抖)",
+                    speaker: "系统",
+                    chars: "[左 cshake lh1],[中 lh2],[右 lh5]"
+                },
+                {
+                    text: "【清除全部-8】清除全部(含动画) - [消失 全部] (应停止发抖并清除所有)",
+                    speaker: "系统",
+                    chars: "[消失 全部]"
+                },
+                {
+                    text: "【清除全部-9】空状态清除 - [消失 all] (无立绘时清除，应无错误)",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+                
+                // --- 特殊场景测试 ---
+                {
+                    text: "【动作-59】后退已在后层 - [中 back lh1] (已是后层，zIndex保持9)",
+                    speaker: "系统",
+                    chars: "[中 back lh1]"
+                },
+                {
+                    text: "【动作-59.5】前进已在前层 - [中 forward lh1] (已是前层，zIndex保持11)",
+                    speaker: "系统",
+                    chars: "[中 forward lh1]"
+                },
+                {
+                    text: "【动作-60】连续后退 - [中 back lh1] (再次后退，Y轴再+10%，缩放再-10%)",
+                    speaker: "系统",
+                    chars: "[中 back lh1]"
+                },
+                {
+                    text: "【动作-60.5】连续前进 - [中 forward lh1] (再次前进，Y轴再-10%，缩放再+10%)",
+                    speaker: "系统",
+                    chars: "[中 forward lh1]"
+                },
+                {
+                    text: "【动作-61】吓一跳后普通移动 - [右 lh1] (吓一跳结束后，普通移动应正常)",
+                    speaker: "系统",
+                    chars: "[右 lh1]"
+                },
+                {
+                    text: "【动作-62】发抖后瞬移 - [瞬 左 lh1] (发抖结束后，瞬移应正常)",
+                    speaker: "系统",
+                    chars: "[瞬 左 lh1]"
+                },
+                
                 // ========== 最终清理 ==========
                 {
-                    text: "【测试65】清除所有立绘",
+                    text: "【动作-63】清除所有立绘",
                     speaker: "系统",
                     chars: "[消失 lh1],[消失 lh2]"
                 },
                 {
-                    text: "🎉 所有测试完成！您已成功体验立绘系统的完整功能，包括：\n✅ 纯中文指令（向后兼容）\n✅ 纯英文指令\n✅ 中英文混合指令\n✅ 冲突处理机制\n✅ 边界情况处理",
+                    text: " 所有测试完成！您已成功体验立绘系统的完整功能，包括：\n 纯中文指令（向后兼容）\n 纯英文指令\n 中英文混合指令\n 冲突处理机制\n 边界情况处理\n 动作指令系统（后退/前进/吓一跳/发抖/持续发抖/结束发抖）\n 动作优先级规则\n 动作与其他修饰词组合",
                     speaker: "系统",
                     chars: null
                 }
