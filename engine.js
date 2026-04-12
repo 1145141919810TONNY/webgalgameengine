@@ -3397,7 +3397,7 @@ const gameEngine = {
         };
     
         const actionMap = {
-            '后退': 'back', 'back': 'back',
+            '后退': 'retreat', 'retreat': 'retreat',
             '前进': 'forward', 'forward': 'forward',
             '吓一跳': 'scare', 'scare': 'scare',
             '发抖': 'shake', 'shake': 'shake',
