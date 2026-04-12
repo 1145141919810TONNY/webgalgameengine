@@ -73,7 +73,7 @@ chars: "[中 lh01]" // 显示 ID 为 lh01 的立绘，位置居中
 
 | 中文 | 英文别名 | 效果说明 |
 | :--- | :--- | :--- |
-| `后退` | `back` | Y轴向上+10%，缩放-10%，层级强制变为"后"（zIndex=9） |
+| `后退` | `retreat` | Y轴向上+10%，缩放-10%，层级强制变为"后"（zIndex=9） |
 | `前进` | `forward` | Y轴向下-10%，缩放+10%（上限2.0），层级强制变为"前"（zIndex=11） |
 | `吓一跳` | `scare` | 先放大7%再缩小7%，重复2次，总时长约1秒 |
 | `发抖` | `shake` | X轴左右偏移±2%，重复3次，总时长约480ms |
@@ -110,7 +110,7 @@ chars: "[remove lh01]"             // 英文消失指令
 #### 动作指令示例
 ```javascript
 // 后退效果
-chars: "[中 back lh01]"            // Y轴向上+10%，缩小10%，层级变后
+chars: "[中 retreat lh01]"         // Y轴向上+10%，缩小10%，层级变后
 chars: "[中 后退 lh01]"            // 中文等价
 
 // 前进效果
@@ -161,20 +161,20 @@ chars: "[左 下 前 lh01]"  // 全部生效：left=25%, bottom=-25%, zIndex=11
 
 1. **动作指令屏蔽瞬移**：当使用动作指令时，`瞬`/`instant` 会被自动忽略，确保动画正常播放。
    ```javascript
-   chars: "[瞬 back lh01]"     // '瞬'被忽略，后退动画正常播放
+   chars: "[瞬 retreat lh01]"     // '瞬'被忽略，后退动画正常播放
    chars: "[instant scare lh01]" // 'instant'被忽略，吓一跳动画正常播放
    ```
 
 2. **多动作取第一个**：如果同时指定多个动作指令，只执行第一个，忽略后续的动作。
    ```javascript
    chars: "[后退 吓一跳 lh01]"  // 只执行'后退'，忽略'吓一跳'
-   chars: "[forward scare lh01]" // 只执行'forward'，忽略'scare'
+   chars: "[retreat scare lh01]" // 只执行'retreat'，忽略'scare'
    chars: "[shake cshake lh01]"  // 只执行'shake'，忽略'cshake'
    ```
 
 3. **动作与其他修饰词组合**：动作指令可以与位置、缩放、层级等修饰词组合使用。
    ```javascript
-   chars: "[左 back lh01]"          // 左侧位置 + 后退效果
+   chars: "[左 retreat lh01]"         // 左侧位置 + 后退效果
    chars: "[中 10% forward lh01]"   // 基准缩放110%，前进后变为120%
    chars: "[x:10% y:5% shake lh01]" // 精确坐标 + 发抖效果
    ```
@@ -542,7 +542,7 @@ chars: "[remove all]"
 
 动作指令为立绘提供了丰富的动态效果，可以增强视觉表现力。
 
-### 11.1 后退 (back)
+### 11.1 后退 (retreat)
 
 **效果：**
 - Y轴：向上偏移 +10%（`bottom += 10%`）
@@ -552,19 +552,19 @@ chars: "[remove all]"
 **示例：**
 ```javascript
 // 基础用法
-chars: "[中 back lh01]"
+chars: "[中 retreat lh01]"
 chars: "[中 后退 lh01]"  // 中文等价
 
 // 与位置组合
-chars: "[左 back lh01]"   // 左侧 + 后退
-chars: "[right back lh01]" // 右侧 + 后退
+chars: "[左 retreat lh01]"   // 左侧 + 后退
+chars: "[right retreat lh01]" // 右侧 + 后退
 
 // 与缩放组合
-chars: "[中 20% back lh01]" // 基准120%，后退后变为110%
+chars: "[中 20% retreat lh01]" // 基准120%，后退后变为110%
 
 // 连续后退
-chars: "[中 back lh01]"  // 第一次：Y+10%, scale-10%
-chars: "[中 back lh01]"  // 第二次：Y再+10%, scale再-10%
+chars: "[中 retreat lh01]"  // 第一次：Y+10%, scale-10%
+chars: "[中 retreat lh01]"  // 第二次：Y再+10%, scale再-10%
 ```
 
 ### 11.2 前进 (forward)
@@ -594,8 +594,8 @@ chars: "[中 forward lh01]"  // 第二次：Y再-10%, scale再+10%
 
 **后退 vs 前进对比：**
 
-| 属性 | 后退 (back) | 前进 (forward) |
-|------|------------|---------------|
+| 属性 | 后退 (retreat) | 前进 (forward) |
+|------|---------------|---------------|
 | Y轴 | +10% (向上) | -10% (向下) |
 | 缩放 | -0.1 (缩小) | +0.1 (放大) |
 | 层级 | 强制变后 (9) | 强制变前 (11) |
@@ -660,18 +660,18 @@ chars: "[结束发抖 lh01]"  // 中文等价
 
 ```javascript
 // 完整组合：位置 + 垂直 + 层级 + 缩放 + 动作
-chars: "[左 下 front 10% back lh01]"    // 后退组合
+chars: "[左 下 front 10% retreat lh01]"    // 后退组合
 chars: "[右 上 back 10% forward lh01]"  // 前进组合
 chars: "[right upm 15% scare lh01]"     // 吓一跳组合
 chars: "[左 leftl downm shake lh01]"    // 发抖组合
 
 // 精确坐标 + 动作
-chars: "[x:10% y:5% back lh01]"
+chars: "[x:10% y:5% retreat lh01]"
 chars: "[x:-10% y:10% forward lh01]"
 chars: "[x:-10% y:10% scare lh01]"
 
 // 中英文混合 + 动作
-chars: "[中 back lh01]"        // 中文位置 + 英文动作
+chars: "[中 retreat lh01]"        // 中文位置 + 英文动作
 chars: "[left 前进 lh01]"      // 英文位置 + 中文动作
 chars: "[中 下 shake lh01]"    // 中文位置+垂直 + 英文动作
 ```
@@ -764,7 +764,7 @@ A: 支持。x负值向左，y负值向下。
 A: 不会。坐标和缩放是独立的，缩放不会影响坐标基准点。
 
 **Q: 动作指令可以和瞬移一起使用吗？**  
-A: 可以写在一起，但瞬移会被自动忽略。例如 `[瞬 back lh01]` 中，`瞬` 被忽略，后退动画正常播放。
+A: 可以写在一起，但瞬移会被自动忽略。例如 `[瞬 retreat lh01]` 中，`瞬` 被忽略，后退动画正常播放。
 
 **Q: 如果同时写了多个动作指令会怎样？**  
 A: 系统只执行第一个动作指令，忽略后续的。例如 `[后退 吓一跳 lh01]` 只执行后退。
