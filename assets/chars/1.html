@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>差分测试模板</title>
+    <title>立绘系统综合测试场景</title>
     <link rel="icon" type="image/png" href="../icon/icon-32.png">
     <link rel="stylesheet" href="../style.css">
     <script src="../bgm_config.js"></script>
@@ -40,1077 +40,310 @@
     </div>
     <script src="../engine.js"></script>
     <script>
-        // 场景模板数据
         const sceneData = {
             background: BG_CONFIG_SUB,
-            bgm: BGM_CONFIG_SUB,  // 使用 BGM 集中配置（子目录路径）
+            bgm: BGM_CONFIG_SUB,
             audio: {},
             story: [
                 { 
-                    text: "欢迎使用立绘指令测试场景。本测试将演示精确坐标控制系统及所有修饰词功能。", 
+                    text: "欢迎进入立绘系统综合测试场景。本场景将按照功能模块对指令进行系统性验证。", 
                     speaker: "系统",
                     background: "bg_001_00_00",
-                    bgm: null,
-                    audio: null,
-                    command: null,
-                    action: null
+                    chars: null
                 },
                 
-                // ========== 精确坐标控制系统测试 ==========
+                // ========== 1. 基础显示与默认行为 ==========
                 {
-                    text: "【精确坐标-1】X轴基准点 - [x:0% lh1] (屏幕中心，等同于'中')",
-                    speaker: "系统",
-                    chars: "[x:0% lh1],[中 后 lh5]"
-                },
-                {
-                    text: "【精确坐标-2】X轴正值 - [x:15% lh1] (向右平移15%)",
-                    speaker: "系统",
-                    chars: "[x:15% lh1]"
-                },
-                {
-                    text: "【精确坐标-3】X轴负值 - [x:-15% lh1] (向左平移15%)",
-                    speaker: "系统",
-                    chars: "[x:-15% lh1]"
-                },
-                {
-                    text: "【精确坐标-4】Y轴基准点 - [y:0% lh1] (底部对齐，默认值)",
-                    speaker: "系统",
-                    chars: "[y:0% lh1]"
-                },
-                {
-                    text: "【精确坐标-5】Y轴正值 - [y:10% lh1] (向上移动10%)",
-                    speaker: "系统",
-                    chars: "[y:10% lh1]"
-                },
-                {
-                    text: "【精确坐标-6】Y轴负值 - [y:-20% lh1] (向下移动20%，部分隐藏)",
-                    speaker: "系统",
-                    chars: "[y:-20% lh1]"
-                },
-                {
-                    text: "【精确坐标-7】XY组合 - [x:10% y:5% lh1] (向右10%，向上5%)",
-                    speaker: "系统",
-                    chars: "[x:10% y:5% lh1]"
-                },
-                {
-                    text: "【精确坐标-8】负值组合 - [x:-10% y:-15% lh1] (向左10%，向下15%)",
-                    speaker: "系统",
-                    chars: "[x:-10% y:-15% lh1]"
-                },
-                {
-                    text: "【精确坐标-9】仅X轴 - [x:20% lh1] (X精确，Y默认)",
-                    speaker: "系统",
-                    chars: "[x:20% lh1]"
-                },
-                {
-                    text: "【精确坐标-10】仅Y轴 - [y:15% lh1] (X默认居中，Y精确)",
-                    speaker: "系统",
-                    chars: "[y:15% lh1]"
-                },
-                {
-                    text: "【精确坐标-11】结合层级 - [x:10% y:5% front lh1] (精确坐标+顶层)",
-                    speaker: "系统",
-                    chars: "[x:10% y:5% front lh1]"
-                },
-                {
-                    text: "【精确坐标-12】结合缩放 - [x:-10% y:10% 15% lh1] (精确坐标+放大15%)。lh2作为参照缩小至75%",
-                    speaker: "系统",
-                    chars: "[中 -25% lh2],[x:-10% y:10% 15% lh1]"
-                },
-                {
-                    text: "移除参照立绘",
-                    speaker: "系统",
-                    chars: "[消失 lh2]"
-                },
-                {
-                    text: "【精确坐标-13】结合瞬移 - [瞬 x:20% y:-10% lh1] (瞬移+精确坐标)。lh2作为位置参照",
-                    speaker: "系统",
-                    chars: "[x:-20% y:10% lh2],[瞬 x:20% y:-10% lh1]"
-                },
-                {
-                    text: "移除参照立绘",
-                    speaker: "系统",
-                    chars: "[hide lh2]"
-                },
-                {
-                    text: "【精确坐标-14】中英文混合 - [x:10% front instant lh1] (精确坐标+英文层级+英文瞬移)",
-                    speaker: "系统",
-                    chars: "[x:10% front instant lh1]"
-                },
-                {
-                    text: "【精确坐标-15】大偏移量 - [x:30% y:25% lh1] (大幅向右30%，向上25%)",
-                    speaker: "系统",
-                    chars: "[x:30% y:25% lh1]"
-                },
-                {
-                    text: "【精确坐标-16】极端负值 - [x:-25% y:-30% lh1] (大幅向左25%，向下30%，大部分隐藏)",
-                    speaker: "系统",
-                    chars: "[x:-25% y:-30% lh1]"
-                },
-                
-                // ========== 精确坐标与文字指令冲突测试 ==========
-                {
-                    text: "【冲突测试-1】x:优先于中文水平 - [x:10% 左 lh1] (应使用x:10%，忽略'左')",
-                    speaker: "系统",
-                    chars: "[x:10% 左 lh1]"
-                },
-                {
-                    text: "【冲突测试-2】x:优先于英文水平 - [x:15% right lh1] (应使用x:15%，忽略'right')",
-                    speaker: "系统",
-                    chars: "[x:15% right lh1]"
-                },
-                {
-                    text: "【冲突测试-3】y:优先于中文垂直 - [y:10% 下 lh1] (应使用y:10%，忽略'下')",
-                    speaker: "系统",
-                    chars: "[y:10% 下 lh1]"
-                },
-                {
-                    text: "【冲突测试-4】y:优先于英文垂直 - [y:15% down lh1] (应使用y:15%，忽略'down')",
-                    speaker: "系统",
-                    chars: "[y:15% down lh1]"
-                },
-                {
-                    text: "【冲突测试-5】xy同时优先 - [x:10% y:10% 中 下 lh1] (应使用x:10%,y:10%，忽略'中'和'下')",
-                    speaker: "系统",
-                    chars: "[x:10% y:10% 中 下 lh1]"
-                },
-                {
-                    text: "【冲突测试-6】仅x精确 - [x:10% 下 lh1] (x使用精确值10%，y使用'下'=-25%)",
-                    speaker: "系统",
-                    chars: "[x:10% 下 lh1]"
-                },
-                {
-                    text: "【冲突测试-7】仅y精确 - [中 y:15% lh1] (x使用'中'=50%，y使用精确值15%)",
-                    speaker: "系统",
-                    chars: "[中 y:15% lh1]"
-                },
-                {
-                    text: "【冲突测试-8】复杂混合 - [x:-10% 右 y:10% 前 10% lh1] (x精确,y精确,层级'前',缩放10%)",
-                    speaker: "系统",
-                    chars: "[x:-10% 右 y:10% 前 10% lh1]"
-                },
-                {
-                    text: "【冲突测试-9】中英文混合冲突 - [x:10% left y:10% down lh1] (x,y精确，忽略left和down)",
-                    speaker: "系统",
-                    chars: "[x:10% left y:10% down lh1]"
-                },
-                {
-                    text: "【冲突测试-10】多重水平冲突 - [x:10% 左 右 middle lh1] (应使用x:10%，忽略所有水平关键词)",
-                    speaker: "系统",
-                    chars: "[x:10% 左 右 middle lh1]"
-                },
-                {
-                    text: "【冲突测试-11】多重垂直冲突 - [y:10% 下 中下 down lh1] (应使用y:10%，忽略所有垂直关键词)",
-                    speaker: "系统",
-                    chars: "[y:10% 下 中下 down lh1]"
-                },
-                {
-                    text: "【冲突测试-12】完整冲突 - [x:15% 左 右 y:10% 下 down 前 back 10% lh1] (每类取第一个或精确值)",
-                    speaker: "系统",
-                    chars: "[x:15% 左 右 y:10% 下 down 前 back 10% lh1]"
-                },
-                
-                // ========== 清除立绘 ==========
-                {
-                    text: "清除所有立绘，准备进入原有测试",
-                    speaker: "系统",
-                    chars: "[消失 lh1],[消失 lh2]"
-                },
-                
-                // ========== 仅角色ID默认行为测试 ==========
-                {
-                    text: "【默认行为-1】仅角色ID - [lh1] (应等同于'[中 lh1]'，居中显示)",
+                    text: "【基础-1】仅角色ID - [lh1]。验证默认行为：居中、底部对齐、无缩放、基础层级。",
                     speaker: "系统",
                     chars: "[lh1]"
                 },
                 {
-                    text: "【默认行为-2】对比测试 - 上面是[lh1]，下面是[中 lh5]，两者应该都居中。lh5作为参照",
+                    text: "【基础-2】多立绘默认 - [lh1],[lh2]。验证多个立绘同时显示时的默认堆叠顺序。",
                     speaker: "系统",
-                    chars: "[中 lh5]"
+                    chars: "[lh1],[lh2]"
                 },
                 {
-                    text: "【默认行为-3】再次测试仅ID - [lh2] (应该也居中)。lh1和lh2都应该居中，形成对比",
+                    text: "清除立绘，准备进入位置控制测试。",
                     speaker: "系统",
-                    chars: "[lh2]"
+                    chars: "[消失 all]"
                 },
+
+                // ========== 2. 位置控制 (水平/垂直/精确坐标) ==========
                 {
-                    text: "清除立绘，继续原有测试",
-                    speaker: "系统",
-                    chars: "[消失 lh1],[消失 lh2],[消失 lh5]"
-                },
-                
-                // ========== 原有水平位置测试 ==========
-                {
-                    text: "【测试1】最左侧 - [左左 lh1] (left: 15%)",
+                    text: "【位置-1】水平位置枚举 - [左左 lh1] (15%) -> [左 lh1] (25%) -> [左右 lh1] (35%)",
                     speaker: "系统",
                     chars: "[左左 lh1]"
                 },
                 {
-                    text: "【测试2】偏左侧 - [左 lh1] (left: 25%)",
+                    text: "",
                     speaker: "系统",
                     chars: "[左 lh1]"
                 },
                 {
-                    text: "【测试3】微偏左 - [左右 lh1] (left: 35%)",
+                    text: "",
                     speaker: "系统",
                     chars: "[左右 lh1]"
                 },
                 {
-                    text: "【测试4】居中 - [中 lh1] (left: 50%，默认位置)",
+                    text: "【位置-2】水平位置枚举 - [中 lh1] (50%) -> [右左 lh1] (65%) -> [右 lh1] (75%) -> [右右 lh1] (85%)",
                     speaker: "系统",
                     chars: "[中 lh1]"
                 },
                 {
-                    text: "【测试5】微偏右 - [右左 lh1] (left: 65%)",
+                    text: "",
                     speaker: "系统",
                     chars: "[右左 lh1]"
                 },
                 {
-                    text: "【测试6】偏右侧 - [右 lh1] (left: 75%)",
+                    text: "",
                     speaker: "系统",
                     chars: "[右 lh1]"
                 },
                 {
-                    text: "【测试7】最右侧 - [右右 lh1] (left: 85%)",
+                    text: "",
                     speaker: "系统",
                     chars: "[右右 lh1]"
                 },
-                
-                // ========== 垂直位置测试 ==========
                 {
-                    text: "【测试8】垂直位置 - [中 下 lh1] (向下偏移25%)",
+                    text: "【位置-3】垂直偏移枚举 - [中 下 lh1] (-25%) -> [中 中下 lh1] (-50%) -> [中 下下 lh1] (-65%)",
                     speaker: "系统",
                     chars: "[中 下 lh1]"
                 },
                 {
-                    text: "【测试9】垂直位置 - [中 中下 lh1] (向下偏移50%)",
+                    text: "",
                     speaker: "系统",
                     chars: "[中 中下 lh1]"
                 },
                 {
-                    text: "【测试10】垂直位置 - [中 下下 lh1] (向下偏移65%)",
+                    text: "",
                     speaker: "系统",
                     chars: "[中 下下 lh1]"
                 },
-                
-                // ========== 层级控制测试 ==========
                 {
-                    text: "【测试11】层级控制 - [中 前 lh1] (zIndex: 11, 顶层)。lh1在前(顶层)，lh2作为参照放大至125%",
+                    text: "【位置-4】垂直偏移枚举 - [中 上 lh1] (25%) -> [中 中上 lh1] (50%) -> [中 上上 lh1] (65%)",
                     speaker: "系统",
-                    chars: "[中 25% lh2],[中 前 lh1]"
+                    chars: "[中 上 lh1]"
                 },
                 {
-                    text: "移除参照立绘",
+                    text: "",
                     speaker: "系统",
-                    chars: "[消失 lh2]"
+                    chars: "[中 中上 lh1]"
                 },
                 {
-                    text: "【测试12】层级控制 - [中 后 lh1] (zIndex: 9, 底层)。lh1在后(底层)，lh2作为参照缩小至75%",
+                    text: "",
                     speaker: "系统",
-                    chars: "[中 -25% lh2],[中 后 lh1]"
+                    chars: "[中 上上 lh1]"
                 },
                 {
-                    text: "移除参照立绘",
+                    text: "【位置-5】精确坐标 X轴 - [x:-15% lh1] -> [x:15% lh1]。以屏幕中心为基准的左右平移。",
                     speaker: "系统",
-                    chars: "[消失 lh2]"
-                },
-                
-                // ========== 缩放比例测试 ==========
-                {
-                    text: "【测试13】放大效果 - [中 10% lh1] (放大到110%)",
-                    speaker: "系统",
-                    chars: "[中 10% lh1]"
+                    chars: "[x:-15% lh1]"
                 },
                 {
-                    text: "【测试14】缩小效果 - [中 -20% lh1] (缩小到80%)",
+                    text: "",
+                    speaker: "系统",
+                    chars: "[x:15% lh1]"
+                },
+                {
+                    text: "【位置-6】精确坐标 Y轴 - [y:10% lh1] -> [y:-10% lh1]。以屏幕底部为基准的上下平移。",
+                    speaker: "系统",
+                    chars: "[y:10% lh1]"
+                },
+                {
+                    text: "",
+                    speaker: "系统",
+                    chars: "[y:-10% lh1]"
+                },
+                {
+                    text: "【位置-7】坐标组合 - [x:10% y:5% lh1]。同时指定水平和垂直精确坐标。",
+                    speaker: "系统",
+                    chars: "[x:10% y:5% lh1]"
+                },
+                {
+                    text: "清除立绘，准备进入外观属性测试。",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 3. 外观属性 (层级/缩放) ==========
+                {
+                    text: "【外观-1】层级控制 - [中 前 lh1],[中 后 lh2]。lh1(zIndex:11) 覆盖在 lh2(zIndex:9) 之上。",
+                    speaker: "系统",
+                    chars: "[中 前 lh1],[中 后 lh2]"
+                },
+                {
+                    text: "【外观-2】缩放比例 - [中 20% lh1] -> [中 -20% lh1]。分别展示放大到120%和缩小到80%。",
+                    speaker: "系统",
+                    chars: "[中 20% lh1]"
+                },
+                {
+                    text: "",
                     speaker: "系统",
                     chars: "[中 -20% lh1]"
                 },
                 {
-                    text: "【测试15】零缩放 - [中 0% lh1] (保持100%默认大小)",
+                    text: "【外观-3】复杂外观组合 - [右 前 15% lh1]。右侧 + 顶层 + 放大15%。",
                     speaker: "系统",
-                    chars: "[中 0% lh1]"
-                },
-                
-                // ========== 动画控制测试 ==========
-                {
-                    text: "【测试16】瞬移效果 - [瞬 左 lh1] (瞬间移动，无过渡动画)。注意：lh2作为位置参照",
-                    speaker: "系统",
-                    chars: "[右 lh2],[瞬 左 lh1]"
+                    chars: "[右 前 15% lh1]"
                 },
                 {
-                    text: "移除参照立绘",
+                    text: "清除立绘，准备进入动画与瞬移测试。",
                     speaker: "系统",
-                    chars: "[消失 lh2]"
+                    chars: "[消失 all]"
                 },
+
+                // ========== 4. 动画与瞬移 ==========
                 {
-                    text: "【测试17】普通移动 - [右 lh1] (有0.5s平滑过渡动画)。对比上一步的瞬移效果",
-                    speaker: "系统",
-                    chars: "[右 lh1]"
-                },
-                
-                // ========== 组合指令测试 ==========
-                {
-                    text: "【测试18】水平+垂直 - [左 下 lh1] (左侧+向下25%)",
-                    speaker: "系统",
-                    chars: "[左 下 lh1]"
-                },
-                {
-                    text: "【测试19】水平+缩放 - [中 15% lh1] (居中+放大15%)",
-                    speaker: "系统",
-                    chars: "[中 15% lh1]"
-                },
-                {
-                    text: "【测试20】垂直+缩放 - [中 中下 -10% lh1] (向下50%+缩小10%)",
-                    speaker: "系统",
-                    chars: "[中 中下 -10% lh1]"
-                },
-                {
-                    text: "【测试21】水平+层级 - [右 前 lh1] (右侧+顶层)",
-                    speaker: "系统",
-                    chars: "[右 前 lh1]"
-                },
-                {
-                    text: "【测试22】三属性组合 - [左 下 10% lh1] (左侧+向下25%+放大10%)",
-                    speaker: "系统",
-                    chars: "[左 下 10% lh1]"
-                },
-                {
-                    text: "【测试23】四属性组合 - [右 中下 前 -15% lh1] (右侧+向下50%+顶层+缩小15%)",
-                    speaker: "系统",
-                    chars: "[右 中下 前 -15% lh1]"
-                },
-                {
-                    text: "【测试24】完整组合 - [中 下下 20% 前 lh1] (全部属性：居中+向下65%+放大20%+顶层)",
-                    speaker: "系统",
-                    chars: "[中 下下 20% 前 lh1]"
-                },
-                
-                // ========== 瞬移组合测试 ==========
-                {
-                    text: "【测试25】瞬移+位置 - [瞬 左 下 lh1] (瞬间移动到左侧+向下25%)。注意：lh2作为位置参照",
-                    speaker: "系统",
-                    chars: "[右 中下 lh2],[瞬 左 下 lh1]"
-                },
-                {
-                    text: "移除参照立绘",
-                    speaker: "系统",
-                    chars: "[消失 lh2]"
-                },
-                {
-                    text: "【测试26】瞬移+缩放 - [瞬 中 15% lh1] (瞬间移动+放大25%)",
-                    speaker: "系统",
-                    chars: "[瞬 中 15% lh1]"
-                },
-                {
-                    text: "【测试27】瞬移+多属性 - [瞬 右 中下 前 -10% lh1] (瞬间移动+全部属性)。lh1在前(顶层)，lh2作为参照放大至125%",
-                    speaker: "系统",
-                    chars: "[中 25% lh2],[瞬 右 中下 前 -10% lh1]"
-                },
-                {
-                    text: "移除参照立绘",
-                    speaker: "系统",
-                    chars: "[消失 lh2]"
-                },
-                
-                // ========== 结束清理 ==========
-                {
-                    text: "【测试28】清除立绘 - [消失 lh1]",
-                    speaker: "系统",
-                    chars: "[消失 lh1],[消失 lh2]"
-                },
-                
-                // ========== 英文别名测试 ==========
-                {
-                    text: "【测试29】纯中文基础 - [左 lh1] (验证原有中文指令完全兼容)",
+                    text: "【动画-1】普通过渡 - [左 lh1] -> [右 lh1]。观察0.5秒的平滑移动动画。",
                     speaker: "系统",
                     chars: "[左 lh1]"
                 },
                 {
-                    text: "【测试30】纯中文组合 - [中 前 10% lh1] (中文多属性组合)",
-                    speaker: "系统",
-                    chars: "[中 前 10% lh1]"
-                },
-                {
-                    text: "【测试31】纯中文消失 - [消失 lh1] (验证原有消失指令)",
-                    speaker: "系统",
-                    chars: "[消失 lh1]"
-                },
-                {
-                    text: "【测试32】纯英文水平位置 - [left lh1] (等同于'左')",
-                    speaker: "系统",
-                    chars: "[left lh1]"
-                },
-                {
-                    text: "【测试33】纯英文居中 - [middle lh1] (等同于'中')",
-                    speaker: "系统",
-                    chars: "[middle lh1]"
-                },
-                {
-                    text: "【测试34】纯英文center别名 - [center lh1] (等同于'中')",
-                    speaker: "系统",
-                    chars: "[center lh1]"
-                },
-                {
-                    text: "【测试35】纯英文右侧 - [right lh1] (等同于'右')",
-                    speaker: "系统",
-                    chars: "[right lh1]"
-                },
-                {
-                    text: "【测试36】纯英文垂直位置 - [down lh1] (等同于'下')",
-                    speaker: "系统",
-                    chars: "[middle down lh1]"
-                },
-                {
-                    text: "【测试37】纯英文层级 - [front lh1] (等同于'前',顶层)",
-                    speaker: "系统",
-                    chars: "[middle front lh1]"
-                },
-                {
-                    text: "【测试38】纯英文瞬移 - [instant right lh1] (等同于'瞬 右')。lh2作为参照",
-                    speaker: "系统",
-                    chars: "[left lh2],[instant right lh1]"
-                },
-                {
-                    text: "移除参照立绘",
-                    speaker: "系统",
-                    chars: "[hide lh2]"
-                },
-                {
-                    text: "【测试39】纯英文消失 - [remove lh1] (等同于'消失')",
-                    speaker: "系统",
-                    chars: "[remove lh1]"
-                },
-                
-                // ========== 中英文混合测试 ==========
-                {
-                    text: "【测试40】中文+英文层级 - [中 front lh1] (中文位置+英文层级)",
-                    speaker: "系统",
-                    chars: "[中 front lh1]"
-                },
-                {
-                    text: "【测试41】英文+中文垂直 - [left 下 lh1] (英文位置+中文垂直)",
-                    speaker: "系统",
-                    chars: "[left 下 lh1]"
-                },
-                {
-                    text: "【测试42】混合缩放 - [right front 10% lh1] (英文位置+英文层级+缩放)",
-                    speaker: "系统",
-                    chars: "[right front 10% lh1]"
-                },
-                {
-                    text: "【测试43】混合瞬移 - [瞬 middle down lh1] (中文动画+英文位置+英文垂直)",
-                    speaker: "系统",
-                    chars: "[瞬 middle down lh1]"
-                },
-                {
-                    text: "【测试44】复杂混合 - [left 中下 front -10% lh1] (四属性中英文混合)",
-                    speaker: "系统",
-                    chars: "[left 中下 front -10% lh1]"
-                },
-                
-                // ========== 冲突场景测试（关键！） ==========
-                {
-                    text: "【测试45-冲突1】中文水平冲突 - [左 右 lh1] (应取第一个'左'=25%，忽略'右')",
-                    speaker: "系统",
-                    chars: "[左 右 lh1]"
-                },
-                {
-                    text: "【测试46-冲突2】英文水平冲突 - [left right lh1] (应取第一个'left'=25%，忽略'right')",
-                    speaker: "系统",
-                    chars: "[left right lh1]"
-                },
-                {
-                    text: "【测试47-冲突3】中英水平冲突 - [左 right lh1] (应取第一个'左'=25%，忽略'right')",
-                    speaker: "系统",
-                    chars: "[左 right lh1]"
-                },
-                {
-                    text: "【测试48-冲突4】中英水平冲突2 - [right 左 lh1] (应取第一个'right'=75%，忽略'左')",
-                    speaker: "系统",
-                    chars: "[right 左 lh1]"
-                },
-                {
-                    text: "【测试49-冲突5】中文垂直冲突 - [下 中下 lh1] (应取第一个'下'=-25%，忽略'中下')",
-                    speaker: "系统",
-                    chars: "[中 下 中下 lh1]"
-                },
-                {
-                    text: "【测试50-冲突6】英文垂直冲突 - [down downm lh1] (应取第一个'down'=-25%，忽略'downm')",
-                    speaker: "系统",
-                    chars: "[middle down downm lh1]"
-                },
-                {
-                    text: "【测试51-冲突7】中英垂直冲突 - [下 downm lh1] (应取第一个'下'=-25%，忽略'downm')",
-                    speaker: "系统",
-                    chars: "[中 下 downm lh1]"
-                },
-                {
-                    text: "【测试52-冲突8】中文层级冲突 - [前 后 lh1] (应取第一个'前'=zIndex:11，忽略'后')。lh2作为参照缩小至75%",
-                    speaker: "系统",
-                    chars: "[中 -25% lh2],[中 前 后 lh1]"
-                },
-                {
-                    text: "移除参照立绘",
-                    speaker: "系统",
-                    chars: "[消失 lh2]"
-                },
-                {
-                    text: "【测试53-冲突9】英文层级冲突 - [front back lh1] (应取第一个'front'=zIndex:11，忽略'back')。lh2作为参照放大至125%",
-                    speaker: "系统",
-                    chars: "[中 25% lh2],[middle front back lh1]"
-                },
-                {
-                    text: "移除参照立绘",
-                    speaker: "系统",
-                    chars: "[hide lh2]"
-                },
-                {
-                    text: "【测试54-冲突10】中英层级冲突 - [前 back lh1] (应取第一个'前'=zIndex:11，忽略'back')。lh2作为参照",
-                    speaker: "系统",
-                    chars: "[left lh2],[中 前 back lh1]"
-                },
-                {
-                    text: "移除参照立绘",
-                    speaker: "系统",
-                    chars: "[remove lh2]"
-                },
-                {
-                    text: "【测试55-冲突11】多重冲突 - [左 右 中 lh1] (应取第一个'左'=25%，忽略后续所有水平位置)",
-                    speaker: "系统",
-                    chars: "[左 右 中 lh1]"
-                },
-                {
-                    text: "【测试56-冲突12】跨类型无冲突 - [左 下 前 lh1] (不同类型可同时存在，全部生效)",
-                    speaker: "系统",
-                    chars: "[左 下 前 lh1]"
-                },
-                {
-                    text: "【测试57-冲突13】复杂冲突 - [left right 下 downm front back 10% lh1] (每类取第一个：left=25%, down=-25%, front=zIndex:11, scale=110%)",
-                    speaker: "系统",
-                    chars: "[left right 下 downm front back 10% lh1]"
-                },
-                {
-                    text: "【测试58-冲突14】center与middle冲突 - [center middle lh1] (应取第一个'center'=50%，两者都映射到middle)",
-                    speaker: "系统",
-                    chars: "[center middle lh1]"
-                },
-                {
-                    text: "【测试59-冲突15】瞬移冲突 - [瞬 instant 左 lh1] (应取第一个'瞬'，两个都启用instant模式)",
-                    speaker: "系统",
-                    chars: "[右 lh2],[瞬 instant 左 lh1]"
-                },
-                {
-                    text: "移除参照立绘",
-                    speaker: "系统",
-                    chars: "[消失 lh2]"
-                },
-                
-                // ========== 边界情况测试 ==========
-                {
-                    text: "【测试60】仅角色ID - [lh1] (无任何修饰词，使用默认值：中, bottom:0, zIndex:10, scale:100%)",
-                    speaker: "系统",
-                    chars: "[lh1]"
-                },
-                {
-                    text: "【测试61】仅缩放 - [20% lh1] (仅缩放，位置使用默认)",
-                    speaker: "系统",
-                    chars: "[20% lh1]"
-                },
-                {
-                    text: "【测试62】负缩放 - [-30% lh1] (缩小到70%)",
-                    speaker: "系统",
-                    chars: "[-30% lh1]"
-                },
-                {
-                    text: "【测试63】零缩放 - [0% lh1] (保持100%默认大小)",
-                    speaker: "系统",
-                    chars: "[0% lh1]"
-                },
-                {
-                    text: "【测试64】极端缩放 - [100% lh1] (放大到200%)",
-                    speaker: "系统",
-                    chars: "[100% lh1]"
-                },
-                
-                // ========== 立绘动作指令系统测试 ==========
-                {
-                    text: "清除所有立绘，准备进入动作指令测试",
-                    speaker: "系统",
-                    chars: "[消失 lh1],[消失 lh2]"
-                },
-                
-                // --- 基础功能测试 ---
-                {
-                    text: "【动作-1】后退基础 - [中 retreat lh1] (Y轴+10%, 缩放-10%, 层级强制变后)。lh2作为参照放大至125%",
-                    speaker: "系统",
-                    chars: "[中 25% lh2],[中 retreat lh1]"
-                },
-                {
-                    text: "移除参照立绘",
-                    speaker: "系统",
-                    chars: "[消失 lh2]"
-                },
-                {
-                    text: "【动作-1.5】前进基础 - [中 forward lh1] (Y轴-10%, 缩放+10%, 层级强制变前)。lh2作为参照缩小至75%",
-                    speaker: "系统",
-                    chars: "[中 -25% lh2],[中 forward lh1]"
-                },
-                {
-                    text: "移除参照立绘",
-                    speaker: "系统",
-                    chars: "[消失 lh2]"
-                },
-                {
-                    text: "【动作-2】吓一跳基础 - [中 scare lh1] (先放大7%再缩小7%，重复2次，总时长1秒)",
-                    speaker: "系统",
-                    chars: "[中 scare lh1]"
-                },
-                {
-                    text: "【动作-3】发抖基础 - [中 shake lh1] (X轴左右偏移±2%，重复3次，总时长约480ms)",
-                    speaker: "系统",
-                    chars: "[中 shake lh1]"
-                },
-                {
-                    text: "【动作-4】持续发抖启动 - [中 cshake lh1] (持续左右抖动，需要手动停止)",
-                    speaker: "系统",
-                    chars: "[中 cshake lh1]"
-                },
-                {
-                    text: "【动作-5】结束发抖 - [sshake lh1] (停止持续发抖，恢复原位)",
-                    speaker: "系统",
-                    chars: "[sshake lh1]"
-                },
-                {
-                    text: "【动作-6】中文后退 - [中 后退 lh1] (验证中文指令等价性)",
-                    speaker: "系统",
-                    chars: "[中 后退 lh1]"
-                },
-                {
-                    text: "【动作-6.5】中文前进 - [中 前进 lh1] (验证中文指令等价性)",
-                    speaker: "系统",
-                    chars: "[中 前进 lh1]"
-                },
-                {
-                    text: "【动作-7】中文吓一跳 - [中 吓一跳 lh1] (验证中文指令等价性)",
-                    speaker: "系统",
-                    chars: "[中 吓一跳 lh1]"
-                },
-                {
-                    text: "【动作-8】中文发抖 - [中 发抖 lh1] (验证中文指令等价性)",
-                    speaker: "系统",
-                    chars: "[中 发抖 lh1]"
-                },
-                {
-                    text: "【动作-9】中文持续发抖 - [中 持续发抖 lh1] (验证中文指令等价性)",
-                    speaker: "系统",
-                    chars: "[中 持续发抖 lh1]"
-                },
-                {
-                    text: "【动作-10】中文结束发抖 - [结束发抖 lh1] (验证中文指令等价性)",
-                    speaker: "系统",
-                    chars: "[结束发抖 lh1]"
-                },
-                
-                // --- 动作 vs 瞬移优先级测试 ---
-                {
-                    text: "【动作-11】瞬移被屏蔽(中) - [瞬 retreat lh1] ('瞬'应被忽略，后退动画正常播放)",
-                    speaker: "系统",
-                    chars: "[瞬 retreat lh1]"
-                },
-                {
-                    text: "【动作-12】instant被屏蔽(英) - [instant scare lh1] ('instant'应被忽略，吓一跳动画正常播放)",
-                    speaker: "系统",
-                    chars: "[instant scare lh1]"
-                },
-                {
-                    text: "【动作-13】瞬移被屏蔽(混合) - [瞬 吓一跳 lh1] (中文'瞬'被忽略，吓一跳动画正常播放)",
-                    speaker: "系统",
-                    chars: "[瞬 吓一跳 lh1]"
-                },
-                
-                // --- 多动作互斥测试 ---
-                {
-                    text: "【动作-14】多动作取第一个(中) - [后退 吓一跳 lh1] (只执行'后退'，忽略'吓一跳')",
-                    speaker: "系统",
-                    chars: "[后退 吓一跳 lh1]"
-                },
-                {
-                    text: "【动作-14.5】多动作取第一个(前进) - [forward scare lh1] (只执行'forward'，忽略'scare')",
-                    speaker: "系统",
-                    chars: "[forward scare lh1]"
-                },
-                {
-                    text: "【动作-15】多动作取第一个(英) - [retreat scare lh1] (只执行'retreat'，忽略'scare')",
-                    speaker: "系统",
-                    chars: "[retreat scare lh1]"
-                },
-                {
-                    text: "【动作-16】多动作取第一个(混) - [shake cshake lh1] (只执行'shake'，忽略'cshake')",
-                    speaker: "系统",
-                    chars: "[shake cshake lh1]"
-                },
-                {
-                    text: "【动作-17】三个动作指令 - [后退 发抖 吓一跳 lh1] (只执行最左边的'后退')",
-                    speaker: "系统",
-                    chars: "[后退 发抖 吓一跳 lh1]"
-                },
-                
-                // --- 动作与位置组合测试 ---
-                {
-                    text: "【动作-18】后退+左侧 - [左 retreat lh1] (左侧位置 + 后退效果)",
-                    speaker: "系统",
-                    chars: "[左 retreat lh1]"
-                },
-                {
-                    text: "【动作-18.5】前进+右侧 - [right forward lh1] (右侧位置 + 前进效果)",
-                    speaker: "系统",
-                    chars: "[right forward lh1]"
-                },
-                {
-                    text: "【动作-19】吓一跳+右侧 - [right scare lh1] (右侧位置 + 吓一跳效果)",
-                    speaker: "系统",
-                    chars: "[right scare lh1]"
-                },
-                {
-                    text: "【动作-20】发抖+居中 - [中 shake lh1] (居中位置 + 发抖效果)",
-                    speaker: "系统",
-                    chars: "[中 shake lh1]"
-                },
-                {
-                    text: "【动作-21】持续发抖+左侧 - [left cshake lh1] (左侧位置 + 持续发抖)",
-                    speaker: "系统",
-                    chars: "[left cshake lh1]"
-                },
-                {
-                    text: "【动作-22】结束发抖 - [sshake lh1] (停止上一步的持续发抖)",
-                    speaker: "系统",
-                    chars: "[sshake lh1]"
-                },
-                
-                // --- 动作与垂直位置组合测试 ---
-                {
-                    text: "【动作-23】后退+向下 - [中 下 retreat lh1] (向下25% + 后退效果，后退会再向上10%)",
-                    speaker: "系统",
-                    chars: "[中 下 retreat lh1]"
-                },
-                {
-                    text: "【动作-23.5】前进+向上 - [middle up forward lh1] (向上25% + 前进效果，前进会再向下10%)",
-                    speaker: "系统",
-                    chars: "[middle up forward lh1]"
-                },
-                {
-                    text: "【动作-24】吓一跳+向上 - [middle up scare lh1] (向上25% + 吓一跳效果)",
-                    speaker: "系统",
-                    chars: "[middle up scare lh1]"
-                },
-                {
-                    text: "【动作-25】发抖+中下 - [中 downm shake lh1] (向下50% + 发抖效果)",
-                    speaker: "系统",
-                    chars: "[中 downm shake lh1]"
-                },
-                
-                // --- 动作与缩放组合测试 ---
-                {
-                    text: "【动作-26】后退+缩放 - [中 20% retreat lh1] (基准缩放120%，后退后变为110%)",
-                    speaker: "系统",
-                    chars: "[中 20% retreat lh1]"
-                },
-                {
-                    text: "【动作-26.5】前进+缩放 - [中 10% forward lh1] (基准缩放110%，前进后变为120%)",
-                    speaker: "系统",
-                    chars: "[中 10% forward lh1]"
-                },
-                {
-                    text: "【动作-27】吓一跳+缩放 - [中 10% scare lh1] (基于110%缩放的吓一跳动画)",
-                    speaker: "系统",
-                    chars: "[中 10% scare lh1]"
-                },
-                {
-                    text: "【动作-28】发抖+缩小 - [middle -15% shake lh1] (基于85%缩放的发抖动画)",
-                    speaker: "系统",
-                    chars: "[middle -15% shake lh1]"
-                },
-                
-                // --- 动作与层级组合测试 ---
-                {
-                    text: "【动作-29】后退+前层 - [中 front retreat lh1] (指定'前'但后退会强制变'后'，zIndex=9)。lh2作为参照缩小至75%",
-                    speaker: "系统",
-                    chars: "[中 -25% lh2],[中 front retreat lh1]"
-                },
-                {
-                    text: "移除参照立绘",
-                    speaker: "系统",
-                    chars: "[消失 lh2]"
-                },
-                {
-                    text: "【动作-29.5】前进+后层 - [中 back forward lh1] (指定'后'但前进会强制变'前'，zIndex=11)。lh2作为参照放大至125%",
-                    speaker: "系统",
-                    chars: "[中 25% lh2],[中 back forward lh1]"
-                },
-                {
-                    text: "移除参照立绘",
-                    speaker: "系统",
-                    chars: "[消失 lh2]"
-                },
-                {
-                    text: "【动作-30】吓一跳+前层 - [中 front scare lh1] (顶层 + 吓一跳效果，层级不变)",
-                    speaker: "系统",
-                    chars: "[中 front scare lh1]"
-                },
-                {
-                    text: "【动作-31】发抖+后层 - [middle back shake lh1] (底层 + 发抖效果)",
-                    speaker: "系统",
-                    chars: "[middle back shake lh1]"
-                },
-                
-                // --- 复杂组合测试 ---
-                {
-                    text: "【动作-32】完整组合(后退) - [左 下 front 10% retreat lh1] (左侧+向下+前层+放大10%+后退，后退会强制变后层)",
-                    speaker: "系统",
-                    chars: "[左 下 front 10% retreat lh1]"
-                },
-                {
-                    text: "【动作-32.5】完整组合(前进) - [右 上 back 10% forward lh1] (右侧+向上+后层+放大10%+前进，前进会强制变前层)",
-                    speaker: "系统",
-                    chars: "[右 上 back 10% forward lh1]"
-                },
-                {
-                    text: "【动作-33】完整组合(吓一跳) - [right upm 15% scare lh1] (右侧+向上50%+放大15%+吓一跳)",
-                    speaker: "系统",
-                    chars: "[right upm 15% scare lh1]"
-                },
-                {
-                    text: "【动作-34】完整组合(发抖) - [左 leftl downm shake lh1] (微偏左+向下50%+发抖)",
-                    speaker: "系统",
-                    chars: "[左 leftl downm shake lh1]"
-                },
-                {
-                    text: "【动作-35】完整组合(持续发抖) - [右 中下 -10% cshake lh1] (右侧+向下50%+缩小10%+持续发抖)",
-                    speaker: "系统",
-                    chars: "[右 中下 -10% cshake lh1]"
-                },
-                {
-                    text: "【动作-36】结束发抖 - [sshake lh1] (停止上一步的持续发抖)",
-                    speaker: "系统",
-                    chars: "[sshake lh1]"
-                },
-                
-                // --- 精确坐标与动作组合测试 ---
-                {
-                    text: "【动作-37】后退+精确坐标 - [x:10% y:5% retreat lh1] (精确坐标 + 后退效果)",
-                    speaker: "系统",
-                    chars: "[x:10% y:5% retreat lh1]"
-                },
-                {
-                    text: "【动作-37.5】前进+精确坐标 - [x:-10% y:10% forward lh1] (精确坐标 + 前进效果)",
-                    speaker: "系统",
-                    chars: "[x:-10% y:10% forward lh1]"
-                },
-                {
-                    text: "【动作-38】吓一跳+精确坐标 - [x:-10% y:10% scare lh1] (精确坐标 + 吓一跳效果)",
-                    speaker: "系统",
-                    chars: "[x:-10% y:10% scare lh1]"
-                },
-                {
-                    text: "【动作-39】发抖+精确X - [x:15% shake lh1] (精确X坐标 + 发抖效果)",
-                    speaker: "系统",
-                    chars: "[x:15% shake lh1]"
-                },
-                {
-                    text: "【动作-40】持续发抖+精确Y - [y:15% cshake lh1] (精确Y坐标 + 持续发抖)",
-                    speaker: "系统",
-                    chars: "[y:15% cshake lh1]"
-                },
-                {
-                    text: "【动作-41】结束发抖 - [sshake lh1] (停止上一步的持续发抖)",
-                    speaker: "系统",
-                    chars: "[sshake lh1]"
-                },
-                
-                // --- 中英文混合动作测试 ---
-                {
-                    text: "【动作-42】中英混合(后退) - [中 retreat lh1] (中文位置 + 英文动作)",
-                    speaker: "系统",
-                    chars: "[中 retreat lh1]"
-                },
-                {
-                    text: "【动作-42.5】中英混合(前进) - [left 前进 lh1] (英文位置 + 中文动作)",
-                    speaker: "系统",
-                    chars: "[left 前进 lh1]"
-                },
-                {
-                    text: "【动作-43】中英混合(吓一跳) - [left 吓一跳 lh1] (英文位置 + 中文动作)",
-                    speaker: "系统",
-                    chars: "[left 吓一跳 lh1]"
-                },
-                {
-                    text: "【动作-44】中英混合(发抖) - [中 下 shake lh1] (中文位置+垂直 + 英文动作)",
-                    speaker: "系统",
-                    chars: "[中 下 shake lh1]"
-                },
-                {
-                    text: "【动作-45】中英混合(持续发抖) - [right 持续发抖 lh1] (英文位置 + 中文动作)",
-                    speaker: "系统",
-                    chars: "[right 持续发抖 lh1]"
-                },
-                {
-                    text: "【动作-46】结束发抖 - [结束发抖 lh1] (中文停止指令)",
-                    speaker: "系统",
-                    chars: "[结束发抖 lh1]"
-                },
-                {
-                    text: "【动作-47】复杂中英混合 - [左 front 10% retreat lh1] (中文位置 + 英文层级 + 缩放 + 英文动作)",
-                    speaker: "系统",
-                    chars: "[左 front 10% retreat lh1]"
-                },
-                {
-                    text: "【动作-48】多语言动作别名 - [中 scare lh1] (scare是jumpscare/startle的缩写)",
-                    speaker: "系统",
-                    chars: "[中 scare lh1]"
-                },
-                {
-                    text: "【动作-49】持续发抖英文 - [middle cshake lh1] (cshake是continuous_shake的缩写)",
-                    speaker: "系统",
-                    chars: "[middle cshake lh1]"
-                },
-                {
-                    text: "【动作-50】结束发抖英文 - [sshake lh1] (sshake是stop_shake的缩写)",
-                    speaker: "系统",
-                    chars: "[sshake lh1]"
-                },
-                
-                // --- 动作状态管理测试 ---
-                {
-                    text: "【动作-51】多次启动持续发抖 - [中 cshake lh1] (第一次启动)",
-                    speaker: "系统",
-                    chars: "[中 cshake lh1]"
-                },
-                {
-                    text: "【动作-52】再次启动持续发抖 - [中 cshake lh1] (应重启定时器，继续抖动)",
-                    speaker: "系统",
-                    chars: "[中 cshake lh1]"
-                },
-                {
-                    text: "【动作-53】结束发抖 - [sshake lh1] (成功停止)",
-                    speaker: "系统",
-                    chars: "[sshake lh1]"
-                },
-                {
-                    text: "【动作-54】无状态下结束发抖 - [sshake lh1] (应无错误，静默处理)",
-                    speaker: "系统",
-                    chars: "[sshake lh1]"
-                },
-                
-                // --- 动作与消失指令测试 ---
-                {
-                    text: "【动作-55】持续发抖中消失 - [中 cshake lh1] (启动持续发抖)",
-                    speaker: "系统",
-                    chars: "[中 cshake lh1]"
-                },
-                {
-                    text: "【动作-56】消失立绘 - [消失 lh1] (应自动停止持续发抖并移除立绘)",
-                    speaker: "系统",
-                    chars: "[消失 lh1]"
-                },
-                {
-                    text: "【动作-57】英文消失 - [中 cshake lh1] (重新启动持续发抖)",
-                    speaker: "系统",
-                    chars: "[中 cshake lh1]"
-                },
-                {
-                    text: "【动作-58】英文消失立绘 - [remove lh1] (应自动停止持续发抖并移除立绘)",
-                    speaker: "系统",
-                    chars: "[remove lh1]"
-                },
-                
-                // --- 清除所有立绘测试 ---
-                {
-                    text: "【清除全部-1】准备多立绘场景 - 同时显示3个立绘",
-                    speaker: "系统",
-                    chars: "[左 lh1],[中 lh2],[右 lh5]"
-                },
-                {
-                    text: "【清除全部-2】中文清除全部 - [消失 全部] (应清除所有立绘)",
-                    speaker: "系统",
-                    chars: "[消失 全部]"
-                },
-                {
-                    text: "【清除全部-3】再次准备多立绘 - [左 lh1],[中 lh2],[右 lh5]",
-                    speaker: "系统",
-                    chars: "[左 lh1],[中 lh2],[右 lh5]"
-                },
-                {
-                    text: "【清除全部-4】英文清除全部(hide) - [hide all] (应清除所有立绘)",
-                    speaker: "系统",
-                    chars: "[hide all]"
-                },
-                {
-                    text: "【清除全部-5】再次准备多立绘 - [左 lh1],[中 lh2],[右 lh5]",
-                    speaker: "系统",
-                    chars: "[左 lh1],[中 lh2],[右 lh5]"
-                },
-                {
-                    text: "【清除全部-6】英文清除全部(remove) - [remove all] (应清除所有立绘)",
-                    speaker: "系统",
-                    chars: "[remove all]"
-                },
-                {
-                    text: "【清除全部-7】带持续发抖的清除 - [左 cshake lh1],[中 lh2],[右 lh5] (lh1持续发抖)",
-                    speaker: "系统",
-                    chars: "[左 cshake lh1],[中 lh2],[右 lh5]"
-                },
-                {
-                    text: "【清除全部-8】清除全部(含动画) - [消失 全部] (应停止发抖并清除所有)",
-                    speaker: "系统",
-                    chars: "[消失 全部]"
-                },
-                {
-                    text: "【清除全部-9】空状态清除 - [消失 all] (无立绘时清除，应无错误)",
-                    speaker: "系统",
-                    chars: "[消失 all]"
-                },
-                
-                // --- 特殊场景测试 ---
-                {
-                    text: "【动作-59】后退已在后层 - [中 retreat lh1] (已是后层，zIndex保持9)",
-                    speaker: "系统",
-                    chars: "[中 retreat lh1]"
-                },
-                {
-                    text: "【动作-59.5】前进已在前层 - [中 forward lh1] (已是前层，zIndex保持11)",
-                    speaker: "系统",
-                    chars: "[中 forward lh1]"
-                },
-                {
-                    text: "【动作-60】连续后退 - [中 retreat lh1] (再次后退，Y轴再+10%，缩放再-10%)",
-                    speaker: "系统",
-                    chars: "[中 retreat lh1]"
-                },
-                {
-                    text: "【动作-60.5】连续前进 - [中 forward lh1] (再次前进，Y轴再-10%，缩放再+10%)",
-                    speaker: "系统",
-                    chars: "[中 forward lh1]"
-                },
-                {
-                    text: "【动作-61】吓一跳后普通移动 - [右 lh1] (吓一跳结束后，普通移动应正常)",
+                    text: "",
                     speaker: "系统",
                     chars: "[右 lh1]"
                 },
                 {
-                    text: "【动作-62】发抖后瞬移 - [瞬 左 lh1] (发抖结束后，瞬移应正常)",
+                    text: "【动画-2】瞬移效果 - [瞬 左 lh1] -> [瞬 右 lh1]。立绘立即切换位置，无过渡动画。",
                     speaker: "系统",
                     chars: "[瞬 左 lh1]"
                 },
-                
-                // ========== 最终清理 ==========
                 {
-                    text: "【动作-63】清除所有立绘",
+                    text: "",
                     speaker: "系统",
-                    chars: "[消失 lh1],[消失 lh2]"
+                    chars: "[瞬 右 lh1]"
                 },
                 {
-                    text: " 所有测试完成！您已成功体验立绘系统的完整功能，包括：\n 纯中文指令（向后兼容）\n 纯英文指令\n 中英文混合指令\n 冲突处理机制\n 边界情况处理\n 动作指令系统（后退/前进/吓一跳/发抖/持续发抖/结束发抖）\n 动作优先级规则\n 动作与其他修饰词组合",
+                    text: "清除立绘，准备进入高级动作指令测试。",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 5. 高级动作指令 ==========
+                {
+                    text: "【动作-1】后退效果 - [中 retreat lh1]。Y轴向上+10%，缩小10%，层级强制变后。",
+                    speaker: "系统",
+                    chars: "[中 retreat lh1]"
+                },
+                {
+                    text: "【动作-2】前进效果 - [中 forward lh1]。Y轴向下-10%，放大10%，层级强制变前。",
+                    speaker: "系统",
+                    chars: "[中 forward lh1]"
+                },
+                {
+                    text: "【动作-3】吓一跳 - [中 scare lh1]。快速放大再缩小，重复2次。",
+                    speaker: "系统",
+                    chars: "[中 scare lh1]"
+                },
+                {
+                    text: "【动作-4】发抖 - [中 shake lh1]。X轴快速左右抖动3次。",
+                    speaker: "系统",
+                    chars: "[中 shake lh1]"
+                },
+                {
+                    text: "【动作-5】持续发抖与停止 - [中 cshake lh1] (开始) -> [sshake lh1] (停止)。",
+                    speaker: "系统",
+                    chars: "[中 cshake lh1]"
+                },
+                {
+                    text: "",
+                    speaker: "系统",
+                    chars: "[sshake lh1]"
+                },
+                {
+                    text: "清除立绘，准备进入连续动作序列测试。",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 6. 连续动作序列 (V1.1.3) ==========
+                {
+                    text: "【序列-1】基础连续 - [左,中,右 lh1]。立绘依次经过三个位置，每步间隔0.5秒。",
+                    speaker: "系统",
+                    chars: "[左,中,右 lh1]"
+                },
+                {
+                    text: "【序列-2】属性继承 - [左 前,右 lh1]。Step 1只指定了'右'，因此继承了Step 0的'前'层级。",
+                    speaker: "系统",
+                    chars: "[左 前,右 lh1]"
+                },
+                {
+                    text: "【序列-3】片段内瞬移 - [左,右 上 后 瞬,中 lh1]。第二步瞬间完成并停留0.5秒，验证瞬移不跳过展示时间。",
+                    speaker: "系统",
+                    chars: "[左,右 上 后 瞬,中 lh1]"
+                },
+                {
+                    text: "【序列-4】独立标记瞬移 - [左,瞬,右 lh1]。从左侧瞬间移动到右侧。",
+                    speaker: "系统",
+                    chars: "[左,瞬,右 lh1]"
+                },
+                {
+                    text: "【序列-5】超长序列（8个片段） - [左,中,右,左左,右右,中下,上上,中 lh1]",
+                    speaker: "系统",
+                    chars: "[左,中,右,左左,右右,中下,上上,中 lh1]"
+                },
+                {
+                    text: "【序列-6】中断测试 - [左,中,右 lh1] (请在动画过程中点击鼠标，立绘应直接跳到最右侧)",
+                    speaker: "系统",
+                    chars: "[左,中,右 lh1]"
+                },
+                {
+                    text: "清除立绘，准备进入清除与管理测试。",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 7. 清除与管理 ==========
+                {
+                    text: "【管理-1】单立绘消失 - [左 lh1],[中 lh2] -> [消失 lh1]。仅移除 lh1。",
+                    speaker: "系统",
+                    chars: "[左 lh1],[中 lh2]"
+                },
+                {
+                    text: "",
+                    speaker: "系统",
+                    chars: "[消失 lh1]"
+                },
+                {
+                    text: "【管理-2】批量清除 - [左 lh1],[中 lh2] -> [消失 all]。一键清空所有立绘。",
+                    speaker: "系统",
+                    chars: "[左 lh1],[中 lh2]"
+                },
+                {
+                    text: "",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 8. 边界与冲突测试 (负面/压力测试) ==========
+                {
+                    text: "【冲突-1】同类关键词冲突 - [左 右 lh1]。取第一个'左'，忽略'右'。",
+                    speaker: "系统",
+                    chars: "[左 右 lh1]"
+                },
+                {
+                    text: "【冲突-2】中英文混合冲突 - [left 右 lh1]。取第一个'left'，忽略'右'。",
+                    speaker: "系统",
+                    chars: "[left 右 lh1]"
+                },
+                {
+                    text: "【冲突-3】精确坐标优先 - [x:10% 左 lh1]。精确坐标 x:10% 优先级高于文字指令'左'。",
+                    speaker: "系统",
+                    chars: "[x:10% 左 lh1]"
+                },
+                {
+                    text: "【冲突-4】多重水平冲突 - [x:10% 左 右 middle lh1] (应使用x:10%，忽略所有水平关键词)",
+                    speaker: "系统",
+                    chars: "[x:10% 左 右 middle lh1]"
+                },
+                {
+                    text: "【冲突-5】复杂冲突 - [left right 下 downm front back 10% lh1] (每类取第一个：left=25%, down=-25%, front=zIndex:11, scale=110%)",
+                    speaker: "系统",
+                    chars: "[left right 下 downm front back 10% lh1]"
+                },
+                {
+                    text: "所有测试完成！您已验证了立绘系统的核心功能、高级特性及边界情况。",
                     speaker: "系统",
                     chars: null
                 }
