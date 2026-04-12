@@ -53,7 +53,9 @@ const gameEngine = {
         // 文本是否已完整显示（用于控制点击行为）
         textFullyDisplayed: false,
         // 当前激活的立绘状态 { id: { path, left, zIndex, clipPath } }
-        activeChars: {}
+        activeChars: {},
+        // 持续发抖的立绘状态 { charId: timerId }
+        shakingChars: {}
     },
     
     elements: {
@@ -2971,8 +2973,15 @@ const gameEngine = {
             
             // 处理消失指令（支持中英文）
             if ((parts[0] === '消失' || parts[0] === 'hide' || parts[0] === 'remove') && parts.length >= 2) {
-                const charId = parts[1];
-                this.removeChar(charId);
+                const target = parts[1];
+                
+                // 检查是否为清除所有立绘的指令
+                if (target === 'all' || target === '全部') {
+                    this.removeAllChars();
+                } else {
+                    // 单个立绘清除
+                    this.removeChar(target);
+                }
                 return;
             }
 
@@ -3103,6 +3112,11 @@ const gameEngine = {
             }, 50);
         }
         
+        // 处理动作指令
+        if (props.actionType) {
+            this.applyCharAction(charId, charEl, props.actionType, props);
+        }
+        
         // 更新状态记录
         this.state.activeChars[charId] = { path, ...props };
     },
@@ -3116,7 +3130,210 @@ const gameEngine = {
         if (charEl) {
             charEl.remove();
         }
+        // 清除持续发抖状态
+        if (this.state.shakingChars && this.state.shakingChars[charId]) {
+            clearInterval(this.state.shakingChars[charId]);
+            delete this.state.shakingChars[charId];
+        }
         delete this.state.activeChars[charId];
+    },
+
+    /**
+     * 移除所有立绘
+     * 清除屏幕上所有活跃立绘，包括动画状态
+     */
+    removeAllChars: function() {
+        // 获取所有活跃立绘的 ID
+        const charIds = Object.keys(this.state.activeChars);
+        
+        // 逐个移除立绘（会自动清理动画状态）
+        charIds.forEach(charId => {
+            this.removeChar(charId);
+        });
+        
+        // 确保状态已清空（理论上 removeChar 已经处理，但这里做双重保险）
+        this.state.activeChars = {};
+        this.state.shakingChars = {};
+    },
+
+    /**
+     * 应用立绘动作指令
+     * @param {string} charId - 立绘ID
+     * @param {HTMLElement} charEl - 立绘DOM元素
+     * @param {string} actionType - 动作类型
+     * @param {Object} props - 解析后的修饰词属性
+     */
+    applyCharAction: function(charId, charEl, actionType, props) {
+        switch(actionType) {
+            case 'back':
+                this.applyRetreatAction(charEl, props);
+                break;
+            case 'forward':
+                this.applyForwardAction(charEl, props);
+                break;
+            case 'scare':
+                this.applyJumpscareAction(charEl, props);
+                break;
+            case 'shake':
+                this.applyShakeAction(charEl, props, false);
+                break;
+            case 'cshake':
+                this.applyShakeAction(charEl, props, true);
+                break;
+            case 'sshake':
+                this.stopShakeAction(charId);
+                break;
+        }
+    },
+
+    /**
+     * 应用“后退”动作
+     * Y轴向上偏移 +10%，缩放比例减小 -10%，层级强制变为“后”
+     */
+    applyRetreatAction: function(charEl, props) {
+        // 计算新的 bottom 值（向上偏移 10%）
+        const currentBottom = parseFloat(props.bottom) || 0;
+        const newBottom = currentBottom + 10;
+        charEl.style.bottom = `${newBottom}%`;
+        
+        // 计算新的缩放比例（减小 10%）
+        const newScale = Math.max(0.1, props.scale - 0.1);
+        charEl.style.height = `${newScale * 100}%`;
+        
+        // 如果当前层级不是“后”，则强制设置为“后”
+        const currentZIndex = parseInt(charEl.style.zIndex) || 10;
+        if (currentZIndex !== 9) {
+            charEl.style.zIndex = 9;
+        }
+    },
+
+    /**
+     * 应用“前进”动作
+     * Y轴向下偏移 -10%，缩放比例增大 +10%，层级强制变为“前”
+     */
+    applyForwardAction: function(charEl, props) {
+        // 计算新的 bottom 值（向下偏移 10%）
+        const currentBottom = parseFloat(props.bottom) || 0;
+        const newBottom = currentBottom - 10;
+        charEl.style.bottom = `${newBottom}%`;
+        
+        // 计算新的缩放比例（增大 10%，上限为 2.0）
+        const newScale = Math.min(2.0, props.scale + 0.1);
+        charEl.style.height = `${newScale * 100}%`;
+        
+        // 如果当前层级不是“前”，则强制设置为“前”
+        const currentZIndex = parseInt(charEl.style.zIndex) || 10;
+        if (currentZIndex !== 11) {
+            charEl.style.zIndex = 11;
+        }
+    },
+
+    /**
+     * 应用“吓一跳”动作
+     * 先放大7%，再缩小7%，重复2次
+     */
+    applyJumpscareAction: function(charEl, props) {
+        const baseScale = props.scale;
+        const scaleUp = baseScale * 1.07;  // 放大7%
+        const scaleDown = baseScale * 0.93; // 缩小7%
+        
+        let step = 0;
+        const maxSteps = 10; // 5个阶段 x 2次循环 = 10步
+        
+        const animate = () => {
+            if (step >= maxSteps) {
+                // 动画结束，恢复到基准缩放
+                charEl.style.height = `${baseScale * 100}%`;
+                return;
+            }
+            
+            const phase = step % 5;
+            if (phase === 0 || phase === 4) {
+                // 基准状态
+                charEl.style.height = `${baseScale * 100}%`;
+            } else if (phase === 1 || phase === 3) {
+                // 放大7%
+                charEl.style.height = `${scaleUp * 100}%`;
+            } else if (phase === 2) {
+                // 缩小7%
+                charEl.style.height = `${scaleDown * 100}%`;
+            }
+            
+            step++;
+            setTimeout(animate, 100); // 每100ms切换一次
+        };
+        
+        animate();
+    },
+
+    /**
+     * 应用“发抖”或“持续发抖”动作
+     * X轴左右偏移 -2% / +2%，重复3次（非持续）或持续进行
+     */
+    applyShakeAction: function(charEl, props, isContinuous) {
+        const currentLeft = charEl.style.left;
+        const offsetPercent = 2; // 偏移2%
+        
+        // 如果是持续发抖，先停止之前的定时器
+        if (isContinuous && this.state.shakingChars) {
+            const charId = charEl.id.replace('char-', '');
+            if (this.state.shakingChars[charId]) {
+                clearInterval(this.state.shakingChars[charId]);
+            }
+        }
+        
+        let step = 0;
+        const maxSteps = isContinuous ? Infinity : 6; // 3次循环 x 2步 = 6步
+        
+        const animate = () => {
+            if (!isContinuous && step >= maxSteps) {
+                // 非持续模式，动画结束后恢复原位
+                charEl.style.left = currentLeft;
+                return;
+            }
+            
+            const phase = step % 2;
+            if (phase === 0) {
+                // 向左偏移2%
+                charEl.style.left = `calc(${currentLeft} - ${offsetPercent}%)`;
+            } else {
+                // 向右偏移2%
+                charEl.style.left = `calc(${currentLeft} + ${offsetPercent}%)`;
+            }
+            
+            step++;
+            
+            if (isContinuous) {
+                // 持续模式，使用定时器
+                const charId = charEl.id.replace('char-', '');
+                if (!this.state.shakingChars) {
+                    this.state.shakingChars = {};
+                }
+                this.state.shakingChars[charId] = setTimeout(animate, 80); // 每80ms切换一次
+            } else {
+                // 非持续模式
+                setTimeout(animate, 80);
+            }
+        };
+        
+        animate();
+    },
+
+    /**
+     * 停止“持续发抖”动作
+     */
+    stopShakeAction: function(charId) {
+        if (this.state.shakingChars && this.state.shakingChars[charId]) {
+            clearTimeout(this.state.shakingChars[charId]);
+            delete this.state.shakingChars[charId];
+            
+            // 恢复立绘到正常位置
+            const charEl = document.getElementById(`char-${charId}`);
+            if (charEl && this.state.activeChars[charId]) {
+                const props = this.state.activeChars[charId];
+                charEl.style.left = props.left;
+            }
+        }
     },
 
     /**
@@ -3145,6 +3362,7 @@ const gameEngine = {
         let instant = false; // 默认不禁用动画
         let preciseX = null; // 精确X坐标（以屏幕中心为0%）
         let preciseY = null; // 精确Y坐标（以屏幕底部为0%）
+        let actionType = null; // 动作类型指令
     
         // 将修饰词按空格分割为数组，便于精确匹配
         const modArray = mods.split(' ').filter(Boolean);
@@ -3176,6 +3394,15 @@ const gameEngine = {
     
         const animationMap = {
             '瞬': 'instant', 'moment': 'instant', 'instant': 'instant'
+        };
+    
+        const actionMap = {
+            '后退': 'back', 'back': 'back',
+            '前进': 'forward', 'forward': 'forward',
+            '吓一跳': 'scare', 'scare': 'scare',
+            '发抖': 'shake', 'shake': 'shake',
+            '持续发抖': 'cshake', 'cshake': 'cshake',
+            '结束发抖': 'sshake', 'sshake': 'sshake'
         };
     
         // 第一步：检测精确坐标指令（具有最高优先级）
@@ -3282,6 +3509,21 @@ const gameEngine = {
             }
         }
     
+        // 第七步：提取动作类型指令（取第一个匹配的）
+        let hasAction = false;
+        for (const mod of modArray) {
+            if (actionMap.hasOwnProperty(mod)) {
+                actionType = actionMap[mod];
+                hasAction = true;
+                break; // 取第一个匹配的动作指令
+            }
+        }
+    
+        // 如果存在动作指令，自动屏蔽“瞬”指令
+        if (hasAction) {
+            instant = false;
+        }
+    
         return {
             left,
             zIndex: 10 + zIndexOffset,
@@ -3290,7 +3532,8 @@ const gameEngine = {
             bottom,
             instant,
             preciseX,
-            preciseY
+            preciseY,
+            actionType
         };
     }
 };
