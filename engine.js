@@ -1160,6 +1160,9 @@ const gameEngine = {
         // 如果选项菜单激活，不处理
         if (this.state.choicesActive) return; 
         
+        // 中断所有正在进行的连续动作指令，并跳转到最终状态
+        this.interruptCharSequences();
+        
         // 清除音频序列状态
         this.state.audioSegments = null;
         this.state.currentAudioSegment = 0;
@@ -2969,6 +2972,13 @@ const gameEngine = {
         instructions.forEach(instr => {
             // 去除方括号
             const content = instr.slice(1, -1).trim();
+            
+            // 检查是否为连续动作指令（包含逗号）
+            if (content.includes(',')) {
+                this.executeCharSequence(content);
+                return;
+            }
+
             const parts = content.split(/\s+/);
             
             // 处理消失指令（支持中英文）
@@ -3003,6 +3013,123 @@ const gameEngine = {
                 }
             }
         });
+    },
+
+    /**
+     * 中断所有正在进行的连续动作指令
+     * 将立绘直接设置为指令序列中最后一个片段所定义的状态
+     */
+    interruptCharSequences: function() {
+        if (!this.state.charActionQueues) return;
+
+        Object.keys(this.state.charActionQueues).forEach(charId => {
+            const queue = this.state.charActionQueues[charId];
+            if (queue && queue.segments) {
+                // 获取最后一段的内容
+                const lastSegment = queue.segments[queue.segments.length - 1];
+                if (lastSegment) {
+                    // 瞬间应用最后一段的状态
+                    this.updateChar(charId, lastSegment.replace(/瞬|instant|moment/g, '').trim(), true);
+                }
+            }
+            // 清除定时器
+            if (queue.timeoutId) {
+                clearTimeout(queue.timeoutId);
+            }
+        });
+
+        // 清空队列
+        this.state.charActionQueues = {};
+    },
+
+    /**
+     * 执行连续动作序列（统一化状态帧模式）
+     * @param {string} sequenceContent - 逗号分隔的完整指令内容
+     */
+    executeCharSequence: function(sequenceContent) {
+        const segments = sequenceContent.split(',').map(s => s.trim());
+        if (segments.length === 0) return;
+
+        // 提取角色ID（最后一段的最后一部分）
+        const lastSegmentParts = segments[segments.length - 1].split(/\s+/);
+        const charId = lastSegmentParts[lastSegmentParts.length - 1];
+        
+        if (!charId || this.isModifierKeyword(charId)) {
+            console.warn(`连续动作指令中未找到有效的角色ID: ${sequenceContent}`);
+            return;
+        }
+
+        // 初始化队列状态
+        if (!this.state.charActionQueues) this.state.charActionQueues = {};
+        if (this.state.charActionQueues[charId]) clearTimeout(this.state.charActionQueues[charId].timeoutId);
+
+        this.state.charActionQueues[charId] = {
+            segments: segments,
+            timeoutId: null,
+            nextIsInstant: false
+        };
+
+        let currentIndex = 0;
+        const totalSegments = segments.length;
+
+        const processNext = () => {
+            if (currentIndex >= totalSegments) {
+                delete this.state.charActionQueues[charId];
+                return;
+            }
+
+            const currentSegment = segments[currentIndex];
+            
+            // 1. 检查瞬移标记 (独立片段)
+            if (currentSegment === '瞬' || currentSegment === 'instant' || currentSegment === 'moment') {
+                this.state.charActionQueues[charId].nextIsInstant = true;
+                currentIndex++;
+                processNext();
+                return;
+            }
+
+            // 2. 处理瞬移标记与冲突检测
+            const segmentParts = currentSegment.split(/\s+/);
+            const hasInstantInSegment = segmentParts.some(p => ['瞬', 'instant', 'moment'].includes(p));
+            
+            if (hasInstantInSegment) {
+                // 如果片段内混用了瞬移标记与其他修饰词（如 "右 瞬"），则视为有效状态帧
+                // 我们需要过滤掉 "瞬" 关键字，只保留样式修饰词
+                const validModifiers = segmentParts.filter(p => !['瞬', 'instant', 'moment'].includes(p)).join(' ');
+                
+                if (validModifiers.trim() === '') {
+                    // 如果过滤后为空（即片段仅为 "瞬"），则仅作为控制标记，不应用样式
+                    this.state.charActionQueues[charId].nextIsInstant = true;
+                    currentIndex++;
+                    processNext();
+                    return;
+                } else {
+                    // 存在有效修饰词，应用该状态并强制瞬移
+                    const queueState = this.state.charActionQueues[charId];
+                    this.updateChar(charId, validModifiers, true); // forceInstant = true
+                    queueState.nextIsInstant = false; // 重置，避免影响下一步
+                }
+            } else {
+                // 普通片段，正常应用
+                const queueState = this.state.charActionQueues[charId];
+                const forceInstant = queueState.nextIsInstant;
+                this.updateChar(charId, currentSegment, forceInstant);
+                queueState.nextIsInstant = false;
+            }
+
+            currentIndex++;
+            
+            if (currentIndex < totalSegments) {
+                // 关键修正：无论是否瞬移，都保持标准延时以展示当前状态
+                const delay = 500; 
+                const timeoutId = setTimeout(processNext, delay);
+                this.state.charActionQueues[charId].timeoutId = timeoutId;
+            } else {
+                delete this.state.charActionQueues[charId];
+            }
+        };
+
+        processNext();
     },
 
     /**
@@ -3045,8 +3172,9 @@ const gameEngine = {
      * 更新或创建单个立绘
      * @param {string} charId - 立绘ID (如 lh01)
      * @param {string} modifiers - 修饰词组合 (如 "左 前" 或 "中 10% 后" 或 "瞬 左" 或 "left front" 等中英文混合)
+     * @param {boolean} forceInstant - 是否强制瞬间切换（用于连续动作指令）
      */
-    updateChar: function(charId, modifiers) {
+    updateChar: function(charId, modifiers, forceInstant = false) {
         // 获取路径
         let path = null;
         if (typeof CHAR_CONFIG_SUB !== 'undefined' && CHAR_CONFIG_SUB[charId]) {
@@ -3077,8 +3205,8 @@ const gameEngine = {
         // 解析修饰词并应用样式
         const props = this.parseCharModifiers(modifiers);
                 
-        // 检查是否包含“瞬”指令
-        const isInstant = props.instant;
+        // 检查是否包含“瞬”指令或外部强制瞬间
+        const isInstant = props.instant || forceInstant;
                 
         if (isInstant) {
             // 禁用过渡动画，实现瞬间切换
@@ -3135,18 +3263,23 @@ const gameEngine = {
             clearInterval(this.state.shakingChars[charId]);
             delete this.state.shakingChars[charId];
         }
+        // 清除连续动作队列
+        if (this.state.charActionQueues && this.state.charActionQueues[charId]) {
+            clearTimeout(this.state.charActionQueues[charId].timeoutId);
+            delete this.state.charActionQueues[charId];
+        }
         delete this.state.activeChars[charId];
     },
 
     /**
      * 移除所有立绘
-     * 清除屏幕上所有活跃立绘，包括动画状态
+     * 清除屏幕上所有活跃立绘，包括动画状态和连续动作队列
      */
     removeAllChars: function() {
         // 获取所有活跃立绘的 ID
         const charIds = Object.keys(this.state.activeChars);
         
-        // 逐个移除立绘（会自动清理动画状态）
+        // 逐个移除立绘（会自动清理动画状态和动作队列）
         charIds.forEach(charId => {
             this.removeChar(charId);
         });
@@ -3154,6 +3287,7 @@ const gameEngine = {
         // 确保状态已清空（理论上 removeChar 已经处理，但这里做双重保险）
         this.state.activeChars = {};
         this.state.shakingChars = {};
+        this.state.charActionQueues = {};
     },
 
     /**
