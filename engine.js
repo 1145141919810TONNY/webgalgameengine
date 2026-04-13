@@ -55,7 +55,9 @@ const gameEngine = {
         // 当前激活的立绘状态 { id: { path, left, zIndex, clipPath } }
         activeChars: {},
         // 持续发抖的立绘状态 { charId: timerId }
-        shakingChars: {}
+        shakingChars: {},
+        // 背景转场标志
+        isBackgroundTransitioning: false
     },
     
     elements: {
@@ -291,17 +293,28 @@ const gameEngine = {
         }
         
         const line = this.sceneData.story[index];
-        
-        // 设置说话者姓名
-        if (line.speaker) {
-            this.elements.nameBox.textContent = line.speaker;
-            this.elements.nameBox.style.display = 'block';
-        } else {
-            this.elements.nameBox.style.display = 'none';
+
+        // 【新增】提前检测是否为转场指令，如果是则跳过本行的文本和姓名渲染
+        let isTransition = false;
+        if (line.background && typeof line.background === 'string') {
+            if (line.background.startsWith('trans ') || line.background.startsWith('转场 ')) {
+                isTransition = true;
+            }
         }
 
-        // 显示文本（支持分段和打字机效果）
-        this.typeTextWithSplits(line.text);
+        // 只有在非转场行才立即渲染文本和姓名
+        if (!isTransition) {
+            // 设置说话者姓名
+            if (line.speaker) {
+                this.elements.nameBox.textContent = line.speaker;
+                this.elements.nameBox.style.display = 'block';
+            } else {
+                this.elements.nameBox.style.display = 'none';
+            }
+
+            // 显示文本（支持分段和打字机效果）
+            this.typeTextWithSplits(line.text);
+        }
         
         // 解析并播放音频序列（支持[a]标签的多段音频）
         if (line.audio && typeof line.audio === 'string' && line.audio.includes('[a]')) {
@@ -322,16 +335,58 @@ const gameEngine = {
         // 切换背景图片
         if (line.background) {
             let bgPath = null;
-            // 优先从场景数据中查找背景路径
-            if (this.sceneData.background[line.background]) {
-                bgPath = this.sceneData.background[line.background];
-            } else if (typeof CG_CONFIG_SUB !== 'undefined' && CG_CONFIG_SUB[line.background]) {
-                // 如果场景数据中没有，则从CG配置中查找
-                bgPath = CG_CONFIG_SUB[line.background];
+            let isTransition = false;
+            let transitionType = 'fade'; // 默认为淡入淡出
+            let targetBgId = null;
+
+            // 检查是否为转场语法："trans/转场", "slideL/左滑", "slideR/右滑", "scanL/左转场", "scanR/右转场"
+            if (typeof line.background === 'string') {
+                if (line.background.startsWith('trans ') || line.background.startsWith('转场 ')) {
+                    isTransition = true;
+                    transitionType = 'fade';
+                    targetBgId = line.background.replace(/^(trans|转场)\s+/, '').trim();
+                } else if (line.background.startsWith('slideL ') || line.background.startsWith('左滑 ')) {
+                    isTransition = true;
+                    transitionType = 'slideL';
+                    targetBgId = line.background.replace(/^(slideL|左滑)\s+/, '').trim();
+                } else if (line.background.startsWith('slideR ') || line.background.startsWith('右滑 ')) {
+                    isTransition = true;
+                    transitionType = 'slideR';
+                    targetBgId = line.background.replace(/^(slideR|右滑)\s+/, '').trim();
+                } else if (line.background.startsWith('scanL ') || line.background.startsWith('左转场 ')) {
+                    isTransition = true;
+                    transitionType = 'scanL';
+                    targetBgId = line.background.replace(/^(scanL|左转场)\s+/, '').trim();
+                } else if (line.background.startsWith('scanR ') || line.background.startsWith('右转场 ')) {
+                    isTransition = true;
+                    transitionType = 'scanR';
+                    targetBgId = line.background.replace(/^(scanR|右转场)\s+/, '').trim();
+                }
+            }
+
+            // 查找背景路径
+            if (!isTransition) {
+                if (this.sceneData.background[line.background]) {
+                    bgPath = this.sceneData.background[line.background];
+                } else if (typeof CG_CONFIG_SUB !== 'undefined' && CG_CONFIG_SUB[line.background]) {
+                    bgPath = CG_CONFIG_SUB[line.background];
+                }
+            } else {
+                if (this.sceneData.background[targetBgId]) {
+                    bgPath = this.sceneData.background[targetBgId];
+                } else if (typeof CG_CONFIG_SUB !== 'undefined' && CG_CONFIG_SUB[targetBgId]) {
+                    bgPath = CG_CONFIG_SUB[targetBgId];
+                }
             }
             
             if (bgPath) {
-                this.setBackground(bgPath);
+                if (isTransition) {
+                    // 执行原子化阻塞转场
+                    this.performBackgroundTransition(bgPath, line, transitionType);
+                    return; // 【关键】立即返回，阻断当前行后续所有指令（chars, text, audio等）
+                } else {
+                    this.setBackground(bgPath);
+                }
             }
         }
         
@@ -368,7 +423,11 @@ const gameEngine = {
         
         // 处理立绘指令
         if (line.chars) {
-            this.renderChars(line.chars);
+            // 如果当前行正在执行背景转场，则跳过本行的立绘渲染
+            // 避免在淡出过程中出现立绘闪烁或状态冲突
+            if (!this.state.isBackgroundTransitioning) {
+                this.renderChars(line.chars);
+            }
         }
         
         // 更新当前行号
@@ -757,6 +816,273 @@ const gameEngine = {
     },
     
     /**
+     * 执行背景转场：支持淡入淡出、滑屏及扫描式覆盖
+     * @param {string} newBgPath - 新背景图片的路径
+     * @param {Object} currentLine - 当前剧情行数据对象
+     * @param {string} type - 转场类型 ('fade', 'slideL', 'slideR', 'scanL', 'scanR')
+     */
+    performBackgroundTransition: function(newBgPath, currentLine, type) {
+        const duration = 1000; // 默认 1s 动画时长
+        
+        console.log(`开始原子化背景转场 (${type}):`, newBgPath);
+
+        // 设置背景转场标志
+        this.state.isBackgroundTransitioning = true;
+
+        // 立即清空当前的文本和姓名显示，防止转场过程中残留上一行的内容
+        this.elements.textBox.textContent = '';
+        this.elements.nameBox.textContent = '';
+        this.elements.nameBox.style.display = 'none';
+
+        if (type === 'fade') {
+            // 原有的淡入淡出逻辑
+            this.fadeOut(duration, 'black', () => {
+                this.removeAllChars();
+                this.setBackground(newBgPath);
+                setTimeout(() => {
+                    this.fadeIn(duration, 'black');
+                }, 50);
+                this._resumeLineAfterTransition(currentLine, duration + 100);
+            });
+        } else if (type === 'slideL' || type === 'slideR') {
+            // 整体位移滑屏逻辑
+            this.performSlideTransition(newBgPath, currentLine, type, duration);
+        } else if (type === 'scanL' || type === 'scanR') {
+            // 扫描式覆盖逻辑
+            this.performScanTransition(newBgPath, currentLine, type, duration);
+        }
+    },
+
+    /**
+     * 执行整体位移滑屏转场（左滑/右滑）
+     */
+    performSlideTransition: function(newBgPath, currentLine, type, duration) {
+        const bgContainer = this.elements.backgroundContainer;
+        
+        // 预加载新背景图片
+        const img = new Image();
+        img.src = newBgPath;
+        img.onload = () => {
+            const newLayer = document.createElement('div');
+            newLayer.className = 'slide-layer';
+            newLayer.style.backgroundImage = `url('${newBgPath}')`;
+            
+            // 设置初始位置：根据滑动方向决定新背景从哪边进来
+            if (type === 'slideL') {
+                // 左滑：新背景从左侧 (-100%) 进入
+                newLayer.style.transform = 'translateX(-100%)';
+            } else {
+                // 右滑：新背景从右侧 (100%) 进入
+                newLayer.style.transform = 'translateX(100%)';
+            }
+            
+            bgContainer.appendChild(newLayer);
+
+            setTimeout(() => {
+                // 触发动画：新背景归位，旧背景向反方向移出
+                newLayer.style.transform = 'translateX(0)';
+                
+                // 旧背景容器向相反方向移动
+                if (type === 'slideL') {
+                    bgContainer.style.transform = 'translateX(100%)';
+                } else {
+                    bgContainer.style.transform = 'translateX(-100%)';
+                }
+            }, 50);
+
+            // 动画结束后清理
+            setTimeout(() => {
+                this.removeAllChars();
+                this.setBackground(newBgPath);
+                
+                // 重置旧背景容器的状态
+                bgContainer.style.transition = 'none';
+                bgContainer.style.transform = 'translateX(0)';
+                void bgContainer.offsetWidth; // 强制重绘以应用重置
+                bgContainer.style.transition = 'opacity 1s ease, transform 1s cubic-bezier(0.4, 0.0, 0.2, 1)';
+                
+                if (newLayer.parentNode) newLayer.parentNode.removeChild(newLayer);
+                
+                this._resumeLineAfterTransition(currentLine, 50);
+            }, duration + 100);
+        };
+    },
+
+    /**
+     * 执行扫描式转场（左转场/右转场）- 使用 Clip-path 防止拉伸
+     */
+    performScanTransition: function(newBgPath, currentLine, type, duration) {
+        const bgContainer = this.elements.backgroundContainer;
+        
+        // 预加载新背景图片
+        const img = new Image();
+        img.src = newBgPath;
+        img.onload = () => {
+            const newLayer = document.createElement('div');
+            newLayer.className = 'slide-layer';
+            
+            // 根据转场类型添加特定的扫描线样式类
+            if (type === 'scanL') {
+                newLayer.classList.add('scan-left');
+            } else if (type === 'scanR') {
+                newLayer.classList.add('scan-right');
+            }
+            
+            newLayer.style.backgroundImage = `url('${newBgPath}')`;
+            
+            // 设置初始裁剪区域：完全隐藏
+            if (type === 'scanL') {
+                // 左转场：从左侧开始扫描，初始裁剪掉右侧 100% 的内容
+                newLayer.style.clipPath = 'inset(0 100% 0 0)';
+                // 初始 mask 位置：渐变在右侧边缘
+                newLayer.style.maskImage = 'linear-gradient(to right, black 0%, black 85%, rgba(0,0,0,0) 100%)';
+                newLayer.style.webkitMaskImage = 'linear-gradient(to right, black 0%, black 85%, rgba(0,0,0,0) 100%)';
+            } else {
+                // 右转场：从右侧开始扫描，初始裁剪掉左侧 100% 的内容
+                newLayer.style.clipPath = 'inset(0 0 0 100%)';
+                // 初始 mask 位置：渐变在左侧边缘
+                newLayer.style.maskImage = 'linear-gradient(to left, black 0%, black 85%, rgba(0,0,0,0) 100%)';
+                newLayer.style.webkitMaskImage = 'linear-gradient(to left, black 0%, black 85%, rgba(0,0,0,0) 100%)';
+            }
+            
+            bgContainer.appendChild(newLayer);
+
+            // 强制重绘
+            void newLayer.offsetWidth; 
+
+            // 触发动画：显示全部内容
+            requestAnimationFrame(() => {
+                newLayer.style.clipPath = 'inset(0 0 0 0)';
+                // 动画结束时，mask 渐变移到另一侧，实现平滑过渡
+                if (type === 'scanL') {
+                    // 左转场完成时，渐变移到左侧
+                    newLayer.style.maskImage = 'linear-gradient(to right, rgba(0,0,0,0) 0%, black 15%, black 100%)';
+                    newLayer.style.webkitMaskImage = 'linear-gradient(to right, rgba(0,0,0,0) 0%, black 15%, black 100%)';
+                } else {
+                    // 右转场完成时，渐变移到右侧
+                    newLayer.style.maskImage = 'linear-gradient(to left, rgba(0,0,0,0) 0%, black 15%, black 100%)';
+                    newLayer.style.webkitMaskImage = 'linear-gradient(to left, rgba(0,0,0,0) 0%, black 15%, black 100%)';
+                }
+            });
+
+            // 动画结束后清理
+            setTimeout(() => {
+                this.removeAllChars();
+                this.setBackground(newBgPath);
+                if (newLayer.parentNode) newLayer.parentNode.removeChild(newLayer);
+                this._resumeLineAfterTransition(currentLine, 50);
+            }, duration + 50);
+        };
+    },
+
+    /**
+     * 执行滑屏转场（扫描式擦除效果）
+     */
+    performSlideTransition: function(newBgPath, currentLine, type, duration) {
+        const bgContainer = this.elements.backgroundContainer;
+        
+        // 预加载新背景图片，防止闪烁
+        const img = new Image();
+        img.src = newBgPath;
+        img.onload = () => {
+            // 创建新背景层
+            const newLayer = document.createElement('div');
+            newLayer.className = 'slide-layer';
+            newLayer.style.backgroundImage = `url('${newBgPath}')`;
+            
+            // 设置扫描起始状态：宽度为0，根据方向设置变换原点
+            if (type === 'slideL') {
+                // 左滑：从左侧开始扫描，原点在左
+                newLayer.style.transformOrigin = 'left center';
+                newLayer.style.transform = 'scaleX(0)';
+            } else {
+                // 右滑：从右侧开始扫描，原点在右
+                newLayer.style.transformOrigin = 'right center';
+                newLayer.style.transform = 'scaleX(0)';
+            }
+            
+            bgContainer.appendChild(newLayer);
+
+            // 强制重绘：确保浏览器应用了初始的 scaleX(0)
+            void newLayer.offsetWidth; 
+
+            // 触发动画：展开至全屏 (scaleX 1)
+            requestAnimationFrame(() => {
+                newLayer.style.transform = 'scaleX(1)';
+            });
+
+            // 动画结束后清理
+            setTimeout(() => {
+                this.removeAllChars();
+                this.setBackground(newBgPath);
+                
+                // 移除临时层
+                if (newLayer.parentNode) newLayer.parentNode.removeChild(newLayer);
+                
+                this._resumeLineAfterTransition(currentLine, 50);
+            }, duration + 50);
+        };
+    },
+
+    /**
+     * 转场结束后恢复当前行剩余逻辑的通用函数
+     */
+    _resumeLineAfterTransition: function(currentLine, delay) {
+        setTimeout(() => {
+            console.log('转场结束，恢复渲染当前行剩余内容');
+            
+            // 清除背景转场标志
+            this.state.isBackgroundTransitioning = false;
+            
+            // 1. 恢复姓名框显示
+            if (currentLine.speaker !== undefined) {
+                if (currentLine.speaker === null) {
+                    this.elements.nameBox.style.display = 'none';
+                } else {
+                    this.elements.nameBox.textContent = currentLine.speaker;
+                    this.elements.nameBox.style.display = 'block';
+                }
+            }
+
+            // 2. 恢复文本渲染
+            if (currentLine.text) {
+                this.typeTextWithSplits(currentLine.text);
+            }
+
+            // 3. 渲染立绘（使用渐变效果）
+            if (currentLine.chars) {
+                // 临时设置标志，让立绘以渐变方式出现
+                const originalTransitionState = this.state.isBackgroundTransitioning;
+                this.state.isBackgroundTransitioning = false; // 允许渐变效果
+                this.renderChars(currentLine.chars);
+                this.state.isBackgroundTransitioning = originalTransitionState;
+            }
+            
+            // 4. 处理音频与 BGM
+            if (currentLine.audio) {
+                 if (this.sceneData.audio && this.sceneData.audio[currentLine.audio]) {
+                    this.playAudio(currentLine.audio);
+                 }
+            }
+
+            // 处理 BGM 切换逻辑
+            if (currentLine.bgm) {
+                if (currentLine.bgm === 'bgm stop') {
+                    this.stopBGM();
+                } else if (typeof currentLine.bgm === 'string' && currentLine.bgm.startsWith('bgm wait ')) {
+                    const newBgmKey = currentLine.bgm.substring('bgm wait '.length).trim();
+                    this.fadeOutAndPlayBGM(newBgmKey);
+                } else if (this.sceneData.bgm && this.sceneData.bgm[currentLine.bgm]) {
+                    this.playAudio(currentLine.bgm);
+                }
+            }
+
+            // 更新行号，准备进入下一行
+            this.state.currentLine = this.state.currentLine; 
+        }, delay);
+    },
+
+    /**
      * 淡出效果
      * 创建覆盖层并逐渐增加不透明度，实现淡出到指定颜色的效果
      * @param {number} duration - 淡出持续时间（毫秒）
@@ -764,85 +1090,62 @@ const gameEngine = {
      * @param {Function} [callback] - 淡出完成后的回调函数
      */
     fadeOut: function(duration, backgroundColor, callback) {
+        // 如果已有覆盖层，先移除
+        const existingOverlay = document.getElementById('fade-overlay');
+        if (existingOverlay) {
+            document.body.removeChild(existingOverlay);
+        }
+
         // 创建淡出覆盖层
         const overlay = document.createElement('div');
         overlay.id = 'fade-overlay';
-        overlay.style.position = 'absolute';
+        overlay.style.position = 'fixed'; // 改为 fixed 确保覆盖全屏且不受滚动影响
         overlay.style.top = '0';
         overlay.style.left = '0';
-        overlay.style.width = '100%';
-        overlay.style.height = '100%';
+        overlay.style.width = '100vw';
+        overlay.style.height = '100vh';
         overlay.style.backgroundColor = backgroundColor;
-        overlay.style.zIndex = '999';
+        overlay.style.zIndex = '9999'; // 提高层级确保在最上层
         overlay.style.opacity = '0';
+        overlay.style.transition = `opacity ${duration}ms ease-in-out`; // 使用 ease-in-out 更平滑
+        overlay.style.pointerEvents = 'none';
         document.body.appendChild(overlay);
         
-        // 计算动画参数
-        let startOpacity = 0;
-        const interval = 16; // 约60fps
-        const steps = duration / interval;
-        const opacityStep = 1 / steps;
-        
-        const fadeStep = () => {
-            startOpacity += opacityStep;
-            if (startOpacity >= 1) {
-                overlay.style.opacity = '1';
-                if (callback && typeof callback === 'function') {
-                    callback();
-                } else {
-                    setTimeout(() => {
-                        this.nextLine();
-                    }, 100);
-                }
-            } else {
-                overlay.style.opacity = startOpacity;
-                requestAnimationFrame(fadeStep);
+        // 强制重绘并触发动画
+        // 使用 setTimeout 0 确保 DOM 渲染完成后再设置 opacity
+        setTimeout(() => {
+            overlay.style.opacity = '1';
+        }, 10);
+
+        setTimeout(() => {
+            if (callback && typeof callback === 'function') {
+                callback();
             }
-        };
-        
-        requestAnimationFrame(fadeStep);
+        }, duration + 50); // 稍微增加一点等待时间确保动画完全结束
     },
     
     /**
      * 淡入效果
-     * 创建覆盖层并逐渐降低不透明度，实现从指定颜色淡入的效果
-     * @param {number} duration - 淡入持续时间（毫秒）
-     * @param {string} backgroundColor - 淡入起始颜色
      */
     fadeIn: function(duration, backgroundColor) {
-        const overlay = document.createElement('div');
-        overlay.id = 'fade-overlay';
-        overlay.style.position = 'absolute';
-        overlay.style.top = '0';
-        overlay.style.left = '0';
-        overlay.style.width = '100%';
-        overlay.style.height = '100%';
-        overlay.style.backgroundColor = backgroundColor;
-        overlay.style.zIndex = '999';
-        overlay.style.opacity = '1';
-        document.body.appendChild(overlay);
+        const overlay = document.getElementById('fade-overlay');
+        if (!overlay) {
+            console.warn('fadeIn: 未找到遮罩层，跳过淡入');
+            return;
+        }
         
-        let startOpacity = 1;
-        const interval = 16; // 约60fps
-        const steps = duration / interval;
-        const opacityStep = 1 / steps;
+        overlay.style.transition = `opacity ${duration}ms ease-in-out`;
         
-        const fadeStep = () => {
-            startOpacity -= opacityStep;
-            if (startOpacity <= 0) {
-                overlay.style.opacity = '0';
+        // 强制重绘并触发动画
+        setTimeout(() => {
+            overlay.style.opacity = '0';
+        }, 10);
+
+        setTimeout(() => {
+            if (overlay.parentNode) {
                 document.body.removeChild(overlay);
-                
-                setTimeout(() => {
-                    this.nextLine();
-                }, 100);
-            } else {
-                overlay.style.opacity = startOpacity;
-                requestAnimationFrame(fadeStep);
             }
-        };
-        
-        requestAnimationFrame(fadeStep);
+        }, duration + 50);
     },
     
     /**
@@ -2994,6 +3297,20 @@ const gameEngine = {
                 }
                 return;
             }
+            
+            // 处理渐出全部指令
+            if ((parts[0] === '渐出' || parts[0] === 'fadeOut') && parts.length >= 2) {
+                const target = parts[1];
+                
+                // 检查是否为清除所有立绘的指令
+                if (target === 'all' || target === '全部') {
+                    this.fadeOutAllChars();
+                } else {
+                    // 单个立绘渐出
+                    this.fadeOutChar(target);
+                }
+                return;
+            }
 
             // 处理显示/更新指令
             if (parts.length >= 1) {
@@ -3148,6 +3465,8 @@ const gameEngine = {
         const animationKeywords = ['瞬', 'moment', 'instant'];
         // 消失指令关键词
         const removeKeywords = ['消失', 'hide', 'remove'];
+        // 渐入渐出关键词
+        const fadeKeywords = ['渐入', 'fadeIn', '渐出', 'fadeOut'];
         
         // 检查是否匹配任何关键词
         if (positionKeywords.includes(word)) return true;
@@ -3155,6 +3474,7 @@ const gameEngine = {
         if (layerKeywords.includes(word)) return true;
         if (animationKeywords.includes(word)) return true;
         if (removeKeywords.includes(word)) return true;
+        if (fadeKeywords.includes(word)) return true;
         
         // 检查是否以 x: 或 y: 开头
         if (word.startsWith('x:') || word.startsWith('y:')) return true;
@@ -3204,21 +3524,50 @@ const gameEngine = {
 
         // 解析修饰词并应用样式
         const props = this.parseCharModifiers(modifiers);
-                
-        // 检查是否包含“瞬”指令或外部强制瞬间
+                        
+        // 检查是否包含"瞬"指令或外部强制瞬间
         const isInstant = props.instant || forceInstant;
-                
+                        
         if (isInstant) {
             // 禁用过渡动画，实现瞬间切换
             charEl.style.transition = 'none';
         }
-                
+                        
         // 应用样式
         charEl.style.left = props.left;
         charEl.style.bottom = props.bottom;
         charEl.style.zIndex = props.zIndex;
         charEl.style.visibility = 'visible';
-        charEl.style.opacity = '1';
+                
+        // 处理渐入/渐出指令
+        if (props.fadeType === 'fadeOut') {
+            // 渐出指令：执行渐出动画
+            this.fadeOutChar(charId, charEl);
+            return; // 直接返回，不继续执行后续逻辑
+        } else if (props.fadeType === 'fadeIn') {
+            // 渐入指令：从透明渐变到不透明
+            charEl.style.opacity = '0';
+            // 强制重绘以确保透明度变化生效
+            void charEl.offsetHeight;
+            // 设置渐变效果
+            charEl.style.transition = 'all 0.5s ease, opacity 0.8s ease-in-out';
+            charEl.style.opacity = '1';
+        } else {
+            // 检查是否应该使用默认渐变出现效果
+            const shouldFadeIn = !isInstant && !this.state.isBackgroundTransitioning;
+                    
+            if (shouldFadeIn) {
+                // 先设置为透明，然后渐变到不透明
+                charEl.style.opacity = '0';
+                // 强制重绘以确保透明度变化生效
+                void charEl.offsetHeight;
+                // 设置渐变效果
+                charEl.style.transition = 'all 0.5s ease, opacity 0.8s ease-in-out';
+                charEl.style.opacity = '1';
+            } else {
+                charEl.style.opacity = '1';
+            }
+        }
                 
         // 应用缩放：通过调整实际高度来实现，确保放大后的图片完整显示
         // 基准高度为容器的 100%，根据 scale 比例调整
@@ -3269,6 +3618,68 @@ const gameEngine = {
             delete this.state.charActionQueues[charId];
         }
         delete this.state.activeChars[charId];
+    },
+
+    /**
+     * 渐出指定立绘
+     * @param {string} charId - 立绘ID
+     * @param {HTMLElement} charEl - 可选，立绘DOM元素，如果不提供则自动获取
+     */
+    fadeOutChar: function(charId, charEl = null) {
+        // 如果未提供 DOM 元素，则自动获取
+        if (!charEl) {
+            charEl = document.getElementById(`char-${charId}`);
+        }
+        
+        if (!charEl) {
+            console.warn(`立绘 ${charId} 不存在，无法执行渐出`);
+            return;
+        }
+        
+        // 设置渐出动画
+        charEl.style.transition = 'opacity 0.8s ease-in-out';
+        charEl.style.opacity = '0';
+        
+        // 动画结束后移除元素
+        setTimeout(() => {
+            // 再次检查元素是否还存在（可能已被其他操作移除）
+            const existingEl = document.getElementById(`char-${charId}`);
+            if (existingEl) {
+                existingEl.remove();
+            }
+            // 清除持续发抖状态
+            if (this.state.shakingChars && this.state.shakingChars[charId]) {
+                clearInterval(this.state.shakingChars[charId]);
+                delete this.state.shakingChars[charId];
+            }
+            // 清除连续动作队列
+            if (this.state.charActionQueues && this.state.charActionQueues[charId]) {
+                clearTimeout(this.state.charActionQueues[charId].timeoutId);
+                delete this.state.charActionQueues[charId];
+            }
+            delete this.state.activeChars[charId];
+        }, 800); // 与 transition 时长一致
+    },
+
+    /**
+     * 渐出所有立绘
+     * 使屏幕上所有活跃立绘同时执行渐出动画并清除
+     */
+    fadeOutAllChars: function() {
+        // 获取所有活跃立绘的 ID
+        const charIds = Object.keys(this.state.activeChars);
+        
+        if (charIds.length === 0) {
+            console.log('没有活跃立绘，无需渐出');
+            return;
+        }
+        
+        console.log(`开始渐出 ${charIds.length} 个立绘`);
+        
+        // 对所有立绘执行渐出动画
+        charIds.forEach(charId => {
+            this.fadeOutChar(charId);
+        });
     },
 
     /**
@@ -3539,6 +3950,11 @@ const gameEngine = {
             '结束发抖': 'sshake', 'sshake': 'sshake'
         };
     
+        const fadeMap = {
+            '渐入': 'fadeIn', 'fadeIn': 'fadeIn',
+            '渐出': 'fadeOut', 'fadeOut': 'fadeOut'
+        };
+    
         // 第一步：检测精确坐标指令（具有最高优先级）
         for (const mod of modArray) {
             // 检测 x: 格式
@@ -3653,6 +4069,15 @@ const gameEngine = {
             }
         }
     
+        // 第八步：提取渐入/渐出指令（取第一个匹配的）
+        let fadeType = null;
+        for (const mod of modArray) {
+            if (fadeMap.hasOwnProperty(mod)) {
+                fadeType = fadeMap[mod];
+                break; // 取第一个匹配的渐入/渐出指令
+            }
+        }
+    
         // 如果存在动作指令，自动屏蔽“瞬”指令
         if (hasAction) {
             instant = false;
@@ -3667,7 +4092,8 @@ const gameEngine = {
             instant,
             preciseX,
             preciseY,
-            actionType
+            actionType,
+            fadeType
         };
     }
 };
