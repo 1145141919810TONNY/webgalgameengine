@@ -294,10 +294,18 @@ const gameEngine = {
         
         const line = this.sceneData.story[index];
 
-        // 【新增】提前检测是否为转场指令，如果是则跳过本行的文本和姓名渲染
+        // 提前检测是否为转场指令，如果是则跳过本行的文本和姓名渲染
         let isTransition = false;
         if (line.background && typeof line.background === 'string') {
             if (line.background.startsWith('trans ') || line.background.startsWith('转场 ')) {
+                isTransition = true;
+            } else if (line.background.startsWith('slideL ') || line.background.startsWith('左滑 ')) {
+                isTransition = true;
+            } else if (line.background.startsWith('slideR ') || line.background.startsWith('右滑 ')) {
+                isTransition = true;
+            } else if (line.background.startsWith('scanL ') || line.background.startsWith('左转场 ')) {
+                isTransition = true;
+            } else if (line.background.startsWith('scanR ') || line.background.startsWith('右转场 ')) {
                 isTransition = true;
             }
         }
