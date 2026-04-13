@@ -57,7 +57,9 @@ const gameEngine = {
         // 持续发抖的立绘状态 { charId: timerId }
         shakingChars: {},
         // 背景转场标志
-        isBackgroundTransitioning: false
+        isBackgroundTransitioning: false,
+        // 角色名称标识符映射表 { roleName: { charId, domElement } }
+        charNameMap: {}
     },
     
     elements: {
@@ -3292,7 +3294,7 @@ const gameEngine = {
 
             const parts = content.split(/\s+/);
             
-            // 处理消失指令（支持中英文）
+            // 处理消失指令（支持中英文及角色名称）
             if ((parts[0] === '消失' || parts[0] === 'hide' || parts[0] === 'remove') && parts.length >= 2) {
                 const target = parts[1];
                 
@@ -3300,13 +3302,18 @@ const gameEngine = {
                 if (target === 'all' || target === '全部') {
                     this.removeAllChars();
                 } else {
-                    // 单个立绘清除
-                    this.removeChar(target);
+                    // 检查 target 是否为角色名称标识符
+                    let actualCharId = target;
+                    if (this.state.charNameMap[target]) {
+                        actualCharId = this.state.charNameMap[target].charId;
+                        delete this.state.charNameMap[target];
+                    }
+                    this.removeChar(actualCharId);
                 }
                 return;
             }
             
-            // 处理渐出全部指令
+            // 处理渐出指令（支持中英文及角色名称）
             if ((parts[0] === '渐出' || parts[0] === 'fadeOut') && parts.length >= 2) {
                 const target = parts[1];
                 
@@ -3314,28 +3321,42 @@ const gameEngine = {
                 if (target === 'all' || target === '全部') {
                     this.fadeOutAllChars();
                 } else {
-                    // 单个立绘渐出
-                    this.fadeOutChar(target);
+                    // 检查 target 是否为角色名称标识符
+                    let actualCharId = target;
+                    if (this.state.charNameMap[target]) {
+                        actualCharId = this.state.charNameMap[target].charId;
+                        delete this.state.charNameMap[target];
+                    }
+                    this.fadeOutChar(actualCharId);
                 }
                 return;
             }
 
             // 处理显示/更新指令
             if (parts.length >= 1) {
-                // 如果只有一个部分，视为仅包含角色ID，使用默认修饰词
-                if (parts.length === 1) {
-                    const charId = parts[0];
-                    // 检查是否为有效的角色ID（不是修饰词）
-                    if (!this.isModifierKeyword(charId)) {
-                        // 仅包含角色ID，使用空修饰词字符串，将应用默认值
-                        this.updateChar(charId, '');
-                    }
+                let roleName = null;
+                let modifiersParts = [];
+                let charId = null;
+
+                // 检查第一个部分是否为角色名称标识符（非关键词且非资源ID）
+                const firstPart = parts[0];
+                if (!this.isModifierKeyword(firstPart) && !firstPart.match(/^lh\d+$/)) {
+                    roleName = firstPart;
+                    modifiersParts = parts.slice(1);
                 } else {
-                    // 有多个部分，最后一个部分是图片ID，前面的是修饰词
-                    const charId = parts[parts.length - 1];
-                    const modifiers = parts.slice(0, -1).join(' '); // 保留空格分隔
-                    this.updateChar(charId, modifiers);
+                    modifiersParts = parts;
                 }
+
+                if (modifiersParts.length === 0) return; // 如果没有剩余部分，则无法确定资源ID
+
+                // 最后一个部分是图片ID，前面的是修饰词
+                charId = modifiersParts[modifiersParts.length - 1];
+                
+                // 如果角色ID也是关键词，则视为无效指令或纯关键词指令（如 [消失]）
+                if (this.isModifierKeyword(charId)) return;
+
+                const modifiers = modifiersParts.slice(0, -1).join(' ');
+                this.updateChar(charId, modifiers, false, roleName);
             }
         });
     },
@@ -3375,8 +3396,25 @@ const gameEngine = {
         const segments = sequenceContent.split(',').map(s => s.trim());
         if (segments.length === 0) return;
 
-        // 提取角色ID（最后一段的最后一部分）
-        const lastSegmentParts = segments[segments.length - 1].split(/\s+/);
+        // 提取角色ID和角色名称标识符
+        let roleName = null;
+        let lastSegmentParts = segments[segments.length - 1].split(/\s+/);
+        
+        // 检查第一个片段是否包含角色名称标识符
+        const firstSegmentParts = segments[0].split(/\s+/);
+        const firstPart = firstSegmentParts[0];
+        if (!this.isModifierKeyword(firstPart) && !firstPart.match(/^lh\d+$/)) {
+            roleName = firstPart;
+            // 从所有片段中移除角色名称标识符（如果它出现在开头）
+            for (let i = 0; i < segments.length; i++) {
+                if (segments[i].startsWith(roleName + ' ')) {
+                    segments[i] = segments[i].substring(roleName.length + 1).trim();
+                }
+            }
+            // 重新获取最后一段的部分
+            lastSegmentParts = segments[segments.length - 1].split(/\s+/);
+        }
+
         const charId = lastSegmentParts[lastSegmentParts.length - 1];
         
         if (!charId || this.isModifierKeyword(charId)) {
@@ -3431,14 +3469,14 @@ const gameEngine = {
                 } else {
                     // 存在有效修饰词，应用该状态并强制瞬移
                     const queueState = this.state.charActionQueues[charId];
-                    this.updateChar(charId, validModifiers, true); // forceInstant = true
+                    this.updateChar(charId, validModifiers, true, roleName); // forceInstant = true
                     queueState.nextIsInstant = false; // 重置，避免影响下一步
                 }
             } else {
                 // 普通片段，正常应用
                 const queueState = this.state.charActionQueues[charId];
                 const forceInstant = queueState.nextIsInstant;
-                this.updateChar(charId, currentSegment, forceInstant);
+                this.updateChar(charId, currentSegment, forceInstant, roleName);
                 queueState.nextIsInstant = false;
             }
 
@@ -3501,8 +3539,9 @@ const gameEngine = {
      * @param {string} charId - 立绘ID (如 lh01)
      * @param {string} modifiers - 修饰词组合 (如 "左 前" 或 "中 10% 后" 或 "瞬 左" 或 "left front" 等中英文混合)
      * @param {boolean} forceInstant - 是否强制瞬间切换（用于连续动作指令）
+     * @param {string} roleName - 角色名称标识符（可选，用于实现自动替换与属性继承）
      */
-    updateChar: function(charId, modifiers, forceInstant = false) {
+    updateChar: function(charId, modifiers, forceInstant = false, roleName = null) {
         // 获取路径
         let path = null;
         if (typeof CHAR_CONFIG_SUB !== 'undefined' && CHAR_CONFIG_SUB[charId]) {
@@ -3516,13 +3555,39 @@ const gameEngine = {
             return;
         }
 
-        // 查找或创建 DOM 元素（确保唯一性）
-        let charEl = document.getElementById(`char-${charId}`);
-        if (!charEl) {
-            charEl = document.createElement('img');
-            charEl.id = `char-${charId}`;
-            charEl.className = 'character-img';
-            this.elements.characterContainer.appendChild(charEl);
+        // 查找或创建 DOM 元素
+        let charEl = null;
+        let isNewChar = false;
+
+        if (roleName && this.state.charNameMap[roleName]) {
+            // 角色名称标识符存在，复用旧立绘的 DOM 节点
+            const oldInfo = this.state.charNameMap[roleName];
+            charEl = document.getElementById(`char-${oldInfo.charId}`);
+            
+            // 如果旧 ID 与新 ID 不同，需要更新映射和 ID
+            if (oldInfo.charId !== charId) {
+                // 移除旧的 activeChars 记录
+                delete this.state.activeChars[oldInfo.charId];
+                // 更新 DOM ID
+                if (charEl) charEl.id = `char-${charId}`;
+                // 更新映射表
+                this.state.charNameMap[roleName] = { charId, domElement: charEl };
+            }
+        } else {
+            // 查找现有 DOM 或创建新元素
+            charEl = document.getElementById(`char-${charId}`);
+            if (!charEl) {
+                charEl = document.createElement('img');
+                charEl.id = `char-${charId}`;
+                charEl.className = 'character-img';
+                this.elements.characterContainer.appendChild(charEl);
+                isNewChar = true;
+            }
+        }
+
+        // 注册到 charNameMap（如果提供了 roleName）
+        if (roleName) {
+            this.state.charNameMap[roleName] = { charId, domElement: charEl };
         }
 
         // 更新图片源（如果需要）
@@ -3532,6 +3597,29 @@ const gameEngine = {
 
         // 解析修饰词并应用样式
         const props = this.parseCharModifiers(modifiers);
+                        
+        // 属性继承逻辑：如果复用了 DOM 节点且新指令未指定某些属性，则继承旧状态
+        if (!isNewChar && charEl) {
+            const currentLeft = charEl.style.left;
+            const currentBottom = charEl.style.bottom;
+            const currentZIndex = charEl.style.zIndex;
+            const currentHeight = charEl.style.height;
+
+            // 只有当 modifiers 中没有显式指定位置/层级/缩放时，才继承
+            // 注意：parseCharModifiers 返回的是计算后的值，我们需要判断用户是否输入了关键词
+            const hasExplicitLeft = modifiers.match(/(左|右|中|left|right|middle|x:)/i);
+            const hasExplicitBottom = modifiers.match(/(上|下|up|down|y:)/i);
+            const hasExplicitLayer = modifiers.match(/(前|后|front|back)/i);
+            const hasExplicitScale = modifiers.match(/\d+%$/);
+
+            if (!hasExplicitLeft && currentLeft) props.left = currentLeft;
+            if (!hasExplicitBottom && currentBottom) props.bottom = currentBottom;
+            if (!hasExplicitLayer && currentZIndex) props.zIndex = parseInt(currentZIndex);
+            if (!hasExplicitScale && currentHeight) {
+                const oldScale = parseFloat(currentHeight) / 100;
+                if (!isNaN(oldScale)) props.scale = oldScale;
+            }
+        }
                         
         // 检查是否包含"瞬"指令或外部强制瞬间
         const isInstant = props.instant || forceInstant;
