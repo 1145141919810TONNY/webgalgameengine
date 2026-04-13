@@ -22,8 +22,49 @@ body {
     height: 100%;
     background-size: cover;
     background-position: center;
-    transition: opacity 1s ease;
+    transition: opacity 1s ease, transform 1s cubic-bezier(0.4, 0.0, 0.2, 1); /* 增加 transform 过渡 */
     z-index: 0;
+    overflow: hidden; /* 防止滑动时出现滚动条 */
+}
+
+/* 滑屏/扫描转场临时层 */
+.slide-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    z-index: 10; /* 确保在旧背景之上 */
+    will-change: transform, clip-path, mask-image;
+    transition: transform 1s cubic-bezier(0.4, 0.0, 0.2, 1), 
+                clip-path 1s cubic-bezier(0.4, 0.0, 0.2, 1),
+                mask-image 1s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* 扫描转场 - 左转场（使用 mask-image 消除锯齿） */
+.slide-layer.scan-left {
+    -webkit-mask-image: linear-gradient(to right, 
+        black 0%, 
+        black 85%, 
+        rgba(0, 0, 0, 0) 100%);
+    mask-image: linear-gradient(to right, 
+        black 0%, 
+        black 85%, 
+        rgba(0, 0, 0, 0) 100%);
+}
+
+/* 扫描转场 - 右转场（使用 mask-image 消除锯齿） */
+.slide-layer.scan-right {
+    -webkit-mask-image: linear-gradient(to left, 
+        black 0%, 
+        black 85%, 
+        rgba(0, 0, 0, 0) 100%);
+    mask-image: linear-gradient(to left, 
+        black 0%, 
+        black 85%, 
+        rgba(0, 0, 0, 0) 100%);
 }
 
 /* 角色立绘容器 */
@@ -364,7 +405,38 @@ audio {
                  -2px -2px 4px rgba(0, 0, 0, 0.8),
                  2px -2px 4px rgba(0, 0, 0, 0.8),
                  -2px 2px 4px rgba(0, 0, 0, 0.8);
-    z-index: 5;
+    z-index: 100; /* 确保高于小说模式遮罩层 (z-index: 50) */
     pointer-events: none;
     user-select: none;
+}
+
+/* 滑屏动画类 */
+.slide-left-enter {
+    transform: translateX(-100%);
+    transition: transform 1s ease-in-out;
+}
+.slide-left-enter-active {
+    transform: translateX(0);
+}
+.slide-left-leave {
+    transform: translateX(0);
+    transition: transform 1s ease-in-out;
+}
+.slide-left-leave-active {
+    transform: translateX(100%);
+}
+
+.slide-right-enter {
+    transform: translateX(100%);
+    transition: transform 1s ease-in-out;
+}
+.slide-right-enter-active {
+    transform: translateX(0);
+}
+.slide-right-leave {
+    transform: translateX(0);
+    transition: transform 1s ease-in-out;
+}
+.slide-right-leave-active {
+    transform: translateX(-100%);
 }
