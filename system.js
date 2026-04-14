@@ -245,6 +245,9 @@ const systemModule = {
         const currentIndex = gameEngine.state.currentLine;
         const currentLineData = gameEngine.sceneData?.story?.[currentIndex];
         
+        console.log('[Debug Log] Current index:', currentIndex);
+        console.log('[Debug Log] Current line data keys:', currentLineData ? Object.keys(currentLineData) : 'null');
+        
         if (!currentLineData) {
             return;
         }
@@ -266,27 +269,39 @@ const systemModule = {
         // 2. 更新背景状态
         if (currentLineData.background !== undefined && currentLineData.background !== null) {
             let bgInfo = currentLineData.background;
+            console.log('[Debug Log] Raw background:', bgInfo);
             // 解析转场指令，提取目标背景 ID
             if (typeof bgInfo === 'string') {
                 if (bgInfo.startsWith('trans ') || bgInfo.startsWith('转场 ')) {
                     bgInfo = bgInfo.split(' ')[1];
+                    console.log('[Debug Log] Parsed trans, extracted bg:', bgInfo);
                 } else if (bgInfo.startsWith('slideL ') || bgInfo.startsWith('左滑 ')) {
                     bgInfo = bgInfo.split(' ')[1];
+                    console.log('[Debug Log] Parsed slideL, extracted bg:', bgInfo);
                 } else if (bgInfo.startsWith('slideR ') || bgInfo.startsWith('右滑 ')) {
                     bgInfo = bgInfo.split(' ')[1];
+                    console.log('[Debug Log] Parsed slideR, extracted bg:', bgInfo);
                 } else if (bgInfo.startsWith('scanL ') || bgInfo.startsWith('左转场 ')) {
                     bgInfo = bgInfo.split(' ')[1];
+                    console.log('[Debug Log] Parsed scanL, extracted bg:', bgInfo);
                 } else if (bgInfo.startsWith('scanR ') || bgInfo.startsWith('右转场 ')) {
                     bgInfo = bgInfo.split(' ')[1];
+                    console.log('[Debug Log] Parsed scanR, extracted bg:', bgInfo);
                 }
             }
             this.lastActiveBg = bgInfo;
+            console.log('[Debug Log] Updated lastActiveBg to:', this.lastActiveBg);
+        } else {
+            console.log('[Debug Log] No background in this line, keeping:', this.lastActiveBg);
         }
         // 如果当前行没有 background 字段，保持 lastActiveBg 不变
         
         // 3. 更新立绘状态
         if (currentLineData.chars !== undefined && currentLineData.chars !== null && currentLineData.chars !== '') {
+            console.log('[Debug Log] Updating chars:', currentLineData.chars);
             this.lastActiveChars = currentLineData.chars;
+        } else {
+            console.log('[Debug Log] No chars in this line, keeping:', this.lastActiveChars);
         }
         // 如果当前行没有 chars 字段，保持 lastActiveChars 不变
         
@@ -316,6 +331,7 @@ const systemModule = {
         }
         
         // 背景图片信息（始终显示）
+        console.log('[Debug Log] Displaying BG:', this.lastActiveBg);
         if (this.lastActiveBg) {
             info += `<div style="margin-bottom: 3px;">BG: ${this.lastActiveBg}</div>`;
         } else {
@@ -323,6 +339,7 @@ const systemModule = {
         }
         
         // 立绘信息（始终显示）
+        console.log('[Debug Log] Displaying chars:', this.lastActiveChars);
         if (this.lastActiveChars) {
             const charsList = this.parseCharsInfo(this.lastActiveChars);
             info += `<div style="margin-bottom: 3px;">Chars:</div>`;
