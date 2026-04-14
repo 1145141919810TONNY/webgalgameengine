@@ -144,14 +144,29 @@ const gameEngine = {
         try {
             this.elements.bgmPlayer.volume = 0;
             this.elements.bgmPlayer.play().then(() => {
-                this.elements.bgmPlayer.volume = 1;
+                // 使用系统模块保存的音量值
+                if (typeof systemModule !== 'undefined') {
+                    this.elements.bgmPlayer.volume = systemModule.currentVolume;
+                } else {
+                    this.elements.bgmPlayer.volume = 1;
+                }
                 console.log("音频上下文已解锁");
             }).catch(() => {
-                this.elements.bgmPlayer.volume = 1;
+                // 使用系统模块保存的音量值
+                if (typeof systemModule !== 'undefined') {
+                    this.elements.bgmPlayer.volume = systemModule.currentVolume;
+                } else {
+                    this.elements.bgmPlayer.volume = 1;
+                }
             });
         } catch (e) {
             console.log("尝试解锁音频上下文时出错:", e);
-            this.elements.bgmPlayer.volume = 1;
+            // 使用系统模块保存的音量值
+            if (typeof systemModule !== 'undefined') {
+                this.elements.bgmPlayer.volume = systemModule.currentVolume;
+            } else {
+                this.elements.bgmPlayer.volume = 1;
+            }
         }
     },
     
@@ -1654,7 +1669,12 @@ const gameEngine = {
                         // 尝试解锁音频上下文
                         this.elements.bgmPlayer.volume = 0;
                         this.elements.bgmPlayer.play().then(() => {
-                            this.elements.bgmPlayer.volume = 1;
+                            // 使用系统模块保存的音量值
+                            if (typeof systemModule !== 'undefined') {
+                                this.elements.bgmPlayer.volume = systemModule.currentVolume;
+                            } else {
+                                this.elements.bgmPlayer.volume = 1;
+                            }
                             this.elements.bgmPlayer.currentTime = 0;
                         }).catch(err => {
                             console.log("即使尝试解锁后BGM仍无法播放:", err);
@@ -1679,7 +1699,12 @@ const gameEngine = {
                     // 尝试解锁音频上下文
                     this.elements.voicePlayer.volume = 0;
                     this.elements.voicePlayer.play().then(() => {
-                        this.elements.voicePlayer.volume = 1;
+                        // 使用系统模块保存的音量值
+                        if (typeof systemModule !== 'undefined') {
+                            this.elements.voicePlayer.volume = systemModule.currentVolume;
+                        } else {
+                            this.elements.voicePlayer.volume = 1;
+                        }
                         this.elements.voicePlayer.currentTime = 0;
                     }).catch(err => {
                         console.log("即使尝试解锁后语音仍无法播放:", err);
@@ -1759,7 +1784,12 @@ const gameEngine = {
         if (!bgmPlayer.src || bgmPlayer.paused) {
             bgmPlayer.src = audioPath;
             bgmPlayer.loop = true;
-            bgmPlayer.volume = 1;
+            // 使用系统模块保存的音量值
+            if (typeof systemModule !== 'undefined') {
+                bgmPlayer.volume = systemModule.currentVolume;
+            } else {
+                bgmPlayer.volume = 1;
+            }
             bgmPlayer.play().catch(error => {
                 console.log("BGM播放失败:", error);
             });
@@ -1788,7 +1818,12 @@ const gameEngine = {
                 // 加载并播放新BGM
                 bgmPlayer.src = audioPath;
                 bgmPlayer.loop = true;
-                bgmPlayer.volume = 1;
+                // 使用系统模块保存的音量值
+                if (typeof systemModule !== 'undefined') {
+                    bgmPlayer.volume = systemModule.currentVolume;
+                } else {
+                    bgmPlayer.volume = 1;
+                }
                 bgmPlayer.play().catch(error => {
                     console.log("新BGM播放失败:", error);
                 });
