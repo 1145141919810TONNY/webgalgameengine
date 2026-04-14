@@ -18,16 +18,106 @@ const systemModule = {
     lastActiveBgm: null,      // 最后激活的 BGM ID
     lastActiveBg: null,       // 最后激活的背景图片 ID
     lastActiveChars: null,    // 最后激活的立绘指令字符串
+    // 音量存储键名
+    VOLUME_STORAGE_KEY: 'galgame_volume',
+    // 调试模式存储键名
+    DEBUG_MODE_STORAGE_KEY: 'galgame_debug_mode',
     
     /**
      * 初始化系统模块
      */
     init: function() {
+        this.loadVolume();  // 从 localStorage 加载音量设置
+        this.loadDebugMode();  // 从 localStorage 加载调试模式状态
         this.createVolumeOverlay();
         this.createDebugPanel();
         this.bindVolumeControls();
         this.bindDebugToggle();
-        console.log("系统模块已初始化");
+        
+        // 如果之前调试模式是开启的，自动显示面板
+        if (this.debugVisible && this.debugPanel) {
+            this.debugPanel.style.display = 'block';
+            // 立即更新一次调试信息
+            if (typeof gameEngine !== 'undefined' && gameEngine.sceneData) {
+                this.updateDebugInfo();
+            }
+        }
+        
+        // 延迟应用音量到所有音频元素，确保引擎已初始化
+        setTimeout(() => {
+            this.applyVolumeToAllAudio();
+            console.log('[System] Applied saved volume to all audio elements:', Math.round(this.currentVolume * 100) + '%');
+        }, 100);
+        
+        console.log("系统模块已初始化，当前音量:", Math.round(this.currentVolume * 100) + "%");
+        console.log("调试模式状态:", this.debugVisible ? "开启" : "关闭");
+    },
+    
+    /**
+     * 从 localStorage 加载音量设置
+     */
+    loadVolume: function() {
+        try {
+            const savedVolume = localStorage.getItem(this.VOLUME_STORAGE_KEY);
+            if (savedVolume !== null) {
+                const volume = parseFloat(savedVolume);
+                // 验证音量值的有效性
+                if (!isNaN(volume) && volume >= 0.0 && volume <= 1.0) {
+                    this.currentVolume = volume;
+                    console.log('[Volume] Loaded from localStorage:', Math.round(volume * 100) + '%');
+                    return;
+                }
+            }
+        } catch (e) {
+            console.warn('[Volume] Failed to load volume from localStorage:', e);
+        }
+        // 如果没有保存的音量或加载失败，使用默认值 1.0
+        this.currentVolume = 1.0;
+        console.log('[Volume] Using default volume: 100%');
+    },
+    
+    /**
+     * 保存音量设置到 localStorage
+     */
+    saveVolume: function() {
+        try {
+            localStorage.setItem(this.VOLUME_STORAGE_KEY, this.currentVolume.toString());
+            console.log('[Volume] Saved to localStorage:', Math.round(this.currentVolume * 100) + '%');
+        } catch (e) {
+            console.warn('[Volume] Failed to save volume to localStorage:', e);
+        }
+    },
+    
+    /**
+     * 从 localStorage 加载调试模式状态
+     */
+    loadDebugMode: function() {
+        try {
+            const savedDebugMode = localStorage.getItem(this.DEBUG_MODE_STORAGE_KEY);
+            if (savedDebugMode !== null) {
+                this.debugVisible = savedDebugMode === 'true';
+                console.log('[Debug Mode] Loaded from localStorage:', this.debugVisible ? 'ON' : 'OFF');
+                // 如果之前是开启状态，需要在面板创建后显示
+                return;
+            }
+        } catch (e) {
+            console.warn('[Debug Mode] Failed to load from localStorage:', e);
+        }
+        // 如果没有保存的状态或加载失败，使用默认值 false
+        this.debugVisible = false;
+        console.log('[Debug Mode] Using default state: OFF');
+    },
+    
+    /**
+     * 保存调试模式状态到 localStorage
+     */
+    saveDebugMode: function() {
+        try {
+            localStorage.setItem(this.DEBUG_MODE_STORAGE_KEY, this.debugVisible.toString());
+            console.log('[Debug Mode] Saved to localStorage:', this.debugVisible ? 'ON' : 'OFF');
+        } catch (e) {
+            console.warn('[Debug Mode] Failed to save to localStorage:', e);
+        }
     },
     
     /**
@@ -119,6 +209,7 @@ const systemModule = {
             if (volumeChanged) {
                 this.applyVolumeToAllAudio();
                 this.showVolumeOverlay();
+                this.saveVolume();  // 保存到 localStorage
             }
         });
     },
@@ -219,6 +310,7 @@ const systemModule = {
             this.currentVolume = volume;
             this.applyVolumeToAllAudio();
             this.showVolumeOverlay();
+            this.saveVolume();  // 保存到 localStorage
         }
     },
     
@@ -234,6 +326,7 @@ const systemModule = {
         } else {
             this.debugPanel.style.display = 'none';
         }
+        this.saveDebugMode();  // 保存到 localStorage
     },
     
     /**
