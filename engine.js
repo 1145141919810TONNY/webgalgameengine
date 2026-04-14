@@ -3,7 +3,6 @@
  * 可按需自由修改
  */
 
-
 const gameEngine = {
     state: {
         // 当前场景索引
@@ -109,6 +108,12 @@ const gameEngine = {
         if (this.elements.videoPlayer) {
             this.elements.videoPlayer.style.display = 'none';
         }
+        
+        // 重置调试状态（切换场景时）
+        if (typeof systemModule !== 'undefined' && systemModule.resetDebugState) {
+            systemModule.resetDebugState();
+        }
+        
         // 显示第一行对话
         this.displayLine(this.state.currentLine);
         // 请求音频播放权限（处理浏览器自动播放策略）
@@ -442,6 +447,11 @@ const gameEngine = {
         
         // 更新当前行号
         this.state.currentLine = index;
+        
+        // 更新调试日志信息（如果系统模块已加载）
+        if (typeof systemModule !== 'undefined' && systemModule.updateDebugInfo) {
+            systemModule.updateDebugInfo();
+        }
     },
     
     /**
