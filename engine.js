@@ -1099,6 +1099,11 @@ const gameEngine = {
 
             // 更新行号，准备进入下一行
             this.state.currentLine = this.state.currentLine; 
+            
+            // 更新调试日志信息（如果系统模块已加载）
+            if (typeof systemModule !== 'undefined' && systemModule.updateDebugInfo) {
+                systemModule.updateDebugInfo();
+            }
         }, delay);
     },
 
