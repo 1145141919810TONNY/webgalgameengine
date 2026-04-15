@@ -87,6 +87,43 @@
             background-color: #1976D2;
         }
         
+
+        
+        /* 当前游玩场景高亮样式 */
+        .current-playing-highlight {
+            border: 3px solid #2196F3 !important;
+            box-shadow: 0 0 15px rgba(33, 150, 243, 0.6), inset 0 0 10px rgba(33, 150, 243, 0.2) !important;
+            background-color: rgba(33, 150, 243, 0.1) !important;
+            position: relative;
+            animation: pulse-blue 2s ease-in-out infinite;
+        }
+        
+        .current-playing-highlight::before {
+            content: '当前位置';
+            position: absolute;
+            top: -12px;
+            right: 10px;
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+            color: #fff;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+            z-index: 10;
+        }
+        
+
+        /* 蓝色脉冲动画 */
+        @keyframes pulse-blue {
+            0%, 100% {
+                box-shadow: 0 0 15px rgba(33, 150, 243, 0.6), inset 0 0 10px rgba(33, 150, 243, 0.2);
+            }
+            50% {
+                box-shadow: 0 0 25px rgba(33, 150, 243, 0.9), inset 0 0 15px rgba(33, 150, 243, 0.4);
+            }
+        }
+        
         .actions {
             position: fixed;
             top: 0;
@@ -145,6 +182,17 @@
             background-color: rgba(244, 67, 54, 0.2);
             color: #da190b;
             border: 2px solid #da190b;
+        }
+        
+        button.primary {
+            background-color: rgba(33, 150, 243, 0.3);
+            border-color: #2196F3;
+            color: #fff;
+        }
+        
+        button.primary:hover {
+            background-color: rgba(33, 150, 243, 0.5);
+            border-color: #1976D2;
         }
         
         .status {
@@ -214,12 +262,20 @@
         <div class="actions">
             <button onclick="loadProgress()">刷新进度</button>
             <button onclick="exportSave()" class="export">导出存档</button>
+            <button onclick="location.href='archive.html'" class="primary">多存档位管理</button>
             <button onclick="resetProgress()" class="delete">重置进度</button>
-            <button id="return-current-story" style="display:none;" onclick="returnToCurrentStory()">返回当前剧情（这将会返回到你进入此页面的html页面剧情的开始）</button>
             <button onclick="location.href='../index.html'" class="back">返回主菜单(esc)</button>
         </div>
         
         <h1 id="page-title">游戏进度管理</h1>
+        
+        <!-- 智能返回提示框 -->
+        <div id="smart-return-box" style="display:none; margin: 20px auto; padding: 20px; background-color: rgba(0, 0, 0, 0.6); border: 2px solid #FFD700; border-radius: 10px; text-align: center;">
+            <div id="return-message" style="color: #FFD700; font-size: 18px; margin-bottom: 15px; font-weight: bold;"></div>
+            <button id="return-button" onclick="handleSmartReturn()" style="background-color: rgba(33, 150, 243, 0.8); color: white; padding: 10px 30px; border: 2px solid #2196F3; border-radius: 25px; cursor: pointer; font-size: 16px; font-weight: bold; transition: all 0.3s ease;">
+                返回
+            </button>
+        </div>
         
         <div class="jump-section">
             <h2>快速跳转</h2>
@@ -320,8 +376,13 @@
                     const markers = progressData.sceneMarkers;
                     const markerKeys = Object.keys(markers);
                     
-                    // 过滤出已访问的场景
-                    const visitedScenes = markerKeys.filter(marker => markers[marker] === 1);
+                    // 过滤出已访问的场景(兼容新旧格式)
+                    const visitedScenes = markerKeys.filter(marker => {
+                        const value = markers[marker];
+                        // 新格式: {visited: 1, lastAccessTime: ...}
+                        // 旧格式: 1
+                        return (typeof value === 'object' && value.visited === 1) || value === 1;
+                    });
                     
                     if (visitedScenes.length > 0) {
                         visitedScenes.forEach(sceneId => {
@@ -332,22 +393,7 @@
                                 // 自定义场景名称映射 - 为每个HTML文件提供自定义名称
                                 const sceneNames = {
                                     'scene1': '1初次相遇',
-                                    'scene2': '1.2坏结局-见面虾头男',
-                                    'scene3': '场景3 - 夜晚回忆',
-                                    // 可以继续添加更多场景
-                                    'scene4': '场景4',
-                                    'scene5': '场景5',
-                                    'scene6': '场景6',
-                                    'scene7': '场景7',
-                                    'scene8': '场景8',
-                                    'scene9': '场景9',
-                                    'scene10': '场景10',
-                                    'ending1': '结局1',
-                                    'ending2': '结局2',
-                                    'ending3': '结局3',
-                                    'sub_scene1': '分支场景1',
-                                    'sub_scene2': '分支场景2',
-                                    'sub_scene3': '分支场景3'
+                                    // 按需继续添加更多场景
                                 };
                                 
                                 const displayName = sceneNames[sceneId] || sceneId.replace(/_/g, ' ').replace('scene', '场景 ');
@@ -410,9 +456,157 @@
             }
         };
         
+        /**
+         * 智能返回功能管理器
+         */
+        const SmartReturnManager = {
+            /**
+             * 初始化智能返回功能
+             */
+            init: function() {
+                this.checkAndDisplayReturnBox();
+            },
+            
+            /**
+             * 检查并显示返回提示框
+             */
+            checkAndDisplayReturnBox: function() {
+                console.log('[Smart Return] checkAndDisplayReturnBox called');
+                
+                const snapshot = this.loadStateSnapshot();
+                console.log('[Smart Return] Snapshot:', snapshot);
+                
+                const box = document.getElementById('smart-return-box');
+                const messageEl = document.getElementById('return-message');
+                const buttonEl = document.getElementById('return-button');
+                
+                if (!box || !messageEl || !buttonEl) {
+                    console.error('[Smart Return] DOM elements not found!');
+                    return;
+                }
+                
+                // 只处理从剧情页进入的情况
+                if (snapshot && !snapshot.pagePath.includes('index.html') && snapshot.pagePath.includes('/scenes/')) {
+                    // 从剧情页进入
+                    console.log('[Smart Return] From story page');
+                    messageEl.textContent = '当前游玩页面';
+                    buttonEl.textContent = '返回当前页面';
+                    
+                    // 保存场景信息用于返回
+                    sessionStorage.setItem('returnTarget', JSON.stringify({
+                        type: 'current',
+                        url: snapshot.pageUrl,
+                        line: snapshot.currentLine
+                    }));
+                    
+                    // 显示提示框
+                    box.style.display = 'block';
+                    console.log('[Smart Return] Showed return box');
+                    
+                    // 高亮当前游玩的场景卡片
+                    this.highlightCurrentScene(snapshot);
+                } else {
+                    // 从主菜单进入或没有snapshot,隐藏提示框
+                    console.log('[Smart Return] From main menu or no snapshot, hiding box');
+                    box.style.display = 'none';
+                }
+            },
+            
+            /**
+             * 从sessionStorage加载状态快照
+             */
+            loadStateSnapshot: function() {
+                try {
+                    const snapshotStr = sessionStorage.getItem('gameStateSnapshot');
+                    if (snapshotStr) {
+                        return JSON.parse(snapshotStr);
+                    }
+                } catch (e) {
+                    console.error('[Smart Return] Failed to load snapshot:', e);
+                }
+                return null;
+            },
+            
+
+            
+            /**
+             * 高亮当前游玩的场景卡片
+             * @param {Object} snapshot - 状态快照对象
+             */
+            highlightCurrentScene: function(snapshot) {
+                // 移除所有高亮类,避免冲突
+                this.clearAllHighlights();
+                
+                // 从pagePath中提取场景文件名
+                const pathParts = snapshot.pagePath.split('/');
+                const sceneFileName = pathParts[pathParts.length - 1];
+                const sceneId = sceneFileName.replace('.html', '');
+                
+                // 查找对应的场景卡片
+                const cards = document.querySelectorAll('.scene-card');
+                cards.forEach(card => {
+                    const button = card.querySelector('button');
+                    if (button) {
+                        const onclickAttr = button.getAttribute('onclick');
+                        if (onclickAttr && onclickAttr.includes(sceneFileName)) {
+                            card.classList.add('current-playing-highlight');
+                            console.log('[Smart Return] Highlighted current playing scene:', sceneFileName, 'at line', snapshot.currentLine);
+                        }
+                    }
+                });
+            },
+            
+            /**
+             * 清除所有高亮类
+             */
+            clearAllHighlights: function() {
+                const cards = document.querySelectorAll('.scene-card');
+                cards.forEach(card => {
+                    card.classList.remove('current-playing-highlight');
+                });
+            }
+        };
+        
+        /**
+         * 处理智能返回按钮点击
+         */
+        function handleSmartReturn() {
+            const returnTargetStr = sessionStorage.getItem('returnTarget');
+            if (!returnTargetStr) {
+                console.warn('[Smart Return] No return target found');
+                return;
+            }
+            
+            try {
+                const returnTarget = JSON.parse(returnTargetStr);
+                console.log('[Smart Return] Return target:', returnTarget);
+                
+                if (returnTarget.type === 'current') {
+                    // 返回当前剧情页,带状态恢复
+                    // 在URL中添加行号参数
+                    const url = new URL(returnTarget.url, window.location.origin);
+                    url.searchParams.set('startLine', returnTarget.line);
+                    console.log('[Smart Return] Returning to current scene:', url.toString());
+                    window.location.href = url.toString();
+                }
+            } catch (e) {
+                console.error('[Smart Return] Failed to process return:', e);
+            }
+        }
+        
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('[Saves Page] DOMContentLoaded triggered');
+            
+            // 先渲染场景列表
             SaveManager.displayProgress();
+            console.log('[Saves Page] Scene list rendered');
+            
+            // 延迟一点再初始化智能返回,确保DOM完全就绪
+            setTimeout(() => {
+                SmartReturnManager.init();
+                console.log('[Saves Page] SmartReturnManager initialized');
+            }, 100);
         });
         
         // 全局函数
@@ -428,33 +622,6 @@
             SaveManager.resetProgress();
         }
         
-        function returnToCurrentStory() {
-            // 从sessionStorage获取上一个页面信息
-            const lastPage = sessionStorage.getItem('lastStoryPage');
-            if (lastPage) {
-                window.location.href = lastPage;
-            } else {
-                // 如果没有记录，返回主菜单
-                window.location.href = '../index.html';
-            }
-        }
-        
-        // 页面加载时检查是否从剧情页面跳转而来
-        window.addEventListener('DOMContentLoaded', function() {
-            const lastPage = sessionStorage.getItem('lastStoryPage');
-            const referrer = document.referrer;
-            
-            // 检查是否来自剧情页面（非index.html）
-            if (lastPage && !lastPage.endsWith('index.html') && 
-                (!referrer || !referrer.endsWith('index.html'))) {
-                // 显示返回当前剧情按钮
-                const returnBtn = document.getElementById('return-current-story');
-                if (returnBtn) {
-                    returnBtn.style.display = 'inline-block';
-                }
-            }
-        });
-        
         // ESC键返回主菜单
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
@@ -463,5 +630,4 @@
         });
     </script>
 </body>
-
 </html>
