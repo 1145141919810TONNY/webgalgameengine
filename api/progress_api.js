@@ -114,7 +114,6 @@ if (typeof window !== 'undefined') {
                 { from: 'start', to: 'scene1' },
                 { from: 'scene1', to: 'scene2' },
                 { from: 'scene2', to: 'scene3' },
-                { from: 'scene1', to: 'scene_demo' },
                 // 可以根据具体游戏逻辑添加更多连接
             ];
             
