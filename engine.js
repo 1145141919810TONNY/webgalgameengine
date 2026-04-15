@@ -172,6 +172,13 @@ const gameEngine = {
             sessionStorage.removeItem('gameStateSnapshot');
             
             console.log('[State Restore] Full state restored successfully, starting at line:', startLine);
+            
+            // 状态恢复后立即同步调试日志，基于实际渲染的立绘状态
+            // 延迟一小段时间，确保 renderChars 已完成，activeChars 已更新
+            setTimeout(() => {
+                this.syncDebugCharsState();
+                console.log('[State Restore] Debug chars state synced after state restore');
+            }, 150);
         } else if (snapshot && snapshot.pagePath === window.location.pathname) {
             // startLine为0的情况,只恢复systemModule状态变量
             if (typeof systemModule !== 'undefined') {
@@ -181,6 +188,12 @@ const gameEngine = {
             }
             sessionStorage.removeItem('gameStateSnapshot');
             console.log('[State Restore] Restored state variables only (startLine=0)');
+            
+            // 状态恢复后立即同步调试日志
+            setTimeout(() => {
+                this.syncDebugCharsState();
+                console.log('[State Restore] Debug chars state synced after state restore (startLine=0)');
+            }, 150);
         }
         
         // 显示指定行的对话
@@ -2122,6 +2135,9 @@ const gameEngine = {
         
         this.hideAllCharacters();
         
+        // 同步调试日志状态（虽然只是隐藏，但为了保持一致性）
+        this.syncDebugCharsState();
+        
         // 执行淡出效果
         this.fadeOut(duration || 1500, bgColor || 'black');
     },
@@ -2136,6 +2152,9 @@ const gameEngine = {
         this.hideTextBox();
         
         this.hideAllCharacters();
+        
+        // 同步调试日志状态
+        this.syncDebugCharsState();
         
         // 创建覆盖层，直接显示不淡出
         const overlay = document.createElement('div');
@@ -3812,14 +3831,20 @@ const gameEngine = {
         // 查找或创建 DOM 元素
         let charEl = null;
         let isNewChar = false;
+        let isSameRoleDifferentImage = false; // 标记是否为同标识符切换不同图片
 
         if (roleName && this.state.charNameMap[roleName]) {
             // 角色名称标识符存在，复用旧立绘的 DOM 节点
             const oldInfo = this.state.charNameMap[roleName];
             charEl = document.getElementById(`char-${oldInfo.charId}`);
             
-            // 如果旧 ID 与新 ID 不同，需要更新映射和 ID
+            // 检测是否为同标识符但不同图片资源的切换
             if (oldInfo.charId !== charId) {
+                // 检查旧图片与新图片是否不同
+                if (charEl && charEl.src !== path) {
+                    isSameRoleDifferentImage = true;
+                }
+                
                 // 移除旧的 activeChars 记录
                 delete this.state.activeChars[oldInfo.charId];
                 // 更新 DOM ID
@@ -3846,7 +3871,84 @@ const gameEngine = {
 
         // 更新图片源（如果需要）
         if (charEl.src !== path) {
-            charEl.src = path;
+            // 如果是同标识符切换不同图片，执行快速交叉淡入淡出过渡
+            if (isSameRoleDifferentImage) {
+                // 保存当前的位置和样式属性，确保过渡期间不会丢失
+                const currentLeft = charEl.style.left;
+                const currentBottom = charEl.style.bottom;
+                const currentZIndex = charEl.style.zIndex;
+                const currentHeight = charEl.style.height;
+                const currentTransform = charEl.style.transform;
+                
+                // 第一阶段：渐出旧图片（0.1秒）
+                charEl.style.transition = 'opacity 0.1s ease-out';
+                charEl.style.opacity = '0';
+                
+                // 等待渐出完成后更换图片并渐入
+                setTimeout(() => {
+                    // 更换图片源
+                    charEl.src = path;
+                    
+                    // 解析新指令的修饰词
+                    const newProps = this.parseCharModifiers(modifiers);
+                    
+                    // 属性继承逻辑：如果新指令未指定某些属性，则继承旧状态
+                    const hasExplicitLeft = modifiers.match(/(左|右|中|left|right|middle|x:)/i);
+                    const hasExplicitBottom = modifiers.match(/(上|下|up|down|y:)/i);
+                    const hasExplicitLayer = modifiers.match(/(前|后|front|back)/i);
+                    const hasExplicitScale = modifiers.match(/\d+%$/);
+                    
+                    // 应用样式属性（带继承逻辑）
+                    charEl.style.left = hasExplicitLeft ? newProps.left : (currentLeft || newProps.left);
+                    charEl.style.bottom = hasExplicitBottom ? newProps.bottom : (currentBottom || newProps.bottom);
+                    charEl.style.zIndex = hasExplicitLayer ? newProps.zIndex : (currentZIndex || newProps.zIndex);
+                    
+                    // 缩放处理
+                    if (hasExplicitScale) {
+                        charEl.style.height = `${newProps.scale * 100}%`;
+                    } else if (currentHeight) {
+                        charEl.style.height = currentHeight;
+                    } else {
+                        charEl.style.height = `${newProps.scale * 100}%`;
+                    }
+                    
+                    charEl.style.transform = 'translateX(-50%)';
+                    charEl.style.visibility = 'visible';
+                    
+                    // 强制重绘以确保样式应用
+                    void charEl.offsetHeight;
+                    
+                    // 处理动作指令（如果存在）
+                    if (newProps.actionType) {
+                        this.applyCharAction(charId, charEl, newProps.actionType, newProps);
+                    }
+                    
+                    // 第二阶段：渐入新图片（0.1秒）
+                    charEl.style.transition = 'opacity 0.1s ease-in';
+                    charEl.style.opacity = '1';
+                    
+                    // 过渡完成后恢复默认过渡效果
+                    setTimeout(() => {
+                        charEl.style.transition = 'all 0.5s ease';
+                    }, 100);
+                    
+                    // 更新最终应用的属性到状态记录
+                    const finalProps = {
+                        left: hasExplicitLeft ? newProps.left : (currentLeft || newProps.left),
+                        bottom: hasExplicitBottom ? newProps.bottom : (currentBottom || newProps.bottom),
+                        zIndex: hasExplicitLayer ? newProps.zIndex : (currentZIndex || newProps.zIndex),
+                        scale: hasExplicitScale ? newProps.scale : (currentHeight ? parseFloat(currentHeight) / 100 : newProps.scale)
+                    };
+                    this.state.activeChars[charId] = { path, ...finalProps };
+                }, 100); // 总持续时间：0.1s + 0.1s = 0.2s
+                
+                // 重要：对于同标识符切换，我们已经在异步回调中处理了所有逻辑
+                // 因此直接返回，跳过后续的样式应用和透明度处理
+                return;
+            } else {
+                // 非同标识符切换，直接更新图片源
+                charEl.src = path;
+            }
         }
 
         // 解析修饰词并应用样式
@@ -3968,6 +4070,9 @@ const gameEngine = {
             delete this.state.charActionQueues[charId];
         }
         delete this.state.activeChars[charId];
+        
+        // 更新调试日志中的立绘状态
+        this.syncDebugCharsState();
     },
 
     /**
@@ -4008,6 +4113,9 @@ const gameEngine = {
                 delete this.state.charActionQueues[charId];
             }
             delete this.state.activeChars[charId];
+            
+            // 更新调试日志中的立绘状态
+            this.syncDebugCharsState();
         }, 800); // 与 transition 时长一致
     },
 
@@ -4030,6 +4138,11 @@ const gameEngine = {
         charIds.forEach(charId => {
             this.fadeOutChar(charId);
         });
+        
+        // 延迟同步调试状态（等待渐出动画完成）
+        setTimeout(() => {
+            this.syncDebugCharsState();
+        }, 850); // 略大于 fadeOutChar 的 800ms
     },
 
     /**
@@ -4049,6 +4162,94 @@ const gameEngine = {
         this.state.activeChars = {};
         this.state.shakingChars = {};
         this.state.charActionQueues = {};
+        
+        // 更新调试日志中的立绘状态（此时 activeChars 已为空）
+        this.syncDebugCharsState();
+    },
+
+    /**
+     * 同步调试日志中的立绘状态
+     * 根据当前 activeChars 和 charNameMap 重建 lastActiveChars 字符串
+     * 在立绘移除、清除等操作后调用，确保 F1 调试面板显示正确的状态
+     */
+    syncDebugCharsState: function() {
+        if (typeof systemModule === 'undefined') {
+            return; // systemModule 未加载
+        }
+        
+        const activeCharIds = Object.keys(this.state.activeChars);
+        
+        if (activeCharIds.length === 0) {
+            // 没有活跃立绘，清空 lastActiveChars
+            systemModule.lastActiveChars = null;
+        } else {
+            // 重建 chars 指令字符串
+            // 优先使用 charNameMap 中的角色标识符，如果没有则使用 charId
+            const charInstructions = [];
+            
+            activeCharIds.forEach(charId => {
+                // 查找是否有角色名称标识符映射到这个 charId
+                let roleName = null;
+                for (const [name, info] of Object.entries(this.state.charNameMap || {})) {
+                    if (info.charId === charId) {
+                        roleName = name;
+                        break;
+                    }
+                }
+                
+                // 构建指令字符串
+                if (roleName) {
+                    // 如果有角色名称标识符，使用它
+                    charInstructions.push(`[${roleName} ${charId}]`);
+                } else {
+                    // 否则直接使用 charId
+                    charInstructions.push(`[${charId}]`);
+                }
+            });
+            
+            systemModule.lastActiveChars = charInstructions.join('');
+        }
+        
+        // 直接更新调试面板 DOM，而不是调用 updateDebugInfo()
+        // 因为 updateDebugInfo() 会基于当前行的 chars 字段重新设置 lastActiveChars，导致覆盖
+        if (systemModule.debugVisible && systemModule.debugPanel) {
+            const debugContent = document.getElementById('debug-content');
+            if (debugContent) {
+                // 获取当前场景文件名
+                const currentPage = window.location.pathname.split('/').pop() || 'unknown.html';
+                const currentIndex = this.state.currentLine;
+                
+                let info = `<div style="color: #FFFF00; margin-bottom: 5px;">${currentPage}</div>`;
+                info += `<div style="margin-bottom: 3px;">Index: ${currentIndex}</div>`;
+                
+                // BGM 信息
+                if (systemModule.lastActiveBgm) {
+                    info += `<div style="margin-bottom: 3px;">BGM: ${systemModule.lastActiveBgm}</div>`;
+                } else {
+                    info += `<div style="margin-bottom: 3px; color: #888;">BGM: None</div>`;
+                }
+                
+                // 背景图片信息
+                if (systemModule.lastActiveBg) {
+                    info += `<div style="margin-bottom: 3px;">BG: ${systemModule.lastActiveBg}</div>`;
+                } else {
+                    info += `<div style="margin-bottom: 3px; color: #888;">BG: None</div>`;
+                }
+                
+                // 立绘信息
+                if (systemModule.lastActiveChars) {
+                    const charsList = systemModule.parseCharsInfo(systemModule.lastActiveChars);
+                    info += `<div style="margin-bottom: 3px;">Chars:</div>`;
+                    charsList.forEach(char => {
+                        info += `<div style="margin-left: 15px; margin-bottom: 2px;">${char}</div>`;
+                    });
+                } else {
+                    info += `<div style="margin-bottom: 3px; color: #888;">Chars: None</div>`;
+                }
+                
+                debugContent.innerHTML = info;
+            }
+        }
     },
 
     /**
@@ -4078,6 +4279,9 @@ const gameEngine = {
             case 'sshake':
                 this.stopShakeAction(charId);
                 break;
+            case 'nod':
+                this.applyNodAction(charEl, props);
+                break;
         }
     },
 
@@ -4086,13 +4290,17 @@ const gameEngine = {
      * Y轴向上偏移 +10%，缩放比例减小 -10%，层级强制变为“后”
      */
     applyRetreatAction: function(charEl, props) {
-        // 计算新的 bottom 值（向上偏移 10%）
-        const currentBottom = parseFloat(props.bottom) || 0;
+        // 从 DOM 元素读取当前实际状态，而不是从 props 中读取
+        // 这样可以确保连续调用时的累积效果
+        const currentBottomStr = charEl.style.bottom || '0%';
+        const currentBottom = parseFloat(currentBottomStr) || 0;
         const newBottom = currentBottom + 10;
         charEl.style.bottom = `${newBottom}%`;
         
-        // 计算新的缩放比例（减小 10%）
-        const newScale = Math.max(0.1, props.scale - 0.1);
+        // 从 DOM 读取当前缩放比例
+        const currentHeightStr = charEl.style.height || '100%';
+        const currentScale = parseFloat(currentHeightStr) / 100 || 1;
+        const newScale = Math.max(0.1, currentScale - 0.1);
         charEl.style.height = `${newScale * 100}%`;
         
         // 如果当前层级不是“后”，则强制设置为“后”
@@ -4107,13 +4315,17 @@ const gameEngine = {
      * Y轴向下偏移 -10%，缩放比例增大 +10%，层级强制变为“前”
      */
     applyForwardAction: function(charEl, props) {
-        // 计算新的 bottom 值（向下偏移 10%）
-        const currentBottom = parseFloat(props.bottom) || 0;
+        // 从 DOM 元素读取当前实际状态，而不是从 props 中读取
+        // 这样可以确保连续调用时的累积效果
+        const currentBottomStr = charEl.style.bottom || '0%';
+        const currentBottom = parseFloat(currentBottomStr) || 0;
         const newBottom = currentBottom - 10;
         charEl.style.bottom = `${newBottom}%`;
         
-        // 计算新的缩放比例（增大 10%，上限为 2.0）
-        const newScale = Math.min(2.0, props.scale + 0.1);
+        // 从 DOM 读取当前缩放比例
+        const currentHeightStr = charEl.style.height || '100%';
+        const currentScale = parseFloat(currentHeightStr) / 100 || 1;
+        const newScale = Math.min(2.0, currentScale + 0.1);
         charEl.style.height = `${newScale * 100}%`;
         
         // 如果当前层级不是“前”，则强制设置为“前”
@@ -4156,6 +4368,52 @@ const gameEngine = {
             
             step++;
             setTimeout(animate, 100); // 每100ms切换一次
+        };
+        
+        animate();
+    },
+
+    /**
+     * 应用“点头”动作
+     * Y轴向上移动2%，再向下移动4%（到初始位置下方2%），最后回到原位
+     * 只执行一次完整的“上-下-回”序列
+     */
+    applyNodAction: function(charEl, props) {
+        // 从 DOM 读取当前 bottom 值作为基准位置
+        const currentBottomStr = charEl.style.bottom || '0%';
+        const baseBottom = parseFloat(currentBottomStr) || 0;
+        
+        // 保存原始的 transition 设置
+        const originalTransition = charEl.style.transition;
+        
+        // 定义动画阶段：0=上移2%, 1=下移4%, 2=回到原位
+        let step = 0;
+        const maxSteps = 3;
+        
+        const animate = () => {
+            if (step >= maxSteps) {
+                // 动画结束，恢复到基准位置并恢复原始 transition
+                charEl.style.bottom = `${baseBottom}%`;
+                charEl.style.transition = originalTransition;
+                return;
+            }
+            
+            // 设置过渡效果
+            charEl.style.transition = 'bottom 0.15s ease-in-out';
+            
+            if (step === 0) {
+                // 第一步：向上移动 2%
+                charEl.style.bottom = `${baseBottom + 2}%`;
+            } else if (step === 1) {
+                // 第二步：向下移动 4%（相对于第一步的位置，即基准位置下方 2%）
+                charEl.style.bottom = `${baseBottom - 2}%`;
+            } else if (step === 2) {
+                // 第三步：回到基准位置
+                charEl.style.bottom = `${baseBottom}%`;
+            }
+            
+            step++;
+            setTimeout(animate, 150); // 每150ms执行下一步
         };
         
         animate();
@@ -4297,7 +4555,8 @@ const gameEngine = {
             '吓一跳': 'scare', 'scare': 'scare',
             '发抖': 'shake', 'shake': 'shake',
             '持续发抖': 'cshake', 'cshake': 'cshake',
-            '结束发抖': 'sshake', 'sshake': 'sshake'
+            '结束发抖': 'sshake', 'sshake': 'sshake',
+            '点头': 'nod', 'nod': 'nod'
         };
     
         const fadeMap = {
