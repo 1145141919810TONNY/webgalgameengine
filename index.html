@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>主菜单</title>
+    <title>Shiori - 主菜单</title>
     <link rel="icon" type="image/x-icon" href="icon/favicon.ico">
     <link rel="icon" type="image/png" sizes="256x256" href="icon/icon-256.png">
     <link rel="icon" type="image/png" sizes="128x128" href="icon/icon-128.png">
@@ -140,28 +140,31 @@
     <div id="menu-container">
         <h1 id="menu-title">友琳の日记</h1>
         
-        <a href="scenes/scene1.html" class="menu-btn">开始游戏</a>
+        <a href="scenes/scene1.html" class="menu-btn">开始游戏（这里没写完）</a>
+        <a href="./html/archive.html" class="menu-btn">存档</a>
         <a id="progress-btn" href="./html/saves.html" class="menu-btn">进度管理</a>
-		<a href="./html/story.html" class="menu-btn">小剧场</a>
+        <!--<a href="#" class="menu-btn">小故事（请等待友琳的授权更新）</a>-->
+        <a href="./html/story.html" class="menu-btn">小故事</a>
         <a href="./html/bgm.html" class="menu-btn">BGM鉴赏</a>
         <a href="./html/video.html" class="menu-btn">视频鉴赏</a>
         <a href="./html/CG.html" class="menu-btn">CG鉴赏</a>
+        <a href="./html/copy.html" class="menu-btn">版权信息</a>
 
     </div>
     
-    <!-- 左下角信息容器 -->
     <div id="info-container" style="position: absolute; bottom: 20px; left: 20px; color: gold; font-family: 'Microsoft YaHei', sans-serif; z-index: 10; font-size: 16px; text-shadow: 1px 1px 2px black;">
-        看剧情时按esc呼出菜单<br/>
-		长按ctrl快进剧情
-        <a href="https://space.bilibili.com/87412647?spm_id_from=333.1007.0.0" target="_blank"> 引擎：Shiori Engine (bilibili @月が綺麗ですね_)</a><br/>
+        看剧情时按esc呼出菜单，长按ctrl快进<br/>
+        <a href="https://space.bilibili.com/87412647?spm_id_from=333.1007.0.0" target="_blank"> 程序/引擎开发：bilibili @月が綺麗ですね_</a><br/>
+		引擎：Shiori（栞） Engine<br />
+        若要使用本引擎，请到github下载该引擎模板：<a href="https://github.com/1145141919810TONNY/webgalgameengine" target="_blank">https://github.com/1145141919810TONNY/webgalgameengine</a><br />
+        本引擎的官方教学Github Pages网页：<a href="https://1145141919810tonny.github.io/Shioriteaching/" target="_blank">https://1145141919810tonny.github.io/Shioriteaching/</a><br />
     </div>
-
-    <!-- 引擎脚本 -->
     <script src="bgm_config.js"></script>
+    <script src="system.js"></script>
     <script src="engine.js"></script>
     <script>
-        // 检查是否为file协议，如果是则禁用进度管理按钮
         if (window.location.protocol === 'file:') {
+            // 禁用进度管理按钮
             const progressBtn = document.getElementById('progress-btn');
             if (progressBtn) {
                 progressBtn.href = "#";
@@ -173,29 +176,36 @@
                     return false;
                 };
             }
+            
+            // 禁用存档按钮
+            const archiveLinks = document.querySelectorAll('a[href*="archive.html"]');
+            archiveLinks.forEach(function(link) {
+                link.href = "#";
+                link.textContent = "存档（file下无法使用该功能）";
+                link.style.opacity = "0.6";
+                link.style.cursor = "not-allowed";
+                link.onclick = function(e) {
+                    e.preventDefault();
+                    return false;
+                };
+            });
         }
-        
         const indexData = {
             bgm: BGM_CONFIG,
             story: [
                 {
                     text: "",
-                    bgm: 'bgm1', // 播放BGM
+                    bgm: 'bgm1',
                     action: null
                 }
             ]
         };
-
-        // 初始化引擎并播放BGM
         document.addEventListener('DOMContentLoaded', function() {
             gameEngine.init(indexData);
-            
-            // 播放BGM
             setTimeout(function() {
                 gameEngine.playAudio('bgm1');
             }, 100);
         });
-
 // 版权所有：bilibili月が綺麗ですね_
 // SPDX-License-Identifier: LicenseRef
 // 作者：bilibili月が綺麗ですね_
