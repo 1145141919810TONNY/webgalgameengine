@@ -310,6 +310,11 @@ const gameEngine = {
     bindEvents: function() {
         // 左键点击事件：推进对话或显示完整文本
         document.body.addEventListener('click', (e) => {
+            // 如果上下文菜单正在显示，屏蔽所有点击事件
+            if (this.elements.contextMenu && this.elements.contextMenu.classList.contains('show')) {
+                return;
+            }
+            
             if (!this.state.choicesActive && !this.isOptionElement(e.target)) {
                 if (this.state.waitingForSegmentClick) {
                     if (this.state.typingActive) {
@@ -345,6 +350,12 @@ const gameEngine = {
         
         // 右键点击事件：跳过视频或推进对话
         document.body.addEventListener('contextmenu', (e) => {
+            // 如果上下文菜单正在显示，屏蔽右键事件
+            if (this.elements.contextMenu && this.elements.contextMenu.classList.contains('show')) {
+                e.preventDefault();
+                return;
+            }
+            
             // 如果点击的是右键菜单本身或其子元素，不处理
             if (e.target.closest('#context-menu') || e.target.closest('#context-menu-backdrop')) {
                 return;
@@ -363,10 +374,19 @@ const gameEngine = {
         
         // 键盘按下事件：ESC键切换菜单，Ctrl键快进，F5快速存档
         document.addEventListener('keydown', (e) => {
+            // 如果上下文菜单正在显示，只允许 ESC 关闭菜单，屏蔽其他按键
+            const isContextMenuShowing = this.elements.contextMenu && this.elements.contextMenu.classList.contains('show');
+            
             if (e.key === 'Escape') {
-                // ESC键切换右键菜单
+                // ESC键切换右键菜单（无论菜单是否显示都响应）
                 e.preventDefault();
                 this.toggleContextMenu();
+                return;
+            }
+            
+            // 如果菜单正在显示，屏蔽其他所有按键
+            if (isContextMenuShowing) {
+                return;
             }
                     
             if (e.key === 'Control' && !this.state.fastForwardActive) {
@@ -410,7 +430,8 @@ const gameEngine = {
         
         // 右键菜单背景点击事件：关闭菜单
         if (this.elements.contextMenuBackdrop) {
-            this.elements.contextMenuBackdrop.addEventListener('click', () => {
+            this.elements.contextMenuBackdrop.addEventListener('click', (e) => {
+                e.stopPropagation(); // 阻止事件冒泡，防止触发 body 的点击事件
                 this.toggleContextMenu();
             });
         }
