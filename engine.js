@@ -58,7 +58,9 @@ const gameEngine = {
         // 背景转场标志
         isBackgroundTransitioning: false,
         // 角色名称标识符映射表 { roleName: { charId, domElement } }
-        charNameMap: {}
+        charNameMap: {},
+        // F5按键防抖标记
+        _f5Pressed: false
     },
     
     elements: {
@@ -92,10 +94,13 @@ const gameEngine = {
     /**
      * 初始化游戏引擎
      * @param {Object} data - 场景数据对象，包含story、background、audio等配置
+     * @param {number} startLine - 可选的起始行号,默认为0
      */
-    init: function(data) {
+    init: function(data, startLine = 0) {
         // 缓存场景数据
         this.sceneData = data;
+        // 设置起始行号
+        this.state.currentLine = startLine;
         // 缓存DOM元素引用
         this.cacheElements();
         // 绑定事件监听器
@@ -114,10 +119,79 @@ const gameEngine = {
             systemModule.resetDebugState();
         }
         
-        // 显示第一行对话
+        // 检查是否有状态快照需要恢复
+        const snapshot = this.loadStateSnapshot();
+        if (snapshot && snapshot.pagePath === window.location.pathname && startLine > 0) {
+            console.log('[State Restore] Detected state snapshot, restoring full state...');
+            
+            // 1. 恢复systemModule中的状态变量
+            if (typeof systemModule !== 'undefined') {
+                if (snapshot.lastActiveBgm) {
+                    systemModule.lastActiveBgm = snapshot.lastActiveBgm;
+                    console.log('[State Restore] Restored BGM:', snapshot.lastActiveBgm);
+                }
+                if (snapshot.lastActiveBg) {
+                    systemModule.lastActiveBg = snapshot.lastActiveBg;
+                    console.log('[State Restore] Restored BG:', snapshot.lastActiveBg);
+                }
+                if (snapshot.lastActiveChars) {
+                    systemModule.lastActiveChars = snapshot.lastActiveChars;
+                    console.log('[State Restore] Restored Chars:', snapshot.lastActiveChars);
+                }
+            }
+            
+            // 2. 实际渲染恢复的状态
+            // 恢复背景
+            if (snapshot.lastActiveBg) {
+                let bgPath = null;
+                if (this.sceneData.background && this.sceneData.background[snapshot.lastActiveBg]) {
+                    bgPath = this.sceneData.background[snapshot.lastActiveBg];
+                } else if (typeof CG_CONFIG_SUB !== 'undefined' && CG_CONFIG_SUB[snapshot.lastActiveBg]) {
+                    bgPath = CG_CONFIG_SUB[snapshot.lastActiveBg];
+                }
+                
+                if (bgPath) {
+                    this.setBackground(bgPath);
+                    console.log('[State Restore] Applied background:', bgPath);
+                }
+            }
+            
+            // 恢复BGM
+            if (snapshot.lastActiveBgm && this.sceneData.bgm && this.sceneData.bgm[snapshot.lastActiveBgm]) {
+                this.playAudio(snapshot.lastActiveBgm);
+                console.log('[State Restore] Playing BGM:', snapshot.lastActiveBgm);
+            }
+            
+            // 恢夏立绘
+            if (snapshot.lastActiveChars) {
+                this.renderChars(snapshot.lastActiveChars);
+                console.log('[State Restore] Rendered characters:', snapshot.lastActiveChars);
+            }
+            
+            // 清除快照(避免重复使用)
+            sessionStorage.removeItem('gameStateSnapshot');
+            
+            console.log('[State Restore] Full state restored successfully, starting at line:', startLine);
+        } else if (snapshot && snapshot.pagePath === window.location.pathname) {
+            // startLine为0的情况,只恢复systemModule状态变量
+            if (typeof systemModule !== 'undefined') {
+                if (snapshot.lastActiveBgm) systemModule.lastActiveBgm = snapshot.lastActiveBgm;
+                if (snapshot.lastActiveBg) systemModule.lastActiveBg = snapshot.lastActiveBg;
+                if (snapshot.lastActiveChars) systemModule.lastActiveChars = snapshot.lastActiveChars;
+            }
+            sessionStorage.removeItem('gameStateSnapshot');
+            console.log('[State Restore] Restored state variables only (startLine=0)');
+        }
+        
+        // 显示指定行的对话
         this.displayLine(this.state.currentLine);
         // 请求音频播放权限（处理浏览器自动播放策略）
         this.requestAudioPlayback();
+        
+        // 检测file协议并隐藏存档相关功能
+        if (window.location.protocol === 'file:') {
+            this.hideArchiveMenuItems();
+        }
     },
     
     /**
@@ -195,6 +269,41 @@ const gameEngine = {
     },
     
     /**
+     * 隐藏存档相关菜单项（file协议下）
+     */
+    hideArchiveMenuItems: function() {
+        // 隐藏右键菜单中的存档相关项
+        const contextMenu = document.getElementById('context-menu');
+        if (!contextMenu) return;
+        
+        // 查找并隐藏存档相关的 li 元素
+        const menuItems = contextMenu.querySelectorAll('ul li');
+        menuItems.forEach(function(item) {
+            const onclickAttr = item.getAttribute('onclick') || '';
+            if (onclickAttr.includes('QuickSaveManager') || 
+                onclickAttr.includes('saves.html')) {
+                item.style.display = 'none';
+            }
+        });
+        
+        // 隐藏快捷键提示区域中包含 F5 的 div
+        // 只选择提示区域内的直接子 div 元素
+        const hintContainer = contextMenu.querySelector('div[style*="margin-top"]');
+        if (hintContainer) {
+            const hintDivs = hintContainer.querySelectorAll('div');
+            hintDivs.forEach(function(div) {
+                const text = div.textContent.trim();
+                // 只隐藏包含 "F5" 的行
+                if (text.includes('F5')) {
+                    div.style.display = 'none';
+                }
+            });
+        }
+        
+        console.log('[Engine] Archive menu items hidden for file:// protocol');
+    },
+    
+    /**
      * 绑定全局事件监听器
      * 包括点击、右键、键盘等交互事件的处理
      */
@@ -236,6 +345,11 @@ const gameEngine = {
         
         // 右键点击事件：跳过视频或推进对话
         document.body.addEventListener('contextmenu', (e) => {
+            // 如果点击的是右键菜单本身或其子元素，不处理
+            if (e.target.closest('#context-menu') || e.target.closest('#context-menu-backdrop')) {
+                return;
+            }
+            
             if (this.elements.videoPlayer && this.elements.videoPlayer.style.display === 'block') {
                 // 视频播放时，右键跳过
                 e.preventDefault();
@@ -247,7 +361,7 @@ const gameEngine = {
             }
         });
         
-        // 键盘按下事件：ESC键切换菜单，Ctrl键快进
+        // 键盘按下事件：ESC键切换菜单，Ctrl键快进，F5快速存档
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 // ESC键切换右键菜单
@@ -260,14 +374,37 @@ const gameEngine = {
                 e.preventDefault();
                 this.startFastForward();
             }
+            
+            // F5 - 快速保存（file协议下禁用）
+            if (e.key === 'F5' && window.location.protocol !== 'file:') {
+                e.preventDefault();
+                // 防止长按重复触发：只在第一次按下时触发
+                if (!gameEngine.state._f5Pressed) {
+                    gameEngine.state._f5Pressed = true;
+                    if (typeof QuickSaveManager !== 'undefined') {
+                        QuickSaveManager.quickSave();
+                    }
+                }
+            }
         });
                 
-        // 键盘释放事件：停止快进
+        // 键盘释放事件：停止快进，重置 F5 防抖标记
         document.addEventListener('keyup', (e) => {
             if (e.key === 'Control') {
                 // 释放Ctrl键停止快进
                 e.preventDefault();
                 this.stopFastForward();
+            }
+            
+            // F5 键释放：启动冷却计时器
+            if (e.key === 'F5' && window.location.protocol !== 'file:') {
+                e.preventDefault();
+                gameEngine.state._f5Pressed = false; // 重置防抖标记
+                
+                // 启动冷却计时器
+                if (typeof QuickSaveManager !== 'undefined') {
+                    QuickSaveManager._startCooldown();
+                }
             }
         });
         
@@ -467,6 +604,9 @@ const gameEngine = {
         if (typeof systemModule !== 'undefined' && systemModule.updateDebugInfo) {
             systemModule.updateDebugInfo();
         }
+        
+        // 自动保存游戏状态快照（用于存档功能）
+        this.saveStateSnapshot();
     },
     
     /**
@@ -3225,17 +3365,18 @@ const gameEngine = {
         // 确保sceneMarkers对象存在
         progressData.sceneMarkers = progressData.sceneMarkers || {};
         
-        // 如果该场景尚未标记，则添加标记
-        if (!progressData.sceneMarkers.hasOwnProperty(sceneId)) {
-            progressData.sceneMarkers[sceneId] = 1;
-            
-            // 更新时间戳
-            progressData.timestamp = Date.now();
-            
-            // 保存到localStorage
-            localStorage.setItem('gameProgress', JSON.stringify(progressData));
-            console.log(`场景标识符已保存: ${sceneId} = 1`);
-        }
+        // 始终更新场景标记和时间戳(即使已存在)
+        progressData.sceneMarkers[sceneId] = {
+            visited: 1,
+            lastAccessTime: Date.now()
+        };
+        
+        // 更新全局时间戳
+        progressData.timestamp = Date.now();
+        
+        // 保存到localStorage
+        localStorage.setItem('gameProgress', JSON.stringify(progressData));
+        console.log(`场景标识符已保存: ${sceneId}, 时间: ${new Date().toLocaleTimeString()}`);
     },
     
     /**
@@ -3251,6 +3392,48 @@ const gameEngine = {
             },
             sceneMarkers: {}
         };
+    },
+    
+    /**
+     * 保存当前游戏状态的完整快照
+     * 用于从存档页精确返回时恢复状态
+     */
+    saveStateSnapshot: function() {
+        const snapshot = {
+            // 基本信息
+            pageUrl: window.location.href,
+            pagePath: window.location.pathname,
+            
+            // 剧情进度
+            currentLine: this.state.currentLine,
+            
+            // 持久化状态(由systemModule维护)
+            lastActiveBgm: (typeof systemModule !== 'undefined') ? systemModule.lastActiveBgm : null,
+            lastActiveBg: (typeof systemModule !== 'undefined') ? systemModule.lastActiveBg : null,
+            lastActiveChars: (typeof systemModule !== 'undefined') ? systemModule.lastActiveChars : null,
+            
+            // 时间戳
+            timestamp: Date.now()
+        };
+        
+        sessionStorage.setItem('gameStateSnapshot', JSON.stringify(snapshot));
+        console.log('[State Snapshot] Saved:', snapshot);
+    },
+    
+    /**
+     * 从sessionStorage加载状态快照
+     * @returns {Object|null} - 状态快照对象,不存在则返回null
+     */
+    loadStateSnapshot: function() {
+        try {
+            const snapshotStr = sessionStorage.getItem('gameStateSnapshot');
+            if (snapshotStr) {
+                return JSON.parse(snapshotStr);
+            }
+        } catch (e) {
+            console.error('[State Snapshot] Failed to load:', e);
+        }
+        return null;
     },
     
     /**
@@ -4243,3 +4426,201 @@ const gameEngine = {
         };
     }
 };
+
+/**
+ * 快速存档管理器 - 集成到游戏引擎中
+ */
+const QuickSaveManager = {
+    // 防抖和冷却相关变量
+    _isCooldown: false,          // 是否在冷却中
+    _hasTriggeredOnPress: false, // 本次按键是否已触发保存
+    _cooldownDuration: 1000,     // 冷却时间（毫秒）
+    
+    /**
+     * 快速保存 - 创建新存档
+     */
+    quickSave: function() {
+        // 检查是否在冷却中
+        if (this._isCooldown) {
+            console.log('[Quick Save] On cooldown, skipping save');
+            return;
+        }
+        
+        // 获取当前游戏状态
+        const snapshot = sessionStorage.getItem('gameStateSnapshot');
+        if (!snapshot) {
+            console.warn('[Quick Save] No game state to save');
+            this.showMessage('无法保存：没有游戏状态', 'error');
+            return;
+        }
+        
+        const gameState = JSON.parse(snapshot);
+        
+        // 构建存档数据
+        const saveData = {
+            saveName: this.getDefaultSaveName(),
+            sceneFile: this.extractSceneFileName(gameState.pagePath),
+            lineIndex: gameState.currentLine,
+            previewText: this.getCurrentPreviewText(),
+            snapshot: gameState
+        };
+        
+        // 添加到存档列表
+        const archives = this.loadArchives();
+        saveData.id = Date.now().toString();
+        saveData.timestamp = Date.now();
+        saveData.formattedTime = this.formatTimestamp(saveData.timestamp);
+        
+        // 添加到数组开头（最新的在前）
+        archives.unshift(saveData);
+        
+        try {
+            localStorage.setItem('galgame_archives', JSON.stringify(archives));
+            console.log('[Quick Save] Created new archive');
+            this.showMessage('已创建新存档', 'success');
+        } catch (e) {
+            console.error('[Quick Save] Failed to save:', e);
+            this.showMessage('快速保存失败', 'error');
+        }
+    },
+    
+    /**
+     * 打开存档管理页面
+     */
+    openArchivePage: function() {
+        window.location.href = '../html/archive.html';
+    },
+    
+    /**
+     * 加载所有存档
+     */
+    loadArchives: function() {
+        try {
+            const data = localStorage.getItem('galgame_archives');
+            return data ? JSON.parse(data) : [];
+        } catch (e) {
+            console.error('[Quick Save] Failed to load archives:', e);
+            return [];
+        }
+    },
+    
+    /**
+     * 获取默认存档名称
+     */
+    getDefaultSaveName: function() {
+        const archives = this.loadArchives();
+        return `存档 ${archives.length + 1}`;
+    },
+    
+    /**
+     * 提取场景文件名
+     */
+    extractSceneFileName: function(pagePath) {
+        const parts = pagePath.split('/');
+        return parts[parts.length - 1] || 'unknown.html';
+    },
+    
+    /**
+     * 获取当前文本预览
+     */
+    getCurrentPreviewText: function() {
+        try {
+            const textBox = document.getElementById('text-box');
+            if (textBox && textBox.textContent) {
+                const text = textBox.textContent.trim();
+                return text.length > 50 ? text.substring(0, 50) + '...' : text;
+            }
+        } catch (e) {
+            console.warn('[Quick Save] Could not get preview text:', e);
+        }
+        return '暂无文本预览';
+    },
+    
+    /**
+     * 格式化时间戳
+     */
+    formatTimestamp: function(timestamp) {
+        if (!timestamp) return '未知时间';
+        
+        const date = new Date(timestamp);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    },
+    
+    /**
+     * 显示消息提示
+     */
+    showMessage: function(message, type) {
+        // 移除旧消息
+        const oldMessage = document.querySelector('.quick-save-message');
+        if (oldMessage) {
+            oldMessage.remove();
+        }
+        
+        const statusDiv = document.createElement('div');
+        statusDiv.className = `quick-save-message`;
+        statusDiv.style.cssText = `
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 3000;
+            animation: slideUp 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            background: ${type === 'success' ? 'rgba(76, 175, 80, 0.9)' : 'rgba(244, 67, 54, 0.9)'};
+            color: #fff;
+            border: 2px solid ${type === 'success' ? '#4CAF50' : '#f44336'};
+        `;
+        statusDiv.textContent = message;
+        
+        document.body.appendChild(statusDiv);
+        
+        setTimeout(() => {
+            statusDiv.style.opacity = '0';
+            statusDiv.style.transition = 'opacity 0.3s ease';
+            setTimeout(() => statusDiv.remove(), 300);
+        }, 2000);
+    },
+    
+    /**
+     * 启动冷却计时器 - 从松开按键时开始计时
+     */
+    _startCooldown: function() {
+        this._isCooldown = true;
+        console.log('[Quick Save] Cooldown started');
+        
+        setTimeout(() => {
+            this._isCooldown = false;
+            console.log('[Quick Save] Cooldown ended');
+        }, this._cooldownDuration);
+    }
+};
+
+// 添加CSS动画
+if (!document.getElementById('quick-save-styles')) {
+    const style = document.createElement('style');
+    style.id = 'quick-save-styles';
+    style.textContent = `
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
