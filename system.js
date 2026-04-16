@@ -330,6 +330,30 @@ const systemModule = {
     },
     
     /**
+     * 解析BGM指令，提取实际的BGM名称
+     * @param {string} bgmInstruction - BGM指令字符串，如 "bgm wait bgm21" 或 "bgm21"
+     * @returns {string|null} - 实际的BGM名称，如果是停止指令则返回null
+     */
+    parseBgmInstruction: function(bgmInstruction) {
+        if (!bgmInstruction || typeof bgmInstruction !== 'string') {
+            return null;
+        }
+        
+        // 处理停止指令
+        if (bgmInstruction === 'bgm stop' || bgmInstruction === '') {
+            return null;
+        }
+        
+        // 处理淡出切换指令
+        if (bgmInstruction.startsWith('bgm wait ')) {
+            return bgmInstruction.substring('bgm wait '.length).trim();
+        }
+        
+        // 其他情况，直接返回（可能是普通的BGM名称）
+        return bgmInstruction;
+    },
+    
+    /**
      * 更新调试日志信息
      * 由 engine.js 在剧情推进时调用
      */
@@ -349,13 +373,8 @@ const systemModule = {
         
         // 1. 更新 BGM 状态
         if (currentLineData.bgm !== undefined) {
-            if (currentLineData.bgm === null || currentLineData.bgm === 'bgm stop' || currentLineData.bgm === '') {
-                // BGM 停止
-                this.lastActiveBgm = null;
-            } else {
-                // BGM 切换或设置
-                this.lastActiveBgm = currentLineData.bgm;
-            }
+            // 使用辅助函数解析BGM指令，提取实际的BGM名称
+            this.lastActiveBgm = this.parseBgmInstruction(currentLineData.bgm);
         }
         // 如果当前行没有 bgm 字段，保持 lastActiveBgm 不变
         
