@@ -414,7 +414,16 @@ const systemModule = {
         // ===== 构建调试信息显示 =====
         
         let info = `<div style="color: #FFFF00; margin-bottom: 5px;">${currentPage}</div>`;
-        info += `<div style="margin-bottom: 3px;">Index: ${currentIndex}</div>`;
+        
+        // 获取当前剧情对象的行号范围（currentLineData 已在函数开头定义）
+        const lineRange = currentLineData?.__lineRange;
+        
+        // 显示 Index 和行号范围
+        if (lineRange) {
+            info += `<div style="margin-bottom: 3px;">Index: ${currentIndex} {${lineRange.startLine}~${lineRange.endLine}}</div>`;
+        } else {
+            info += `<div style="margin-bottom: 3px;">Index: ${currentIndex}</div>`;
+        }
         
         // BGM 信息（始终显示）
         if (this.lastActiveBgm) {
