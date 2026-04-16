@@ -25,11 +25,25 @@
 ## 快捷键
 - esc：打开游戏上下文菜单
 - ctrl：快进剧情
-- F5：快速存档
-- `+`/`↑` ：增加音量
-- `-`/`↓` ：减少音量
 
-# V1.2.2 更新内容（2026/4/16）
+# V1.2.3 更新内容（2026/4/16）
+
+## 文档优化
+- 全面更新 README.md 文档，修正场景数据结构示例代码
+- 统一资源引用规范，推荐使用集中化配置文件（BG_CONFIG_SUB、BGM_CONFIG_SUB）
+- 补充常见问题解答，新增视频播放控制、立绘动作指令、背景转场效果等问答
+
+## 视频播放与 BGM 控制
+- 视频播放前会自动停止当前 BGM（暂停并重置到开头），避免音频冲突
+- 视频结束后不会自动恢复 BGM，开发者需在后续剧情行中通过 `bgm` 属性手动指定
+- 此设计提供了更灵活的音频控制方案，让开发者精确掌控每个场景的音频状态
+
+## Bug 修复
+- 修复了文本分段标签 `[s]` 与换行符 `\n` 组合使用时的显示问题
+- 现在在分段文本中，换行符会正确渲染为 HTML `<br>` 标签，保持预期的排版效果
+- 示例：`text: "第一段第一行。\n第一段第二行。[s]第二段第一行。"`
+
+# V1.2.2 更新内容（2026/4/16 12:00）
 
 ## F1 调试面板增强
 - **新增源码行号显示**：F1 调试面板现在会在剧情索引（Index）旁显示该行在源代码文件中的物理行号范围，格式为 `Index: 5 {56~61}`，便于快速定位和调试特定剧情行
@@ -135,8 +149,7 @@
 - 支持中英文指令，例如：`trans bg_01`、`左滑 bg_02`、`scanR bg_03`。
 - 详细用法请参考 [background.md](assets/bg/background.md) 文档。
 
-
-# V1.1.3更新内容（2026/4/12 16:00）
+# V1.1.3更新内容（2026/4/12）
 
 ## 连续动作指令
 
@@ -152,7 +165,7 @@
 - 支持在片段内使用 `瞬`/`instant` 实现无过渡动画的状态切换，并保证标准停留时长。
 - 示例：`[左,右 上 后 瞬,中 lh1]`（依次经过左侧、瞬间移动到右侧上方底层、平滑回到中间）。
 
-# V1.1.2更新内容（2026/4/12 13:14）
+# V1.1.2更新内容（2026/4/11）
 
 ## 立绘动作指令系统
 
@@ -402,43 +415,100 @@ galgame-engine/
 
 ```javascript
 const sceneData = {
-    // 背景配置
-    background: {
-        'bg1': 'assets/bg/background1.jpg',
-        'bg2': 'assets/bg/background2.png'
-    },
+    // 背景配置（推荐使用集中配置文件）
+    background: BG_CONFIG_SUB,  // 引用 bg_config.js 中的配置
     
-    // 音频配置
+    // BGM 配置（推荐使用集中配置文件）
+    bgm: BGM_CONFIG_SUB,        // 引用 bgm_config.js 中的配置
+    
+    // 音效和语音配置（可在场景中直接定义）
     audio: {
-        'se1': 'assets/audio/sound1.mp3',
-        'voice1': 'assets/audio/voice1.ogg'
+        'se_door': '../assets/audio/door_open.ogg',   // 音效示例
+        'voice_greeting': '../assets/audio/voice1.ogg' // 语音示例
     },
     
-    // BGM 配置（使用集中配置文件）
-    bgm: BGM_CONFIG_SUB,  // 在子目录文件中引用
-    
-    // 视频配置
+    // 视频配置（需在场景中定义视频文件路径）
     videos: {
-        'video1': 'assets/video/intro.mp4'
+        'op_video': '../assets/video/OP.mp4',      // OP 视频
+        'ending_video': '../assets/video/ED.mp4'   // ED 视频
     },
     
     // 故事脚本
     story: [
+        // 示例 1：基础对话
         {
-            text: "对话文本内容",
-            speaker: "说话者姓名",
-            background: "bg1",      // 背景标识
-            audio: "se1",          // 音效标识
-            bgm: "bgm1",           // BGM标识
-            video: "video1",       // 视频标识
-            action: {              // 动作对象
+            text: "你好，很高兴见到你！",
+            speaker: "角色A",
+            background: "bg_001_00_00",  // 背景 ID（引用自 BG_CONFIG_SUB）
+            bgm: "bgm1"                  // BGM ID（引用自 BGM_CONFIG_SUB）
+        },
+        
+        // 示例 2：播放音效或语音
+        {
+            text: "门打开了。",
+            speaker: "系统",
+            audio: "se_door"  // 音效 ID（引用自 sceneData.audio）
+        },
+        
+        // 示例 3：BGM 控制
+        {
+            text: "背景音乐切换中...",
+            speaker: "系统",
+            bgm: "bgm wait bgm2"  // 淡出当前 BGM，播放新 BGM
+        },
+        {
+            text: "停止背景音乐。",
+            speaker: "系统",
+            bgm: "bgm stop"  // 特殊标识符，停止 BGM 播放
+        },
+        
+        // 示例 4：立绘控制
+        {
+            text: "角色出现在左侧。",
+            speaker: "系统",
+            chars: "[左 角色A]"  // 立绘指令（详见 illustration.md）
+        },
+        
+        // 示例 5：标签命令
+        {
+            text: "即将进入全屏小说模式。",
+            speaker: "系统"
+        },
+        {
+            text: "",  // 纯命令行建议留空 text
+            command: "[novel]"  // 开启全屏小说模式
+        },
+        
+        // 示例 6：选项分支
+        {
+            text: "你要选择哪条路？",
+            speaker: "角色A",
+            action: {
                 type: "choice",
                 choices: [
-                    { text: "选项1", target: "scene2" },
-                    { text: "选项2", target: "scene3" }
+                    { text: "向左走", target: "scene_left.html" },
+                    { text: "向右走", target: "scene_right.html" }
                 ]
-            },
-            command: "[标签命令]"   // 标签命令
+            }
+        },
+        
+        // 示例 7：视频播放
+        {
+            text: "即将播放开场动画。",
+            speaker: "系统",
+            video: "op_video"  // 视频 ID（引用自 sceneData.videos）
+        },
+        
+        // 示例 8：转场效果
+        {
+            text: "场景切换中...",
+            speaker: "系统",
+            background: "fade bg_002_00_00"  // 淡入淡出转场
+        },
+        {
+            text: "使用滑动转场。",
+            speaker: "系统",
+            background: "slideL bg_003_00_00"  // 从左滑入
         }
     ]
 };
@@ -447,28 +517,22 @@ const sceneData = {
 2.2 Action动作系统
 ------------------
 
-Action支持多种类型的动作：
+Action支持多种类型的动作（通过 `action` 属性使用）：
 
 ```javascript
 // 选择分支
 action: {
     type: "choice",
     choices: [
-        { text: "接受邀请", target: "scene_accept" },
-        { text: "拒绝邀请", target: "scene_reject" }
+        { text: "接受邀请", target: "scene_accept.html" },
+        { text: "拒绝邀请", target: "scene_reject.html" }
     ]
 }
 
 // 场景跳转
 action: {
     type: "nextScene",
-    target: "scene2"
-}
-
-// 等待控制
-action: {
-    type: "wait",
-    duration: 2000  // 等待2秒
+    target: "scene2.html"
 }
 
 // 界面控制
@@ -477,14 +541,30 @@ action: { type: "hideText" }     // 隐藏文本框
 action: { type: "showText" }     // 显示文本框
 
 // 特殊效果
-action: { type: "fadeOut" }      // 淡出效果
-action: { type: "fadeIn" }       // 淡入效果
-action: { type: "sepiaStart" }   // 怀旧滤镜
+action: { 
+    type: "fadeOut",
+    duration: 1000,              // 可选：持续时间（毫秒）
+    backgroundColor: "black"     // 可选：背景颜色
+}
+action: { 
+    type: "fadeIn",
+    duration: 1000,
+    backgroundColor: "black"
+}
 
 // 游戏控制
 action: { type: "returnToMenu" } // 返回主菜单
-action: { type: "finishGame" }   // 结束游戏
+action: { 
+    type: "finishGame",
+    bgColor: "black",            // 可选：淡出背景颜色
+    duration: 1500               // 可选：淡出持续时间
+}
 ```
+
+**注意：**
+- 等待控制应使用 `command` 属性的 `[wait]` 标签，而非 `action`。
+- 淡入淡出等动画命令推荐使用 `command` 属性（如 `[fadeout time=1000]`），会自动在动画完成后继续下一行。
+- `sepiaStart` 等怀旧滤镜功能在当前版本中可能未实现，请使用 CSS 滤镜或其他方案替代。
 
 2.3 标签命令系统
 ----------------
@@ -530,13 +610,13 @@ action: { type: "finishGame" }   // 结束游戏
 - [video:identifier] - 播放视频
 
 高级标签命令：
-- [fadeout time=1000 color=black] - 淡出效果
-- [fadein time=1000 color=black] - 淡入效果
-- [wait time=1000] - 等待指定时间
+- [fadeout time=1000 color=black] - 淡出效果（动画完成后自动继续）
+- [fadein time=1000 color=black] - 淡入效果（动画完成后自动继续）
+- [wait time=1000] - 等待指定时间后自动继续；不带 time 参数时等待用户点击
 - [clearname] - 清除姓名框
-- [msgoff] - 隐藏文本框
+- [msgoff] - 隐藏文本框（建议在单独的命令行中使用，text 留空）
 - [msgon] - 显示文本框
-- [finish bgcolor=black time=1500] - 游戏结束淡出
+- [finish bgcolor=black time=1500] - 游戏结束淡出（动画完成后自动继续）
 - [finishwhite bgcolor=white time=1500] - 游戏结束淡出到白色
 
 文本格式标签：
@@ -570,6 +650,15 @@ action: { type: "finishGame" }   // 结束游戏
 最后再点击一下：
 然而，时光荏苒，岁月如梭。我们终究还是长大了，各自奔向不同的道路。<br>
 此时如果再次点击鼠标则会进行下一段剧情
+
+**注意：`\n` 与 `[s]` 可以组合使用**
+```javascript
+{
+    text: "第一段第一行。\n第一段第二行。[s]第二段第一行。\n第二段第二行。",
+    speaker: "系统"
+}
+```
+换行符在分段显示中会正常生效。
 
 ## 2.4 BGM控制功能
 
@@ -883,24 +972,6 @@ const preloadAssets = () => {
 }
 ```
 
-## 5.2 复杂特效组合
-
-
-```javascript
-{
-    text: "回忆涌现...",
-    action: {
-        type: "chain",  // 自定义链式动作
-        actions: [
-            { type: "flashbackStart" },
-            { type: "sepiaStart" },
-            { type: "fadeIn", duration: 2000 },
-            { type: "wait", duration: 3000 }
-        ]
-    }
-}
-```
-
 ## 5.3 存档系统集成
 
 
@@ -965,9 +1036,9 @@ const loadProgress = () => {
 # 重要提醒
 
 
-**关于标签命令的重要说明：**
+**重要提醒：**
 
-当前版本的引擎中，所有的标签命令都必须通过 `command` 属性来执行，不能直接嵌入在 `text` 属性中。
+1. **标签命令必须通过 `command` 属性执行**，不能直接嵌入在 `text` 属性中。
 
 正确的使用方式：
 ```javascript
@@ -986,7 +1057,27 @@ const loadProgress = () => {
 }
 ```
 
-这个限制是因为引擎的文本处理机制只会在 `line.command` 存在时调用命令解析器，而不会解析 `line.text` 中的标签内容。
+2. **纯命令行建议使用空文本**
+
+对于只执行命令而不显示文本的情况，建议将 `text` 留空或设为 `null`，以避免界面闪烁：
+
+```javascript
+// 推荐方式：纯命令行
+{
+    text: "",
+    command: "[msgoff]"  // 隐藏文本框
+}
+
+// 或者
+{
+    text: null,
+    command: "[clearname]"  // 清除姓名框
+}
+```
+
+3. **动画命令会自动继续**
+
+`[fadeout]`、`[fadein]`、`[finish]` 等动画命令在执行完成后会自动进入下一行，无需额外点击。
 
 ## 附录A：常见问题解答
 
@@ -1012,14 +1103,64 @@ A: 不会。该功能只针对背景音乐(BGM)，语音和音效会继续正常
 Q: 为什么我写的[tag]标签在文本中不生效？
 A: 标签命令必须通过 `command` 属性执行，不能直接写在 `text` 属性中。请使用 `{text: "内容", command: "[tag]"}` 的格式。
 
-Q: 能否让标签命令支持嵌入在文本中？
-A: 技术上可以实现，但需要修改引擎的文本解析机制。目前的设计是将标签命令和文本内容分离处理。
+Q: `[wait]` 命令如何使用？
+A: `[wait]` 命令有两种用法：
+   - 不带参数：`command: "[wait]"` - 等待用户点击后继续
+   - 带时间参数：`command: "[wait time=2000]"` - 等待2秒后自动继续
+
+Q: `[fadeout]` 和 `[fadein]` 命令需要额外点击吗？
+A: 不需要。这些动画命令在执行完成后会自动进入下一行。
+
+Q: `[finish]` 命令后为什么需要额外点击？
+A: 已修复。现在 `[finish]` 命令在淡出完成后会自动进入下一行，无需额外点击。
+
+Q: `[msgoff]` 命令会导致文本框一闪而过吗？
+A: 已修复。现在建议在纯命令行中将 `text` 留空，这样可以避免界面闪烁。
+
+Q: `\n` 和 `[s]` 可以一起使用吗？
+A: 可以。换行符在分段显示中会正常生效，例如：`text: "第一行。\n第二行。[s]第三行。"`
+
+Q: 视频播放时 BGM 会如何处理？
+A: 视频播放前会自动停止当前 BGM（暂停并重置到开头）。视频结束后不会自动恢复 BGM，如需继续播放 BGM，请在后续剧情行中指定 `bgm` 属性。
+
+Q: 如何控制视频播放？
+A: 视频支持以下控制方式：
+   - 右键点击视频区域：跳过视频
+   - 按 ESC 键：跳过视频
+   - 视频自然播放结束后：自动继续下一行剧情
+
+Q: 立绘动作指令有哪些？
+A: 立绘支持多种动作指令，包括：
+   - `[点头]` / `[nod]`：执行一次点头动画
+   - `[后退]` / `[retreat]`：向上移动并缩小
+   - `[前进]` / `[forward]`：向下移动并放大
+   - `[吓一跳]` / `[scare]`：快速放大缩小
+   - `[发抖]` / `[shake]`：左右抖动
+   - `[持续发抖]` / `[cshake]`：持续抖动（需手动停止）
+   - `[结束发抖]` / `[sshake]`：停止持续发抖
+   详见 [illustration.md](assets/chars/illustration.md) 文档。
+
+Q: 背景转场有哪些效果？
+A: 背景支持多种转场效果：
+   - `fade` / `转场`：淡入淡出
+   - `slideL` / `左滑`：从左滑入
+   - `slideR` / `右滑`：从右滑入
+   - `scanL` / `左转场`：扫描式左转场
+   - `scanR` / `右转场`：扫描式右转场
+   示例：`background: "slideL bg_002_00_00"`
+   详见 [background.md](assets/bg/background.md) 文档。
 
 ## 附录B：快捷键参考
 
 
 - ESC: 打开上下文菜单
-- 鼠标点击: 继续/选择选项
+- F1: 开关开发者调试面板
+- F5: 快速保存（需 HTTP 环境）
+- Ctrl: 按住快进剧情
+- + / ↑: 增加音量（步进 1%）
+- - / ↓: 减少音量（步进 1%）
+- 鼠标点击: 继续剧情/选择选项
+- 视频播放时右键或 ESC: 跳过视频
 
 ## 附录C：资源推荐
 
