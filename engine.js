@@ -92,6 +92,96 @@ const gameEngine = {
     sceneData: null,
     
     /**
+     * 为剧情数组中的每个对象添加源码行号范围
+     * 通过正则表达式解析 HTML 文件内容，找到每个剧情对象的物理位置
+     */
+    annotateStoryLineNumbers: function() {
+        if (!this.sceneData || !this.sceneData.story) {
+            return;
+        }
+        
+        // 获取当前页面URL
+        const currentPage = window.location.pathname.split('/').pop();
+        console.log(`[Line Numbers] Annotating story for ${currentPage}`);
+        
+        // 异步加载当前HTML文件并解析行号
+        fetch(currentPage)
+            .then(response => response.text())
+            .then(htmlContent => {
+                this.parseStoryLineNumbers(htmlContent);
+            })
+            .catch(error => {
+                console.warn('[Line Numbers] Failed to load HTML file:', error);
+            });
+    },
+    
+    /**
+     * 解析HTML内容，提取story数组中每个对象的行号范围
+     * @param {string} htmlContent - HTML文件内容
+     */
+    parseStoryLineNumbers: function(htmlContent) {
+        const lines = htmlContent.split('\n');
+        const storyObjects = [];
+        
+        // 查找 story: [ 的位置
+        let inStoryArray = false;
+        let braceDepth = 0;
+        let currentObjectStart = -1;
+        let objectBraceDepth = 0;
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            
+            // 检测是否进入 story 数组
+            if (!inStoryArray && line.includes('story:')) {
+                inStoryArray = true;
+                continue;
+            }
+            
+            if (!inStoryArray) continue;
+            
+            // 检测数组结束
+            if (line.trim() === ']' || (line.trim().endsWith(']') && braceDepth === 0)) {
+                break;
+            }
+            
+            // 检测对象开始 {
+            const openBraces = (line.match(/{/g) || []).length;
+            const closeBraces = (line.match(/}/g) || []).length;
+            
+            if (openBraces > 0 && currentObjectStart === -1) {
+                // 新的剧情对象开始
+                currentObjectStart = i + 1; // 行号从1开始
+                objectBraceDepth = openBraces - closeBraces;
+            } else if (currentObjectStart !== -1) {
+                objectBraceDepth += openBraces - closeBraces;
+                
+                // 当brace深度回到0时，对象结束
+                if (objectBraceDepth <= 0) {
+                    storyObjects.push({
+                        startLine: currentObjectStart,
+                        endLine: i + 1 // 行号从1开始
+                    });
+                    currentObjectStart = -1;
+                    objectBraceDepth = 0;
+                }
+            }
+        }
+        
+        // 将行号信息添加到 story 数组中的每个对象
+        storyObjects.forEach((range, index) => {
+            if (this.sceneData.story[index]) {
+                this.sceneData.story[index].__lineRange = range;
+            }
+        });
+        
+        console.log(`[Line Numbers] Annotated ${storyObjects.length} story objects`);
+        if (storyObjects.length > 0) {
+            console.log(`[Line Numbers] First object: lines ${storyObjects[0].startLine}-${storyObjects[0].endLine}`);
+        }
+    },
+
+    /**
      * 初始化游戏引擎
      * @param {Object} data - 场景数据对象，包含story、background、audio等配置
      * @param {number} startLine - 可选的起始行号,默认为0
@@ -99,6 +189,10 @@ const gameEngine = {
     init: function(data, startLine = 0) {
         // 缓存场景数据
         this.sceneData = data;
+        
+        // 为每个剧情对象添加源码行号范围
+        this.annotateStoryLineNumbers();
+        
         // 设置起始行号
         this.state.currentLine = startLine;
         // 缓存DOM元素引用
@@ -3786,6 +3880,8 @@ const gameEngine = {
         const removeKeywords = ['消失', 'hide', 'remove'];
         // 渐入渐出关键词
         const fadeKeywords = ['渐入', 'fadeIn', '渐出', 'fadeOut'];
+        // 动作指令关键词
+        const actionKeywords = ['后退', 'retreat', '前进', 'forward', '吓一跳', 'scare', '发抖', 'shake', '持续发抖', 'cshake', '结束发抖', 'sshake', '点头', 'nod'];
         
         // 检查是否匹配任何关键词
         if (positionKeywords.includes(word)) return true;
@@ -3794,6 +3890,7 @@ const gameEngine = {
         if (animationKeywords.includes(word)) return true;
         if (removeKeywords.includes(word)) return true;
         if (fadeKeywords.includes(word)) return true;
+        if (actionKeywords.includes(word)) return true;
         
         // 检查是否以 x: 或 y: 开头
         if (word.startsWith('x:') || word.startsWith('y:')) return true;
@@ -3815,6 +3912,8 @@ const gameEngine = {
      * @param {string} roleName - 角色名称标识符（可选，用于实现自动替换与属性继承）
      */
     updateChar: function(charId, modifiers, forceInstant = false, roleName = null) {
+        console.log(`[updateChar] charId=${charId}, modifiers="${modifiers}", roleName=${roleName}`);
+        
         // 获取路径
         let path = null;
         if (typeof CHAR_CONFIG_SUB !== 'undefined' && CHAR_CONFIG_SUB[charId]) {
@@ -4056,13 +4155,18 @@ const gameEngine = {
      */
     removeChar: function(charId) {
         const charEl = document.getElementById(`char-${charId}`);
+        // 先设置停止标记，通知正在执行的回调停止
         if (charEl) {
-            charEl.remove();
+            charEl.dataset.shakeStopped = 'true';
         }
         // 清除持续发抖状态
         if (this.state.shakingChars && this.state.shakingChars[charId]) {
-            clearInterval(this.state.shakingChars[charId]);
+            clearTimeout(this.state.shakingChars[charId]);
             delete this.state.shakingChars[charId];
+        }
+        // 移除 DOM 元素
+        if (charEl) {
+            charEl.remove();
         }
         // 清除连续动作队列
         if (this.state.charActionQueues && this.state.charActionQueues[charId]) {
@@ -4091,6 +4195,19 @@ const gameEngine = {
             return;
         }
         
+        // 先设置停止标记，通知正在执行的回调停止
+        charEl.dataset.shakeStopped = 'true';
+        // 清除持续发抖状态
+        if (this.state.shakingChars && this.state.shakingChars[charId]) {
+            clearTimeout(this.state.shakingChars[charId]);
+            delete this.state.shakingChars[charId];
+        }
+        // 清除连续动作队列
+        if (this.state.charActionQueues && this.state.charActionQueues[charId]) {
+            clearTimeout(this.state.charActionQueues[charId].timeoutId);
+            delete this.state.charActionQueues[charId];
+        }
+        
         // 设置渐出动画
         charEl.style.transition = 'opacity 0.8s ease-in-out';
         charEl.style.opacity = '0';
@@ -4101,16 +4218,6 @@ const gameEngine = {
             const existingEl = document.getElementById(`char-${charId}`);
             if (existingEl) {
                 existingEl.remove();
-            }
-            // 清除持续发抖状态
-            if (this.state.shakingChars && this.state.shakingChars[charId]) {
-                clearInterval(this.state.shakingChars[charId]);
-                delete this.state.shakingChars[charId];
-            }
-            // 清除连续动作队列
-            if (this.state.charActionQueues && this.state.charActionQueues[charId]) {
-                clearTimeout(this.state.charActionQueues[charId].timeoutId);
-                delete this.state.charActionQueues[charId];
             }
             delete this.state.activeChars[charId];
             
@@ -4426,12 +4533,16 @@ const gameEngine = {
     applyShakeAction: function(charEl, props, isContinuous) {
         const currentLeft = charEl.style.left;
         const offsetPercent = 2; // 偏移2%
+        const charId = charEl.id.replace('char-', '');
+        
+        console.log(`[持续发抖] 启动 char-${charId}, isContinuous=${isContinuous}, 当前位置: ${currentLeft}`);
         
         // 如果是持续发抖，先停止之前的定时器
         if (isContinuous && this.state.shakingChars) {
-            const charId = charEl.id.replace('char-', '');
             if (this.state.shakingChars[charId]) {
-                clearInterval(this.state.shakingChars[charId]);
+                console.log(`[持续发抖] 清除旧的定时器`);
+                clearTimeout(this.state.shakingChars[charId]);
+                delete this.state.shakingChars[charId];
             }
         }
         
@@ -4439,6 +4550,15 @@ const gameEngine = {
         const maxSteps = isContinuous ? Infinity : 6; // 3次循环 x 2步 = 6步
         
         const animate = () => {
+            // 检查是否已被外部停止（通过 DOM 元素上的标记）
+            if (isContinuous && charEl.dataset.shakeStopped === 'true') {
+                console.log(`[持续发抖] char-${charId} 检测到停止标记，退出动画`);
+                // 已被停止，恢复原位并退出
+                charEl.style.left = currentLeft;
+                delete charEl.dataset.shakeStopped; // 清理标记
+                return;
+            }
+            
             if (!isContinuous && step >= maxSteps) {
                 // 非持续模式，动画结束后恢复原位
                 charEl.style.left = currentLeft;
@@ -4458,7 +4578,6 @@ const gameEngine = {
             
             if (isContinuous) {
                 // 持续模式，使用定时器
-                const charId = charEl.id.replace('char-', '');
                 if (!this.state.shakingChars) {
                     this.state.shakingChars = {};
                 }
@@ -4473,19 +4592,26 @@ const gameEngine = {
     },
 
     /**
-     * 停止“持续发抖”动作
+     * 停止"持续发抖"动作
      */
     stopShakeAction: function(charId) {
+        console.log(`[停止发抖] 尝试停止 char-${charId}`);
         if (this.state.shakingChars && this.state.shakingChars[charId]) {
+            console.log(`[停止发抖] 清除定时器，设置停止标记`);
             clearTimeout(this.state.shakingChars[charId]);
             delete this.state.shakingChars[charId];
-            
+                
             // 恢复立绘到正常位置
             const charEl = document.getElementById(`char-${charId}`);
             if (charEl && this.state.activeChars[charId]) {
                 const props = this.state.activeChars[charId];
                 charEl.style.left = props.left;
+                // 设置停止标记
+                charEl.dataset.shakeStopped = 'true';
+                console.log(`[停止发抖] 已设置停止标记，当前位置: ${charEl.style.left}`);
             }
+        } else {
+            console.log(`[停止发抖] char-${charId} 没有活跃的定时器`);
         }
     },
 
@@ -4507,6 +4633,8 @@ const gameEngine = {
      * - 如果指定了 y: 参数，则忽略所有垂直位置文字关键词
      */
     parseCharModifiers: function(mods) {
+        console.log(`[CharParser] Parsing modifiers: "${mods}"`);
+        
         let left = '50%'; // 默认中
         let zIndexOffset = 0;
         let clipPath = 'none'; // 默认不裁剪
@@ -4519,6 +4647,7 @@ const gameEngine = {
     
         // 将修饰词按空格分割为数组，便于精确匹配
         const modArray = mods.split(' ').filter(Boolean);
+        console.log(`[CharParser] Modifier tokens: [${modArray.join(', ')}]`);
     
         // 定义中英文关键词映射表
         const positionMap = {
@@ -4573,7 +4702,12 @@ const gameEngine = {
                     const percentValue = parseFloat(value.slice(0, -1));
                     if (!isNaN(percentValue)) {
                         preciseX = percentValue;
+                        console.log(`[CharParser] Detected precise X coordinate: x:${preciseX}%`);
+                    } else {
+                        console.warn(`[CharParser] Invalid X coordinate format: ${mod}`);
                     }
+                } else {
+                    console.warn(`[CharParser] Invalid X coordinate format (missing %): ${mod}`);
                 }
             }
             // 检测 y: 格式
@@ -4583,24 +4717,36 @@ const gameEngine = {
                     const percentValue = parseFloat(value.slice(0, -1));
                     if (!isNaN(percentValue)) {
                         preciseY = percentValue;
+                        console.log(`[CharParser] Detected precise Y coordinate: y:${preciseY}%`);
+                    } else {
+                        console.warn(`[CharParser] Invalid Y coordinate format: ${mod}`);
                     }
+                } else {
+                    console.warn(`[CharParser] Invalid Y coordinate format (missing %): ${mod}`);
                 }
             }
         }
     
         // 第二步：如果没有精确X坐标，则解析水平位置关键词
         if (preciseX === null) {
+            let positionKeywordFound = false;
             for (const mod of modArray) {
                 if (positionMap.hasOwnProperty(mod)) {
-                    const normalized = positionMap[mod];
-                    switch(normalized) {
-                        case 'leftl': left = '15%'; break;
-                        case 'left': left = '25%'; break;
-                        case 'leftr': left = '35%'; break;
-                        case 'middle': left = '50%'; break;
-                        case 'rightl': left = '65%'; break;
-                        case 'right': left = '75%'; break;
-                        case 'rightr': left = '85%'; break;
+                    if (positionKeywordFound) {
+                        console.warn(`[CharParser] Conflict: Horizontal position '${mod}' ignored. First match retained.`);
+                    } else {
+                        const normalized = positionMap[mod];
+                        switch(normalized) {
+                            case 'leftl': left = '15%'; break;
+                            case 'left': left = '25%'; break;
+                            case 'leftr': left = '35%'; break;
+                            case 'middle': left = '50%'; break;
+                            case 'rightl': left = '65%'; break;
+                            case 'right': left = '75%'; break;
+                            case 'rightr': left = '85%'; break;
+                        }
+                        console.log(`[CharParser] Horizontal position set: '${mod}' -> ${left}`);
+                        positionKeywordFound = true;
                     }
                     break; // 取第一个匹配的位置
                 }
@@ -4608,20 +4754,38 @@ const gameEngine = {
         } else {
             // 如果有精确X坐标，计算left值（以50%为中心点）
             left = `calc(50% + ${preciseX}%)`;
+            
+            // 检查是否有水平位置关键词被忽略
+            const ignoredPositions = [];
+            for (const mod of modArray) {
+                if (positionMap.hasOwnProperty(mod)) {
+                    ignoredPositions.push(mod);
+                }
+            }
+            if (ignoredPositions.length > 0) {
+                console.log(`[CharParser] Precise X coordinate overrides horizontal keywords: [${ignoredPositions.join(', ')}] ignored.`);
+            }
         }
     
         // 第三步：如果没有精确Y坐标，则解析垂直位置关键词
         if (preciseY === null) {
+            let verticalKeywordFound = false;
             for (const mod of modArray) {
                 if (verticalMap.hasOwnProperty(mod)) {
-                    const normalized = verticalMap[mod];
-                    switch(normalized) {
-                        case 'down': bottom = '-25%'; break;
-                        case 'downm': bottom = '-50%'; break;
-                        case 'downd': bottom = '-65%'; break;
-                        case 'up': bottom = '25%'; break;
-                        case 'upm': bottom = '50%'; break;
-                        case 'upu': bottom = '65%'; break;
+                    if (verticalKeywordFound) {
+                        console.warn(`[CharParser] Conflict: Vertical position '${mod}' ignored. First match retained.`);
+                    } else {
+                        const normalized = verticalMap[mod];
+                        switch(normalized) {
+                            case 'down': bottom = '-25%'; break;
+                            case 'downm': bottom = '-50%'; break;
+                            case 'downd': bottom = '-65%'; break;
+                            case 'up': bottom = '25%'; break;
+                            case 'upm': bottom = '50%'; break;
+                            case 'upu': bottom = '65%'; break;
+                        }
+                        console.log(`[CharParser] Vertical position set: '${mod}' -> ${bottom}`);
+                        verticalKeywordFound = true;
                     }
                     break; // 取第一个匹配的垂直位置
                 }
@@ -4629,68 +4793,143 @@ const gameEngine = {
         } else {
             // 如果有精确Y坐标，直接使用（正值向上，负值向下）
             bottom = `${preciseY}%`;
+            
+            // 检查是否有垂直位置关键词被忽略
+            const ignoredVerticals = [];
+            for (const mod of modArray) {
+                if (verticalMap.hasOwnProperty(mod)) {
+                    ignoredVerticals.push(mod);
+                }
+            }
+            if (ignoredVerticals.length > 0) {
+                console.log(`[CharParser] Precise Y coordinate overrides vertical keywords: [${ignoredVerticals.join(', ')}] ignored.`);
+            }
         }
     
         // 第四步：提取层级关键词（取第一个匹配的）
+        let layerKeywordFound = false;
         for (const mod of modArray) {
             if (layerMap.hasOwnProperty(mod)) {
-                const normalized = layerMap[mod];
-                if (normalized === 'front') zIndexOffset = 1;
-                if (normalized === 'back') zIndexOffset = -1;
+                if (layerKeywordFound) {
+                    console.warn(`[CharParser] Conflict: Layer keyword '${mod}' ignored. First match retained.`);
+                } else {
+                    const normalized = layerMap[mod];
+                    if (normalized === 'front') zIndexOffset = 1;
+                    if (normalized === 'back') zIndexOffset = -1;
+                    console.log(`[CharParser] Layer set: '${mod}' -> zIndex offset ${zIndexOffset}`);
+                    layerKeywordFound = true;
+                }
                 break; // 取第一个匹配的层级
             }
         }
     
         // 第五步：提取“瞬”指令关键词（取第一个匹配的）
+        let instantKeywordFound = false;
         for (const mod of modArray) {
             if (animationMap.hasOwnProperty(mod)) {
-                instant = true;
+                if (instantKeywordFound) {
+                    console.warn(`[CharParser] Conflict: Animation keyword '${mod}' ignored. First match retained.`);
+                } else {
+                    instant = true;
+                    console.log(`[CharParser] Instant mode enabled by: '${mod}'`);
+                    instantKeywordFound = true;
+                }
                 break; // 取第一个匹配的动画指令
             }
         }
     
         // 第六步：提取百分比缩放关键词
+        let scaleKeywordFound = false;
         for (const mod of modArray) {
             // 检查是否以 % 结尾，但不是 x: 或 y: 格式
             if (mod.endsWith('%') && !mod.startsWith('x:') && !mod.startsWith('y:')) {
                 const percentValue = parseFloat(mod.slice(0, -1));
                 if (!isNaN(percentValue)) {
-                    // 计算公式：最终缩放比例 = 1 + (输入百分比数值 / 100)
-                    // 0 或 0% 仍保持 100% 大小
-                    scale = 1 + (percentValue / 100);
-                    // 确保缩放比例为正数
-                    if (scale <= 0) {
-                        console.warn(`缩放比例不能为负数或零，已重置为默认值 100%`);
-                        scale = 1;
+                    if (scaleKeywordFound) {
+                        console.warn(`[CharParser] Conflict: Scale modifier '${mod}' ignored. First match retained.`);
+                    } else {
+                        // 计算公式：最终缩放比例 = 1 + (输入百分比数值 / 100)
+                        // 0 或 0% 仍保持 100% 大小
+                        scale = 1 + (percentValue / 100);
+                        // 确保缩放比例为正数
+                        if (scale <= 0) {
+                            console.warn(`[CharParser] Invalid scale value ${percentValue}%, reset to 100%`);
+                            scale = 1;
+                        } else {
+                            console.log(`[CharParser] Scale set: ${percentValue}% -> final scale ${(scale * 100).toFixed(0)}%`);
+                        }
+                        scaleKeywordFound = true;
                     }
                     break; // 只使用第一个百分比值
+                } else {
+                    console.warn(`[CharParser] Invalid scale format: ${mod}`);
                 }
             }
         }
     
         // 第七步：提取动作类型指令（取第一个匹配的）
         let hasAction = false;
+        let actionKeywordFound = false;
         for (const mod of modArray) {
             if (actionMap.hasOwnProperty(mod)) {
-                actionType = actionMap[mod];
-                hasAction = true;
+                if (actionKeywordFound) {
+                    console.warn(`[CharParser] Conflict: Action keyword '${mod}' ignored. First match retained.`);
+                } else {
+                    actionType = actionMap[mod];
+                    hasAction = true;
+                    console.log(`[CharParser] Action detected: '${mod}' -> ${actionType}`);
+                    actionKeywordFound = true;
+                }
                 break; // 取第一个匹配的动作指令
             }
         }
     
         // 第八步：提取渐入/渐出指令（取第一个匹配的）
         let fadeType = null;
+        let fadeKeywordFound = false;
         for (const mod of modArray) {
             if (fadeMap.hasOwnProperty(mod)) {
-                fadeType = fadeMap[mod];
+                if (fadeKeywordFound) {
+                    console.warn(`[CharParser] Conflict: Fade keyword '${mod}' ignored. First match retained.`);
+                } else {
+                    fadeType = fadeMap[mod];
+                    console.log(`[CharParser] Fade effect detected: '${mod}' -> ${fadeType}`);
+                    fadeKeywordFound = true;
+                }
                 break; // 取第一个匹配的渐入/渐出指令
             }
         }
     
         // 如果存在动作指令，自动屏蔽“瞬”指令
-        if (hasAction) {
+        if (hasAction && instant) {
+            console.log(`[CharParser] Action '${actionType}' executed. 'instant' flag ignored due to action priority.`);
             instant = false;
         }
+    
+        // 检测未识别的修饰词
+        const allKnownKeywords = [
+            ...Object.keys(positionMap),
+            ...Object.keys(verticalMap),
+            ...Object.keys(layerMap),
+            ...Object.keys(animationMap),
+            ...Object.keys(actionMap),
+            ...Object.keys(fadeMap)
+        ];
+        
+        for (const mod of modArray) {
+            // 跳过已知的关键词
+            if (allKnownKeywords.includes(mod)) continue;
+            // 跳过精确坐标
+            if (mod.startsWith('x:') || mod.startsWith('y:')) continue;
+            // 跳过百分比缩放
+            if (mod.endsWith('%')) continue;
+            // 跳过角色ID（最后一个部分，在 updateChar 中处理）
+            
+            // 如果都不是，可能是未知关键词
+            console.warn(`[CharParser] Warning: Unknown modifier '${mod}' in '[${mods} lhX]'. Ignored.`);
+        }
+    
+        console.log(`[CharParser] Final result: left=${left}, bottom=${bottom}, zIndex=${10 + zIndexOffset}, scale=${(scale * 100).toFixed(0)}%, instant=${instant}, action=${actionType || 'none'}, fade=${fadeType || 'none'}`);
     
         return {
             left,
