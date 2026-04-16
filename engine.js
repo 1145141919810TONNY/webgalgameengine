@@ -597,8 +597,11 @@ const gameEngine = {
             }
         }
 
-        // 只有在非转场行才立即渲染文本和姓名
-        if (!isTransition) {
+        // 检测是否为纯命令行（只有 command 属性，没有 text 或 text 为空）
+        const isPureCommand = line.command && (!line.text || line.text.trim() === '');
+
+        // 只有在非转场行且非纯命令行时才立即渲染文本和姓名
+        if (!isTransition && !isPureCommand) {
             // 设置说话者姓名
             if (line.speaker) {
                 this.elements.nameBox.textContent = line.speaker;
@@ -609,6 +612,11 @@ const gameEngine = {
 
             // 显示文本（支持分段和打字机效果）
             this.typeTextWithSplits(line.text);
+        } else if (isPureCommand) {
+            // 纯命令行：确保姓名框和文本框的状态正确
+            if (line.speaker === null || line.speaker === undefined) {
+                this.elements.nameBox.style.display = 'none';
+            }
         }
         
         // 解析并播放音频序列（支持[a]标签的多段音频）
@@ -746,21 +754,24 @@ const gameEngine = {
         // 解析命令字符串为结构化对象
         const parsedCommand = this.parseCommand(command);
         
+        // 定义需要等待用户点击的命令类型
+        const waitForClickCommands = ['waitForClick'];
+        
+        // 定义需要等待动画完成的命令类型（这些命令不应自动进入下一行）
+        const animationCommands = ['fadeOut', 'fadeIn', 'finishGame', 'waitForTime'];
+        
         // 执行解析后的命令
         if (parsedCommand.type) {
             this.handleAction(parsedCommand);
         }
-        
-        // 定义需要等待用户点击的命令类型
-        const waitForClickCommands = ['waitForClick'];
         
         // 如果命令需要等待用户点击，显示提示信息
         if (waitForClickCommands.includes(parsedCommand.type)) {
             this.elements.textBox.textContent = '点击继续';
             this.elements.nameBox.textContent = '系统';
             this.elements.nameBox.style.display = 'block';
-        } else {
-            // 如果没有后续文本，自动进入下一行
+        } else if (!animationCommands.includes(parsedCommand.type)) {
+            // 如果没有后续文本且不是动画命令，自动进入下一行
             if (!parsedCommand.text) {
                 setTimeout(() => {
                     this.nextLine();
@@ -871,10 +882,19 @@ const gameEngine = {
                 };
             
             case 'wait':
-                // 等待用户点击
-                return {
-                    type: 'waitForClick'
-                };
+                // 等待用户点击或指定时间
+                if (params.time) {
+                    // 如果有 time 参数，等待指定时间后自动继续
+                    return {
+                        type: 'waitForTime',
+                        duration: parseInt(params.time)
+                    };
+                } else {
+                    // 否则等待用户点击
+                    return {
+                        type: 'waitForClick'
+                    };
+                }
             
             case 'pov':
                 // 处理POV视角指令
@@ -956,6 +976,12 @@ const gameEngine = {
                 // 显示选项菜单
                 this.showChoices(action.choices);
                 break;
+            case 'waitForTime':
+                // 等待指定时间后自动继续
+                setTimeout(() => {
+                    this.nextLine();
+                }, action.duration || 1000);
+                break;
             case 'novelOn':
                 // 开启全屏小说模式
                 this.setNovelMode(true);
@@ -971,10 +997,19 @@ const gameEngine = {
                 }
                 break;
             case 'fadeOut':
-                this.fadeOut(action.duration || 1000, action.backgroundColor || 'black');
+                this.fadeOut(action.duration || 1000, action.backgroundColor || 'black', () => {
+                    // 淡出完成后自动进入下一行
+                    setTimeout(() => {
+                        this.nextLine();
+                    }, 50);
+                });
                 break;
             case 'fadeIn':
                 this.fadeIn(action.duration || 1000, action.backgroundColor || 'black');
+                // 淡入完成后自动进入下一行
+                setTimeout(() => {
+                    this.nextLine();
+                }, (action.duration || 1000) + 100);
                 break;
             case 'clearName':
                 this.clearNameBox();
@@ -1522,13 +1557,14 @@ const gameEngine = {
     typeTextWithSplits: function(text) {
         // 根据模式选择文本容器并清空
         if (this.state.novelMode) {
-            this.elements.novelTextBox.textContent = '';
+            this.elements.novelTextBox.innerHTML = '';
         } else {
-            this.elements.textBox.textContent = '';
+            this.elements.textBox.innerHTML = '';
         }
         
-        // 按[s]标签分割文本
-        const segments = text.split(/\[s\]/i);
+        // 先处理换行符，再按[s]标签分割文本
+        const processedText = this.processLineBreaks(text);
+        const segments = processedText.split(/\[s\]/i);
         
         if (segments.length <= 1) {
             // 没有[s]标签，使用普通打字机效果
@@ -1598,7 +1634,7 @@ const gameEngine = {
      * @param {number} currentSegment - 当前分段索引
      */
     showCumulativeText: function(fullText, currentSegment) {
-        // 计算之前的内容长度
+        // 计算之前的内容长度（基于字符数，包括HTML标签）
         let previousLength = 0;
         for (let i = 0; i < currentSegment; i++) {
             previousLength += this.state.textSegments[i].length;
@@ -1606,8 +1642,8 @@ const gameEngine = {
         
         const targetBox = this.state.novelMode ? this.elements.novelTextBox : this.elements.textBox;
         
-        // 显示已有的内容
-        targetBox.textContent = fullText.substring(0, previousLength);
+        // 显示已有的内容（使用 innerHTML 以支持 <br> 等 HTML 标签）
+        targetBox.innerHTML = fullText.substring(0, previousLength);
         
         // 对新增部分使用打字效果
         const newText = fullText.substring(previousLength);
@@ -1633,8 +1669,26 @@ const gameEngine = {
         
         const typeWriter = () => {
             if (i < text.length) {
-                targetBox.textContent += text.charAt(i);
-                i++;
+                // 处理 HTML 标签，确保不会在标签中间断开
+                let charToAdd = text.charAt(i);
+                    
+                // 如果遇到<，需要找到对应的>
+                if (charToAdd === '<') {
+                    let tagEnd = text.indexOf('>', i);
+                    if (tagEnd !== -1) {
+                        // 添加整个标签
+                        targetBox.innerHTML += text.substring(i, tagEnd + 1);
+                        i = tagEnd + 1;
+                    } else {
+                        // 如果没有找到>，当作普通字符处理
+                        targetBox.innerHTML += charToAdd;
+                        i++;
+                    }
+                } else {
+                    targetBox.innerHTML += charToAdd;
+                    i++;
+                }
+                    
                 this.state.typingTimerId = setTimeout(typeWriter, speed);
             } else {
                 this.state.typingActive = false;
@@ -2121,11 +2175,32 @@ const gameEngine = {
             return;
         }
         
+        // 停止当前 BGM 播放
+        const bgmPlayer = this.elements.bgmPlayer;
+        if (bgmPlayer && !bgmPlayer.paused) {
+            console.log('视频播放：停止当前 BGM');
+            bgmPlayer.pause();
+            bgmPlayer.currentTime = 0;
+        }
+        
         // 设置视频源
         this.elements.mainVideo.src = videoPath;
         
         // 显示视频播放器
         this.elements.videoPlayer.style.display = 'block';
+        
+        // 添加视频播放结束事件监听器
+        const self = this;
+        const onVideoEnded = function() {
+            console.log('视频播放结束');
+            // 移除事件监听器（避免重复触发）
+            self.elements.mainVideo.removeEventListener('ended', onVideoEnded);
+            // 隐藏视频播放器
+            self.elements.videoPlayer.style.display = 'none';
+            // 继续下一行
+            self.nextLine();
+        };
+        this.elements.mainVideo.addEventListener('ended', onVideoEnded);
         
         this.elements.mainVideo.play().catch(e => console.log('视频播放失败:', e));
         
@@ -2232,8 +2307,12 @@ const gameEngine = {
         // 同步调试日志状态（虽然只是隐藏，但为了保持一致性）
         this.syncDebugCharsState();
         
-        // 执行淡出效果
-        this.fadeOut(duration || 1500, bgColor || 'black');
+        // 执行淡出效果，完成后自动进入下一行
+        this.fadeOut(duration || 1500, bgColor || 'black', () => {
+            setTimeout(() => {
+                this.nextLine();
+            }, 50);
+        });
     },
     
     /**
