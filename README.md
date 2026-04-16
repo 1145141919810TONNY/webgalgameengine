@@ -8,6 +8,9 @@
 
 本引擎的教学网页：[https://1145141919810tonny.github.io/Shioriteaching/](https://1145141919810tonny.github.io/Shioriteaching/)
 
+由于引擎在早期开发阶段缺乏完整的资源测试环境，本 README 中可能包含部分已废弃或不支持的语法。**若与本文档存在冲突，请以README2.MD文档为准。**
+[README2.MD](README2.MD)
+
 # Shiori 命名缘起
 
 “Shiori”（栞），在日语中意为“书签”。
