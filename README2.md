@@ -118,6 +118,21 @@
                 }
 ```
 
+如果需要保持在选项时页面整洁，你可以：
+```javascript
+                {//注意，选项前如果需要清空文本框需要加这一行
+                    text: "",
+                    command: "[msgoff]",
+                },
+                { 
+                    text: "", 
+                    action: {
+                        type: "nextScene",
+                        target: "scene2.html"//在这输入你需要跳转的网页名称
+                    }
+                }
+```
+
 # 可用指令集合
 - [novel]、[normal]：开启，结束全屏小说模式
 - [msgoff] - 隐藏文本框（在单独的命令行中使用，text 留空，并且再设置一个空的text）
