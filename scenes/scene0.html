@@ -52,10 +52,13 @@
     <!-- 上下文菜单 -->
     <div id="context-menu" class="context-menu">
         <ul>
-            <li onclick="window.location.href='../saves.html'">进度管理</li>
+            <li onclick="QuickSaveManager.quickSave()">保存存档 (F5)</li>
+            <li onclick="QuickSaveManager.openArchivePage()">存档页面</li>
+            <li onclick="gameEngine.saveStateSnapshot(); window.location.href='../saves.html'">进度管理</li>
             <li onclick="window.location.href='../index.html'">返回标题页面</li>
-        </ul><div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255, 215, 0, 0.3); color: rgba(255, 215, 0, 0.6); font-size: 12px; line-height: 1.8; text-align: center;">
+        </ul>        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255, 215, 0, 0.3); color: rgba(255, 215, 0, 0.6); font-size: 12px; line-height: 1.8; text-align: center;">
             <div>F1 - 调试面板</div>
+            <div>F5 - 快速保存</div>
             <div>Ctrl - 快进模式</div>
             <div>+ / ↑ 增加音量 | - / ↓ 减少音量</div>
         </div>
@@ -104,17 +107,14 @@
                     text: "这是一段长文本，[s]点击鼠标后会显示这一段。",
                     speaker: "角色A"
                 },
-                {
+                {//注意，选项前如果需要清空文本框需要加这一行，保持页面只有选项
                     text: "",
-                    command: "[wait]" // 暂停剧情，等待玩家点击后继续
+                    command: "[msgoff]",
                 },
 
                 /*这是直接跳转下一个页面
                 { 
-                    text: "选项内容", 
-                    speaker: "旁白", 
-                    background: "bg1",
-                    audio: null,
+                    text: "", 
                     action: {
                         type: "nextScene",
                         target: "../index.html"
@@ -123,11 +123,7 @@
                     */
                    /*这是选项跳转
                 { 
-                    text: "请在下面添加您的剧情内容", 
-                    speaker: "系统", 
-                    background: null,
-                    bgm: null,
-                    audio: null,
+                    text: "", 
                     action: {
                         type: "choice",
                         choices: [
@@ -142,7 +138,12 @@
         
         // 初始化游戏
         document.addEventListener('DOMContentLoaded', () => {
-            gameEngine.init(sceneData);
+            // 检查URL中是否包含startLine参数
+            const urlParams = new URLSearchParams(window.location.search);
+            const startLine = parseInt(urlParams.get('startLine')) || 0;
+            
+            // 使用起始行号初始化引擎
+            gameEngine.init(sceneData, startLine);
         });
         
     </script>
