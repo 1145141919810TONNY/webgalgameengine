@@ -2,11 +2,11 @@
 
 **重要说明：**
 
-由于引擎在早期开发阶段缺乏完整的资源测试环境，旧版 README 中可能包含部分已废弃或不支持的语法。本文档将全面罗列当前版本所有可用的语法与指令。**若与其他文档存在冲突，请以本文档为准。**
+由于引擎在早期开发阶段缺乏完整的资源测试环境，旧版 README 中可能包含部分已废弃或不支持的语法。本文档将全面罗列当前版本（V1.2.3）所有可用的语法与指令。**若与其他文档存在冲突，请以本文档为准。**
 
 在更新日志中的内容本文件不再赘述，原README.md中正确的指令此文件也不再赘述。
 
-更新时间：2026/4/29 V1.2.4
+更新时间：2026/4/16 V1.2.3
 
 - 立绘类命令请参考[illustration.md](assets/chars/illustration.md) 
 - 背景类命令请参考[background.md](assets/bg/background.md)
@@ -129,15 +129,15 @@
 
 **保持选项页面整洁：**
 ```javascript
-{//注意，选项前如果需要清空文本框需要加这一行
-    text: "",
-    command: "[msgoff]",
-},
 { 
     text: "", 
+    command: "[msgoff]",
     action: {
-        type: "nextScene",
-        target: "scene2.html"//在这输入你需要跳转的网页名称
+        type: "choice",
+        choices: [
+            { text: "前往场景1", target: "scene1.html" },
+            { text: "返回主菜单", target: "../index.html" }//这个是返回主菜单
+        ]
     }
 }
 ```
