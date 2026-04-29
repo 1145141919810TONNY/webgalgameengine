@@ -60,7 +60,9 @@ const gameEngine = {
         // 角色名称标识符映射表 { roleName: { charId, domElement } }
         charNameMap: {},
         // F5按键防抖标记
-        _f5Pressed: false
+        _f5Pressed: false,
+        // 鼠标点击锁定状态（用于 [阻止]/[lock] 和 [解锁]/[free] 标签）
+        isClickLocked: false
     },
     
     elements: {
@@ -422,6 +424,18 @@ const gameEngine = {
                 return;
             }
             
+            // 如果鼠标点击被锁定，屏蔽点击事件（除非是Ctrl快进模式）
+            if (this.state.isClickLocked && !this.state.fastForwardActive) {
+                console.log('[点击锁定] 点击被屏蔽，按住Ctrl键可强制快进');
+                return;
+            }
+            
+            // 如果背景转场正在进行，屏蔽点击事件（除非是Ctrl快进模式）
+            if (this.state.isBackgroundTransitioning && !this.state.fastForwardActive) {
+                console.log('背景转场进行中，屏蔽点击事件');
+                return;
+            }
+            
             if (!this.state.choicesActive && !this.isOptionElement(e.target)) {
                 if (this.state.waitingForSegmentClick) {
                     if (this.state.typingActive) {
@@ -460,6 +474,20 @@ const gameEngine = {
             // 如果上下文菜单正在显示，屏蔽右键事件
             if (this.elements.contextMenu && this.elements.contextMenu.classList.contains('show')) {
                 e.preventDefault();
+                return;
+            }
+            
+            // 如果背景转场正在进行，屏蔽右键事件（除非是Ctrl快进模式）
+            if (this.state.isBackgroundTransitioning && !this.state.fastForwardActive) {
+                e.preventDefault();
+                console.log('背景转场进行中，屏蔽右键事件');
+                return;
+            }
+            
+            // 如果鼠标点击被锁定，屏蔽右键事件（除非是Ctrl快进模式）
+            if (this.state.isClickLocked && !this.state.fastForwardActive) {
+                e.preventDefault();
+                console.log('[点击锁定] 右键被屏蔽，按住Ctrl键可强制快进');
                 return;
             }
             
@@ -567,6 +595,36 @@ const gameEngine = {
             return;
         }
         
+        const line = this.sceneData.story[index];
+        
+        // 在获取行数据后立即检测转场指令，尽早启动屏蔽
+        let isTransitionEarly = false;
+        let transitionTypeEarly = 'fade';
+        if (line.background && typeof line.background === 'string') {
+            if (line.background.startsWith('trans ') || line.background.startsWith('转场 ')) {
+                isTransitionEarly = true;
+                transitionTypeEarly = 'fade';
+            } else if (line.background.startsWith('slideL ') || line.background.startsWith('左滑 ')) {
+                isTransitionEarly = true;
+                transitionTypeEarly = 'slideL';
+            } else if (line.background.startsWith('slideR ') || line.background.startsWith('右滑 ')) {
+                isTransitionEarly = true;
+                transitionTypeEarly = 'slideR';
+            } else if (line.background.startsWith('scanL ') || line.background.startsWith('左转场 ')) {
+                isTransitionEarly = true;
+                transitionTypeEarly = 'scanL';
+            } else if (line.background.startsWith('scanR ') || line.background.startsWith('右转场 ')) {
+                isTransitionEarly = true;
+                transitionTypeEarly = 'scanR';
+            }
+            
+            // 一旦检测到转场指令，立即设置屏蔽标志（最早可能的时机）
+            if (isTransitionEarly) {
+                this.state.isBackgroundTransitioning = true;
+                console.log(`[最早屏蔽] 在 displayLine 开始处检测到转场(${transitionTypeEarly})，立即启动输入屏蔽`);
+            }
+        }
+        
         // 重置文本完整显示标志
         this.state.textFullyDisplayed = false;
         
@@ -579,7 +637,7 @@ const gameEngine = {
             return;
         }
         
-        const line = this.sceneData.story[index];
+        // line 已在函数开始处声明，此处无需重复声明
 
         // 提前检测是否为转场指令，如果是则跳过本行的文本和姓名渲染
         let isTransition = false;
@@ -665,6 +723,12 @@ const gameEngine = {
                     transitionType = 'scanR';
                     targetBgId = line.background.replace(/^(scanR|右转场)\s+/, '').trim();
                 }
+                
+                // 一旦检测到转场指令，立即设置屏蔽标志，消除时序窗口
+                if (isTransition) {
+                    this.state.isBackgroundTransitioning = true;
+                    console.log(`[前置屏蔽] 检测到转场指令(${transitionType})，立即启动输入屏蔽`);
+                }
             }
 
             // 查找背景路径
@@ -686,7 +750,7 @@ const gameEngine = {
                 if (isTransition) {
                     // 执行原子化阻塞转场
                     this.performBackgroundTransition(bgPath, line, transitionType);
-                    return; // 【关键】立即返回，阻断当前行后续所有指令（chars, text, audio等）
+                    return; // 立即返回，阻断当前行后续所有指令（chars, text, audio等）
                 } else {
                     this.setBackground(bgPath);
                 }
@@ -714,14 +778,26 @@ const gameEngine = {
         }
         
         // 解析并执行标签命令（如[s]、[wait]等）
+        let hasBlockingCommand = false;
         if (line.command) {
-            this.executeCommand(line.command);
-            return;
+            // 如果同时存在 action，告诉 executeCommand 不要自动进入下一行
+            const shouldAutoNext = !line.action;
+            hasBlockingCommand = this.executeCommand(line.command, shouldAutoNext);
         }
         
         // 处理动作指令（如背景切换、特效等）
+        // 支持 command 和 action 同时存在：先执行 command，再执行 action
         if (line.action) {
             this.handleAction(line.action);
+            // 如果 action 是 choice 类型，需要激活选项状态
+            if (line.action.type === 'choice') {
+                hasBlockingCommand = true; // 选项需要等待用户选择
+            }
+        }
+        
+        // 如果执行了阻塞性命令（如动画、选项等），不自动进入下一行
+        if (hasBlockingCommand) {
+            return;
         }
         
         // 处理立绘指令
@@ -749,10 +825,13 @@ const gameEngine = {
      * 执行标签命令
      * 解析并执行场景文件中的命令标签（如[s]、[wait]、[novel]等）
      * @param {string} command - 命令字符串
+     * @param {boolean} shouldAutoNext - 是否应该在非阻塞命令执行后自动进入下一行（默认 true）
+     * @returns {boolean} - 如果是阻塞性命令（需要等待用户交互或动画完成），返回 true
      */
-    executeCommand: function(command) {
-        // 解析命令字符串为结构化对象
-        const parsedCommand = this.parseCommand(command);
+    executeCommand: function(command, shouldAutoNext = true) {
+        // 支持多指令并行解析：使用逗号分隔多个指令
+        // 例如：command: "[normal],[lock]" 或 command: "[pov 友凛],[阻止]"
+        const commands = command.split(',').map(cmd => cmd.trim()).filter(cmd => cmd.length > 0);
         
         // 定义需要等待用户点击的命令类型
         const waitForClickCommands = ['waitForClick'];
@@ -760,23 +839,45 @@ const gameEngine = {
         // 定义需要等待动画完成的命令类型（这些命令不应自动进入下一行）
         const animationCommands = ['fadeOut', 'fadeIn', 'finishGame', 'waitForTime'];
         
-        // 执行解析后的命令
-        if (parsedCommand.type) {
-            this.handleAction(parsedCommand);
-        }
+        let hasAnimationCommand = false;
+        let hasWaitForClickCommand = false;
         
-        // 如果命令需要等待用户点击，显示提示信息
-        if (waitForClickCommands.includes(parsedCommand.type)) {
+        // 依次执行每个指令
+        commands.forEach(cmd => {
+            // 解析命令字符串为结构化对象
+            const parsedCommand = this.parseCommand(cmd);
+            
+            // 执行解析后的命令
+            if (parsedCommand.type) {
+                this.handleAction(parsedCommand);
+                
+                // 检查命令类型
+                if (waitForClickCommands.includes(parsedCommand.type)) {
+                    hasWaitForClickCommand = true;
+                }
+                if (animationCommands.includes(parsedCommand.type)) {
+                    hasAnimationCommand = true;
+                }
+            }
+        });
+        
+        // 如果有任何命令需要等待用户点击，显示提示信息
+        if (hasWaitForClickCommand) {
             this.elements.textBox.textContent = '点击继续';
             this.elements.nameBox.textContent = '系统';
             this.elements.nameBox.style.display = 'block';
-        } else if (!animationCommands.includes(parsedCommand.type)) {
-            // 如果没有后续文本且不是动画命令，自动进入下一行
-            if (!parsedCommand.text) {
+            return true; // 阻塞性命令
+        } else if (hasAnimationCommand) {
+            // 如果有动画命令，也是阻塞性的
+            return true;
+        } else {
+            // 非阻塞性命令，根据 shouldAutoNext 参数决定是否自动进入下一行
+            if (shouldAutoNext) {
                 setTimeout(() => {
                     this.nextLine();
                 }, 100);
             }
+            return false; // 非阻塞性命令
         }
     },
     
@@ -923,6 +1024,20 @@ const gameEngine = {
                 return {
                     type: 'novelOff'
                 };
+            
+            case '阻止':
+            case 'lock':
+                // 锁定鼠标点击（屏蔽非快进模式的点击事件）
+                return {
+                    type: 'clickLock'
+                };
+            
+            case '解锁':
+            case 'free':
+                // 解除鼠标点击锁定
+                return {
+                    type: 'clickUnlock'
+                };
         }
             
         // 如果没有识别到命令，返回空对象
@@ -981,6 +1096,16 @@ const gameEngine = {
                 setTimeout(() => {
                     this.nextLine();
                 }, action.duration || 1000);
+                break;
+            case 'clickLock':
+                // 锁定鼠标点击
+                this.state.isClickLocked = true;
+                console.log('[点击锁定] 已启用，非快进模式的点击将被屏蔽');
+                break;
+            case 'clickUnlock':
+                // 解除鼠标点击锁定
+                this.state.isClickLocked = false;
+                console.log('[点击解锁] 已解除，恢复正常点击交互');
                 break;
             case 'novelOn':
                 // 开启全屏小说模式
@@ -1164,8 +1289,26 @@ const gameEngine = {
         
         console.log(`开始原子化背景转场 (${type}):`, newBgPath);
 
-        // 设置背景转场标志
+        // 如果处于 Ctrl 快进模式，立即跳过所有转场动画
+        if (this.state.fastForwardActive) {
+            console.log('快进模式下跳过背景转场动画');
+            this.removeAllChars();
+            this.setBackground(newBgPath);
+            
+            // 直接同步执行后续逻辑，不等待动画结束
+            this._resumeLineAfterTransition(currentLine, 0);
+            return;
+        }
+
+        // 立即设置背景转场标志，屏蔽用户点击交互
         this.state.isBackgroundTransitioning = true;
+        
+        // 记录转场起始行号作为锚点，用于后续校验
+        this.state.transitionStartLine = this.state.currentLine;
+        console.log(`[转场锚点] 记录起始行号: ${this.state.transitionStartLine}`);
+        
+        // 在转场动画正式开始前，立即清除所有旧立绘，确保画面干净
+        this.removeAllChars();
 
         // 立即清空当前的文本和姓名显示，防止转场过程中残留上一行的内容
         this.elements.textBox.textContent = '';
@@ -1175,7 +1318,7 @@ const gameEngine = {
         if (type === 'fade') {
             // 原有的淡入淡出逻辑
             this.fadeOut(duration, 'black', () => {
-                this.removeAllChars();
+                // 立绘已在转场开始时清除，此处无需再次调用
                 this.setBackground(newBgPath);
                 setTimeout(() => {
                     this.fadeIn(duration, 'black');
@@ -1195,6 +1338,25 @@ const gameEngine = {
      * 执行整体位移滑屏转场（左滑/右滑）
      */
     performSlideTransition: function(newBgPath, currentLine, type, duration) {
+        // 如果处于 Ctrl 快进模式，立即跳过动画并同步执行状态更新
+        if (this.state.fastForwardActive) {
+            console.log('快进模式下跳过滑动转场动画');
+            this.removeAllChars();
+            this.setBackground(newBgPath);
+            this._resumeLineAfterTransition(currentLine, 0);
+            return;
+        }
+
+        // 立即设置背景转场标志，屏蔽用户点击交互
+        this.state.isBackgroundTransitioning = true;
+        
+        // 记录转场起始行号作为锚点，用于后续校验
+        this.state.transitionStartLine = this.state.currentLine;
+        console.log(`[转场锚点-滑屏] 记录起始行号: ${this.state.transitionStartLine}`);
+        
+        // 在转场动画正式开始前，立即清除所有旧立绘，确保画面干净
+        this.removeAllChars();
+
         const bgContainer = this.elements.backgroundContainer;
         
         // 预加载新背景图片
@@ -1230,7 +1392,7 @@ const gameEngine = {
 
             // 动画结束后清理
             setTimeout(() => {
-                this.removeAllChars();
+                // 立绘已在转场开始时清除，此处无需再次调用
                 this.setBackground(newBgPath);
                 
                 // 重置旧背景容器的状态
@@ -1250,6 +1412,25 @@ const gameEngine = {
      * 执行扫描式转场（左转场/右转场）- 使用 Clip-path 防止拉伸
      */
     performScanTransition: function(newBgPath, currentLine, type, duration) {
+        // 如果处于 Ctrl 快进模式，立即跳过动画并同步执行状态更新
+        if (this.state.fastForwardActive) {
+            console.log('快进模式下跳过扫描转场动画');
+            this.removeAllChars();
+            this.setBackground(newBgPath);
+            this._resumeLineAfterTransition(currentLine, 0);
+            return;
+        }
+
+        // 立即设置背景转场标志，屏蔽用户点击交互
+        this.state.isBackgroundTransitioning = true;
+        
+        // 记录转场起始行号作为锚点，用于后续校验
+        this.state.transitionStartLine = this.state.currentLine;
+        console.log(`[转场锚点-扫描] 记录起始行号: ${this.state.transitionStartLine}`);
+        
+        // 在转场动画正式开始前，立即清除所有旧立绘，确保画面干净
+        this.removeAllChars();
+
         const bgContainer = this.elements.backgroundContainer;
         
         // 预加载新背景图片
@@ -1305,7 +1486,7 @@ const gameEngine = {
 
             // 动画结束后清理
             setTimeout(() => {
-                this.removeAllChars();
+                // 立绘已在转场开始时清除，此处无需再次调用
                 this.setBackground(newBgPath);
                 if (newLayer.parentNode) newLayer.parentNode.removeChild(newLayer);
                 this._resumeLineAfterTransition(currentLine, 50);
@@ -1317,6 +1498,15 @@ const gameEngine = {
      * 执行滑屏转场（扫描式擦除效果）
      */
     performSlideTransition: function(newBgPath, currentLine, type, duration) {
+        // 如果处于 Ctrl 快进模式，立即跳过动画并同步执行状态更新
+        if (this.state.fastForwardActive) {
+            console.log('快进模式下跳过滑动转场动画');
+            this.removeAllChars();
+            this.setBackground(newBgPath);
+            this._resumeLineAfterTransition(currentLine, 0);
+            return;
+        }
+
         const bgContainer = this.elements.backgroundContainer;
         
         // 预加载新背景图片，防止闪烁
@@ -1369,8 +1559,22 @@ const gameEngine = {
         setTimeout(() => {
             console.log('转场结束，恢复渲染当前行剩余内容');
             
-            // 清除背景转场标志
-            this.state.isBackgroundTransitioning = false;
+            // 校验行号一致性，防止因用户快速点击导致的状态错乱
+            const transitionStartLine = this.state.transitionStartLine;
+            const currentActualLine = this.state.currentLine;
+            
+            if (transitionStartLine !== undefined && transitionStartLine !== currentActualLine) {
+                console.warn(`[竞态检测] 转场起始行号(${transitionStartLine})与当前行号(${currentActualLine})不一致，放弃恢复旧行状态`);
+                console.log('[竞态修复] 清除转场标志，由 nextLine 强制同步最新状态');
+                
+                // 清除转场标志，允许用户交互
+                this.state.isBackgroundTransitioning = false;
+                
+                // 不清理锚点，让 nextLine 在下一次转场时覆盖
+                return; // 直接返回，不执行任何恢复逻辑
+            }
+            
+            console.log('[竞态校验] 行号一致，继续恢复转场前行状态');
             
             // 1. 恢复姓名框显示
             if (currentLine.speaker !== undefined) {
@@ -1394,6 +1598,42 @@ const gameEngine = {
                 this.state.isBackgroundTransitioning = false; // 允许渐变效果
                 this.renderChars(currentLine.chars);
                 this.state.isBackgroundTransitioning = originalTransitionState;
+            } else {
+                // 如果当前行没有 chars 指令，但系统中有活跃立绘状态，需要重新渲染以保持立绘显示
+                // 这是为了防止转场后立绘丢失的问题
+                const activeCharIds = Object.keys(this.state.activeChars || {});
+                if (activeCharIds.length > 0) {
+                    console.log('当前行无立绘指令，但存在活跃立绘，重新渲染以保持显示');
+                    // 重新构建 chars 指令字符串并渲染
+                    const charInstructions = [];
+                    activeCharIds.forEach(charId => {
+                        // 查找是否有角色名称标识符映射到这个 charId
+                        let roleName = null;
+                        if (this.state.charNameMap) {
+                            for (const [name, info] of Object.entries(this.state.charNameMap)) {
+                                if (info.charId === charId) {
+                                    roleName = name;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // 构建指令字符串
+                        if (roleName) {
+                            charInstructions.push(`[${roleName} ${charId}]`);
+                        } else {
+                            charInstructions.push(`[${charId}]`);
+                        }
+                    });
+                    
+                    if (charInstructions.length > 0) {
+                        const charsString = charInstructions.join('');
+                        const originalTransitionState = this.state.isBackgroundTransitioning;
+                        this.state.isBackgroundTransitioning = false; // 允许渐变效果
+                        this.renderChars(charsString);
+                        this.state.isBackgroundTransitioning = originalTransitionState;
+                    }
+                }
             }
             
             // 4. 处理音频与 BGM
@@ -1414,6 +1654,10 @@ const gameEngine = {
                     this.playAudio(currentLine.bgm);
                 }
             }
+
+            // 在所有渲染完成后，才清除背景转场标志，允许用户交互
+            this.state.isBackgroundTransitioning = false;
+            console.log('背景转场标志已清除，恢复用户交互');
 
             // 更新行号，准备进入下一行
             this.state.currentLine = this.state.currentLine; 
@@ -1822,6 +2066,14 @@ const gameEngine = {
      * 处理打字机效果、文本完整显示、场景结束等逻辑
      */
     nextLine: function() {
+        // 如果背景转场正在进行，强制重置转场状态
+        // 这确保了用户快速点击推进剧情时，能够中断旧转场并同步最新状态
+        if (this.state.isBackgroundTransitioning && !this.state.fastForwardActive) {
+            console.warn('[竞态修复] 检测到转场期间用户推进剧情，强制重置转场状态');
+            this.state.isBackgroundTransitioning = false;
+            // 不清理 transitionStartLine，让下一次转场时覆盖
+        }
+        
         // 如果选项菜单激活，不处理
         if (this.state.choicesActive) return; 
         
@@ -4152,6 +4404,30 @@ const gameEngine = {
             if (!hasExplicitScale && currentHeight) {
                 const oldScale = parseFloat(currentHeight) / 100;
                 if (!isNaN(oldScale)) props.scale = oldScale;
+            }
+        }
+        
+        // 防重复渲染机制：检查立绘状态是否真的需要更新
+        // 如果不是新立绘，且所有属性都与当前状态相同，则跳过更新以避免闪烁
+        if (!isNewChar && !isSameRoleDifferentImage) {
+            const currentState = this.state.activeChars[charId];
+            if (currentState) {
+                // 比较关键属性是否相同
+                const isSameState = (
+                    currentState.path === path &&
+                    currentState.left === props.left &&
+                    currentState.bottom === props.bottom &&
+                    currentState.zIndex === props.zIndex &&
+                    Math.abs((currentState.scale || 1) - props.scale) < 0.01 && // 允许小的浮点数误差
+                    !props.actionType && // 如果有动作指令，总是需要更新
+                    !props.fadeType // 如果有渐入/渐出指令，总是需要更新
+                );
+                
+                if (isSameState) {
+                    console.log(`[updateChar] 立绘 ${charId} 状态未改变，跳过重复渲染`);
+                    // 状态未改变，跳过更新以避免闪烁
+                    return;
+                }
             }
         }
                         
