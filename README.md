@@ -120,7 +120,7 @@
   ```javascript
   {
       text: "",
-      command: "[normal][lock]"  // 第一个剧情块
+      command: "[normal]"  // 第一个剧情块
   },
   {
       text: "",
