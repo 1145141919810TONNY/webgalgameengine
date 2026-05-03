@@ -1806,8 +1806,9 @@ const gameEngine = {
             this.elements.textBox.innerHTML = '';
         }
         
-        // 先处理换行符，再按[s]标签分割文本
-        const processedText = this.processLineBreaks(text);
+        // 先处理注音标签，再处理换行符，最后按[s]标签分割文本
+        const rubyProcessedText = this.processRubyText(text);
+        const processedText = this.processLineBreaks(rubyProcessedText);
         const segments = processedText.split(/\[s\]/i);
         
         if (segments.length <= 1) {
@@ -1918,15 +1919,37 @@ const gameEngine = {
                     
                 // 如果遇到<，需要找到对应的>
                 if (charToAdd === '<') {
-                    let tagEnd = text.indexOf('>', i);
-                    if (tagEnd !== -1) {
-                        // 添加整个标签
-                        targetBox.innerHTML += text.substring(i, tagEnd + 1);
-                        i = tagEnd + 1;
+                    // 检查是否是 <ruby> 标签
+                    if (text.substring(i, i + 6) === '<ruby>') {
+                        // 找到对应的 </ruby> 标签
+                        let rubyEnd = text.indexOf('</ruby>', i);
+                        if (rubyEnd !== -1) {
+                            // 添加整个 ruby 结构
+                            targetBox.innerHTML += text.substring(i, rubyEnd + 7);
+                            i = rubyEnd + 7;
+                        } else {
+                            // 如果没有找到，当作普通标签处理
+                            let tagEnd = text.indexOf('>', i);
+                            if (tagEnd !== -1) {
+                                targetBox.innerHTML += text.substring(i, tagEnd + 1);
+                                i = tagEnd + 1;
+                            } else {
+                                targetBox.innerHTML += charToAdd;
+                                i++;
+                            }
+                        }
                     } else {
-                        // 如果没有找到>，当作普通字符处理
-                        targetBox.innerHTML += charToAdd;
-                        i++;
+                        // 普通标签处理
+                        let tagEnd = text.indexOf('>', i);
+                        if (tagEnd !== -1) {
+                            // 添加整个标签
+                            targetBox.innerHTML += text.substring(i, tagEnd + 1);
+                            i = tagEnd + 1;
+                        } else {
+                            // 如果没有找到>，当作普通字符处理
+                            targetBox.innerHTML += charToAdd;
+                            i++;
+                        }
                     }
                 } else {
                     targetBox.innerHTML += charToAdd;
@@ -2001,7 +2024,9 @@ const gameEngine = {
      * @param {string} text - 要显示的文本内容
      */
     typeText: function(text) {
-        let processedText = this.processLineBreaks(text);
+        // 先处理注音标签，再处理换行符
+        let processedText = this.processRubyText(text);
+        processedText = this.processLineBreaks(processedText);
         
         const targetBox = this.state.novelMode ? this.elements.novelTextBox : this.elements.textBox;
             
@@ -2018,15 +2043,37 @@ const gameEngine = {
                     
                 // 如果遇到<，需要找到对应的>
                 if (charToAdd === '<') {
-                    let tagEnd = processedText.indexOf('>', i);
-                    if (tagEnd !== -1) {
-                        // 添加整个标签
-                        targetBox.innerHTML += processedText.substring(i, tagEnd + 1);
-                        i = tagEnd + 1;
+                    // 检查是否是 <ruby> 标签
+                    if (processedText.substring(i, i + 6) === '<ruby>') {
+                        // 找到对应的 </ruby> 标签
+                        let rubyEnd = processedText.indexOf('</ruby>', i);
+                        if (rubyEnd !== -1) {
+                            // 添加整个 ruby 结构
+                            targetBox.innerHTML += processedText.substring(i, rubyEnd + 7);
+                            i = rubyEnd + 7;
+                        } else {
+                            // 如果没有找到，当作普通标签处理
+                            let tagEnd = processedText.indexOf('>', i);
+                            if (tagEnd !== -1) {
+                                targetBox.innerHTML += processedText.substring(i, tagEnd + 1);
+                                i = tagEnd + 1;
+                            } else {
+                                targetBox.innerHTML += charToAdd;
+                                i++;
+                            }
+                        }
                     } else {
-                        // 如果没有找到>，当作普通字符处理
-                        targetBox.innerHTML += charToAdd;
-                        i++;
+                        // 普通标签处理
+                        let tagEnd = processedText.indexOf('>', i);
+                        if (tagEnd !== -1) {
+                            // 添加整个标签
+                            targetBox.innerHTML += processedText.substring(i, tagEnd + 1);
+                            i = tagEnd + 1;
+                        } else {
+                            // 如果没有找到>，当作普通字符处理
+                            targetBox.innerHTML += charToAdd;
+                            i++;
+                        }
                     }
                 } else {
                     targetBox.innerHTML += charToAdd;
@@ -2059,6 +2106,30 @@ const gameEngine = {
             .replace(/\\n/g, '<br>')         // \n 转义字符
             .replace(/<br\s*\/?>/gi, '<br>') // HTML <br> 标签（标准化）
             .replace(/\n/g, '<br>');          // 普通换行符
+    },
+    
+    /**
+     * 处理注音标签（Ruby/Furigana）
+     * 将 [汉字,拼音] 格式的注音标签转换为 <ruby>汉字<rt>拼音</rt></ruby>
+     * @param {string} text - 原始文本
+     * @returns {string} - 处理后的文本
+     */
+    processRubyText: function(text) {
+        if (!text) return text;
+        
+        // 正则表达式匹配 [文本,读音] 格式
+        // 支持拼音中包含空格的情况，例如：[复杂词,fu za ci]
+        // 使用贪婪匹配确保正确捕获内容
+        const rubyRegex = /\[([^\[,\s]+)\s*,\s*([^\]]+)\]/g;
+        
+        return text.replace(rubyRegex, (match, baseText, rubyText) => {
+            // 去除首尾空格
+            const cleanBase = baseText.trim();
+            const cleanRuby = rubyText.trim();
+            
+            // 返回标准的 ruby HTML 结构
+            return `<ruby>${cleanBase}<rt>${cleanRuby}</rt></ruby>`;
+        });
     },
     
     /**
@@ -2107,7 +2178,9 @@ const gameEngine = {
                 // 对于普通文本，从当前行获取
                 const currentLine = this.sceneData.story[this.state.currentLine];
                 if (currentLine && currentLine.text) {
-                    fullText = this.processLineBreaks(currentLine.text);
+                    // 先处理注音标签，再处理换行符
+                    fullText = this.processRubyText(currentLine.text);
+                    fullText = this.processLineBreaks(fullText);
                 }
             }
             
