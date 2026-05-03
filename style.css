@@ -124,7 +124,7 @@ body {
     align-self: flex-start;
     font-weight: bold;
     color: #FFD700;  /* 金色 */
-    font-size: 20px; /* 加大 */
+    font-size: 32px; /* 加大 */
     font-weight: 900; /* 加粗 */
     position: relative;
     top: -5px;
@@ -137,7 +137,7 @@ body {
 
 /* 文本框 */
 #text-box {
-    font-size: 18px;
+    font-size: 25px;
     line-height: 1.6;
     margin-top: 5px; /* 在姓名框下方一点 */
     flex-grow: 1;
@@ -146,6 +146,17 @@ body {
     -moz-user-select: none;
     -ms-user-select: none;
     cursor: default;
+}
+
+/* 常规模式下的注音样式 */
+#text-box ruby {
+    ruby-position: over;
+    -webkit-ruby-position: over;
+}
+
+#text-box rt {
+    font-size: 0.5em; /* 注音文字大小为主体文字的 50% */
+    line-height: 1.2;
 }
 
 /* 全屏小说模式容器 */
@@ -175,7 +186,7 @@ body {
 
 #novel-text-box {
     color: #1a1a1a;
-    font-size: 20px;
+    font-size: 30px;
     line-height: 2.0;
     max-width: calc(100% - 400px);
     width: calc(100% - 400px);
@@ -195,6 +206,17 @@ body {
     -moz-user-select: none;
     -ms-user-select: none;
     cursor: default;
+}
+
+/* 全屏小说模式下的注音样式 */
+#novel-text-box ruby {
+    ruby-position: over;
+    -webkit-ruby-position: over;
+}
+
+#novel-text-box rt {
+    font-size: 0.5em; /* 注音文字大小为主体文字的 50% */
+    line-height: 1.2;
 }
 
 /* 选项容器 */
