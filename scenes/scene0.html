@@ -22,7 +22,9 @@
     
     <!-- 文本框区域 -->
     <div id="text-box-container">
-        <div id="name-box">[姓名]</div>
+                <div id="name-box">
+<span>[姓名]</span>
+        </div>
         <div id="text-box">[文本]</div>
     </div>
     
@@ -71,50 +73,76 @@
         // 场景模板数据
         const sceneData = {
             background: BG_CONFIG_SUB,  // 使用背景图片集中配置（子目录路径）
-            bgm: BGM_CONFIG_SUB,  // 使用 BGM 集中配置（子目录路径）
-            audio: {
-                // 音效和语音定义示例
-                // 'sfx1': '../assets/audio/sound_effect1.wav',
-                // 'voice1': '../assets/audio/voice1.mp3'
-            },
+            bgm: BGM_CONFIG_SUB,        // 使用 BGM 集中配置（子目录路径）
+                    
+            // 音频资源零配置管理（推荐）
+            // 无需在此定义映射，直接使用文件名即可
+            // 引擎会自动从 assets/audio/ 目录下查找对应文件
+            audio: {},
+                    
+            // 视频资源零配置管理（推荐）
+            // 无需在此定义映射，直接使用文件名即可
+            // 引擎会自动从 assets/video/ 目录下查找对应文件
+            videos: {},
+                    
             story: [
                 // --- 第一节：完整属性展示与说明 ---
                 { 
                     text: "这是第一句对白，展示了所有可用的基础属性。", 
                     speaker: "角色A",   // [可选] 说话人姓名，若不显示名字请删除此项
-                    background: "背景_示例",  // [可选] 背景图 ID，引用自 bg_config.js；设为 null 则不改变当前背景
-                    bgm: "bgm_示例",         // [可选] BGM ID，引用自 bgm_config.js；设为 null 则不改变当前 BGM
-                    audio: "音效_示例",      // [可选] 音效或语音 ID，引用自 sceneData.audio；设为 null 则不播放
-                    chars: "[中 角色_示例]",  // [可选] 立绘指令，支持位置、缩放等控制（详见 illustration.md）
-                    command: "[pov 视角示例]",// [可选] 引擎指令，如 [pov], [wait], [fadeout] 等
-                    action: null             // [可选] 动作对象，用于分支选项、场景跳转等
+                    background: "bg_示例",     // [可选] 背景图 ID，引用自 bg_config.js；设为 null 则不改变当前背景
+                    bgm: "bgm_示例",           // [可选] BGM ID，引用自 bgm_config.js；设为 null 则不改变当前 BGM
+                    audio: "audio_示例",       // [可选] 音频文件名（零配置），自动解析为 ../assets/audio/audio_示例.ogg
+                    chars: "[中 char_示例]",   // [可选] 立绘指令，支持位置、缩放等控制（详见 illustration.md）
+                    command: "[pov 视角示例]", // [可选] 引擎指令，如 [pov], [wait], [fadeout] 等
+                    action: null               // [可选] 动作对象，用于分支选项、场景跳转等
                 },
-
-                // --- 第二节：立绘控制演示 ---
+        
+                // --- 第二节：音频零配置示例 ---
+                {
+                    text: "现在演示音频零配置功能，直接使用文件名即可播放。",
+                    speaker: "系统",
+                    audio: "voice1"  // 零配置：直接使用文件名，引擎自动拼接路径
+                },
+                {
+                    text: "也可以使用 [a] 标签连续播放多个音频。[s]现在播放第二个音频文件",
+                    speaker: "系统",
+                    audio: "voice2[a]voice3"  // 依次播放两个音频文件
+                },
+                        
+                // --- 第三节：视频零配置示例 ---
+                {
+                    text: "现在演示视频零配置功能，即将播放视频。",
+                    speaker: "系统",
+                    video: "video1"  // 零配置：直接使用文件名，引擎自动解析为 ../assets/video/video1.mp4
+                },
+                {
+                    text: "视频播放完毕，继续剧情。",
+                    speaker: "系统"
+                },
+        
+                // --- 第四节：立绘控制演示 ---
                 {
                     text: "现在展示如何切换不同的角色立绘。",
                     speaker: "系统", 
-                    chars: "[左 角色B],[右 角色C]" // 同时显示两个角色在不同位置
+                    chars: "[左 char1],[右 char2]" // 同时显示两个角色在不同位置
                 },
                 {
-                    text: "使用‘消失’指令可以移除指定的立绘。",
+                    text: "使用'消失'指令可以移除指定的立绘。",
                     speaker: "系统",
-                    chars: "[消失 角色B]"
+                    chars: "[消失 char1]"
                 },
-
-                // --- 第三节：指令与文本分段 ---
+        
+                // --- 第五节：指令与文本分段 ---
                 {
                     text: "这是一段长文本，[s]点击鼠标后会显示这一段。",
                     speaker: "角色A"
                 },
-                {//注意，选项前如果需要清空文本框需要加这一行，保持页面只有选项
-                    text: "",
-                    command: "[msgoff]",
-                },
-
+        
                 /*这是直接跳转下一个页面
                 { 
                     text: "", 
+                    command: "[msgoff]",
                     action: {
                         type: "nextScene",
                         target: "../index.html"
@@ -124,6 +152,7 @@
                    /*这是选项跳转
                 { 
                     text: "", 
+                    command: "[msgoff]",
                     action: {
                         type: "choice",
                         choices: [
