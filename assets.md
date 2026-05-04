@@ -139,7 +139,7 @@ const CHAR_CONFIG_SUB = {
     audio: "door_open" // 引擎自动查找 ../assets/audio/door_open.ogg
 },
 {
-    text: "连续播放语音",
+    text: "连续播放语音[s]播放第二条语音",
     audio: "voice1[a]voice2" // 依次播放两个音频文件
 }
 ```
