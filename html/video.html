@@ -175,7 +175,9 @@
     
     <!-- 文本框区域 -->
     <div id="text-box-container">
-        <div id="name-box">[姓名]</div>
+                <div id="name-box">
+<span>[姓名]</span>
+        </div>
         <div id="text-box">[文本]</div>
     </div>
     
@@ -210,24 +212,16 @@
     
     <!-- 视频列表容器 -->
     <div id="menu-container">
-        <button class="menu-btn" onclick="playVideo('op')">测试1（没有视频）</button>
-        <button class="menu-btn" onclick="playVideo('hhca')">宣传视频1</button>
-        <button class="menu-btn" onclick="playVideo('chdljt')">宣传视频2</button>
-        <button class="menu-btn" onclick="playVideo('video1')">宣传视频3</button>
+        <button class="menu-btn" onclick="playVideo('OP')">OP视频</button>
+        <button class="menu-btn" onclick="playVideo('video1')">宣传视频1</button>
+        <button class="menu-btn" onclick="playVideo('video2')">宣传视频2</button>
+        <button class="menu-btn" onclick="playVideo('video3')">宣传视频3</button>
     </div>
     
     <script>
-        // 视频资源映射
-        const videoMap = {
-            'op': '../assets/video/op.mp4',
-            'video1': '../assets/video/video1.mp4',
-            'hhca': '../assets/video/hhca.mp4',
-            'chdljt': '../assets/video/chdljt.mp4'
-        };
-        
         // 视频播放状态
         let isVideoPlaying = false;
-        
+            
         // 更新退出按钮的可见性
         function updateExitButtonVisibility() {
             const exitBtn = document.getElementById('exit-playback-btn');
@@ -235,13 +229,13 @@
                 exitBtn.style.display = isVideoPlaying ? 'block' : 'none';
             }
         }
-        
-        // 从URL参数获取视频文件名
+            
+        // 从 URL参数获取视频文件名
         function getVideoFromUrl() {
             const urlParams = new URLSearchParams(window.location.search);
             return urlParams.get('video');
         }
-        
+            
         // 检查是否从剧情中直接播放视频
         window.addEventListener('load', function() {
             const videoParam = getVideoFromUrl();
@@ -250,8 +244,8 @@
                 playSpecificVideo(videoParam);
             }
         });
-        
-        // 播放指定视频文件
+            
+        // 播放指定视频文件（零配置：自动解析路径）
         function playSpecificVideo(videoFileName) {
             // 构建视频路径
             let videoPath;
@@ -259,12 +253,12 @@
                 // 如果已经是完整路径，直接使用
                 videoPath = videoFileName;
             } else {
-                // 否则假设视频在assets/video目录下
-                videoPath = '../assets/video/' + videoFileName;
-                
+                // 否则假设视频在 assets/video 目录下
                 // 如果文件名不含扩展名，尝试添加常见扩展名
                 if (!videoFileName.includes('.')) {
                     videoPath = '../assets/video/' + videoFileName + '.mp4';
+                } else {
+                    videoPath = '../assets/video/' + videoFileName;
                 }
             }
             
@@ -404,19 +398,31 @@
             tryVideoPlayback(videoPath);
         }
 
-        // 播放预设视频
+        // 播放预设视频（零配置：直接使用文件名）
         function playVideo(videoName) {
             const videoPlayer = document.getElementById('video-player');
             const mainVideo = document.getElementById('main-video');
-            if (videoMap[videoName]) {
-                mainVideo.src = videoMap[videoName];
-                videoPlayer.style.display = 'block';
-                isVideoPlaying = true;
-                updateExitButtonVisibility();
-                mainVideo.play().catch(e => console.log("视频播放失败:", e));
+            
+            // 构建视频路径
+            let videoPath;
+            if (videoName.startsWith('../') || videoName.startsWith('/')) {
+                // 如果已经是完整路径，直接使用
+                videoPath = videoName;
             } else {
-                console.log("找不到视频:", videoName);
+                // 否则假设视频在 assets/video 目录下
+                // 如果文件名不含扩展名，添加 .mp4 扩展名
+                if (!videoName.includes('.')) {
+                    videoPath = '../assets/video/' + videoName + '.mp4';
+                } else {
+                    videoPath = '../assets/video/' + videoName;
+                }
             }
+            
+            mainVideo.src = videoPath;
+            videoPlayer.style.display = 'block';
+            isVideoPlaying = true;
+            updateExitButtonVisibility();
+            mainVideo.play().catch(e => console.log("视频播放失败:", e));
         }
 
         // 停止视频
@@ -460,5 +466,4 @@
         });
     </script>
 </body>
-
 </html>
