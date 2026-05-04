@@ -93,6 +93,12 @@ const gameEngine = {
     // 当前场景数据对象
     sceneData: null,
     
+    // 音频资源缓存映射表 { audioKey: audioPath }
+    audioCache: {},
+    
+    // 视频资源缓存映射表 { videoKey: videoPath }
+    videoCache: {},
+    
     /**
      * 为剧情数组中的每个对象添加源码行号范围
      * 通过正则表达式解析 HTML 文件内容，找到每个剧情对象的物理位置
@@ -686,11 +692,8 @@ const gameEngine = {
                 this.playAudio(this.state.audioSegments[0]);
             }
         } else if (line.audio) {
-            // 播放单个音频文件
-            if (this.sceneData.audio && this.sceneData.audio[line.audio] && 
-                !(this.sceneData.bgm && this.sceneData.bgm[line.audio])) {
-                this.playAudio(line.audio);
-            }
+            // 播放单个音频文件（直接使用 playAudio，它会自动解析路径）
+            this.playAudio(line.audio);
         }
         
         // 切换背景图片
@@ -772,8 +775,8 @@ const gameEngine = {
             }
         }
         
-        // 播放视频
-        if (line.video && this.sceneData.videos && this.sceneData.videos[line.video]) {
+        // 播放视频（直接使用 playVideo，它会自动解析路径）
+        if (line.video) {
             this.playVideo(line.video);
         }
         
@@ -1638,9 +1641,7 @@ const gameEngine = {
             
             // 4. 处理音频与 BGM
             if (currentLine.audio) {
-                 if (this.sceneData.audio && this.sceneData.audio[currentLine.audio]) {
-                    this.playAudio(currentLine.audio);
-                 }
+                this.playAudio(currentLine.audio);
             }
 
             // 处理 BGM 切换逻辑
@@ -2275,29 +2276,124 @@ const gameEngine = {
     },
     
     /**
+     * 解析音频路径
+     * 支持多种音频引用方式：
+     * 1. 从 sceneData.bgm 中查找（BGM）
+     * 2. 从 sceneData.audio 中查找（传统方式）
+     * 3. 自动拼接 assets/audio/ 路径（零配置方式）
+     * @param {string} audioKey - 音频键名或文件名（不含扩展名）
+     * @returns {Object|null} - { path: string, isBgm: boolean } 或 null
+     */
+    resolveAudioPath: function(audioKey) {
+        if (!audioKey || typeof audioKey !== 'string') {
+            return null;
+        }
+        
+        // 优先检查是否为BGM
+        if (this.sceneData.bgm && this.sceneData.bgm[audioKey]) {
+            return { path: this.sceneData.bgm[audioKey], isBgm: true };
+        }
+        
+        // 检查是否在 sceneData.audio 中定义（传统方式）
+        if (this.sceneData.audio && this.sceneData.audio[audioKey]) {
+            return { path: this.sceneData.audio[audioKey], isBgm: false };
+        }
+        
+        // 尝试从缓存中获取
+        if (this.audioCache[audioKey]) {
+            return { path: this.audioCache[audioKey], isBgm: false };
+        }
+        
+        // 零配置模式：自动拼接 assets/audio/ 路径
+        // 尝试常见的音频扩展名
+        const extensions = ['.ogg', '.mp3', '.wav', '.m4a', '.aac'];
+        const basePath = '../assets/audio/';
+        
+        for (const ext of extensions) {
+            // 尝试原始文件名（保持大小写）
+            const fullPath = basePath + audioKey + ext;
+            
+            // 将路径缓存起来，避免重复计算
+            this.audioCache[audioKey] = fullPath;
+            return { path: fullPath, isBgm: false };
+        }
+        
+        // 如果都没找到，返回 null
+        console.warn(`音频文件未找到: ${audioKey}`);
+        return null;
+    },
+    
+    /**
+     * 解析视频路径
+     * 支持多种视频引用方式：
+     * 1. 从 sceneData.videos 中查找（传统方式）
+     * 2. 自动拼接 assets/video/ 路径（零配置方式）
+     * @param {string} videoKey - 视频键名或文件名（不含扩展名）
+     * @returns {string|null} - 视频路径或 null
+     */
+    resolveVideoPath: function(videoKey) {
+        if (!videoKey || typeof videoKey !== 'string') {
+            return null;
+        }
+        
+        // 检查是否在 sceneData.videos 中定义（传统方式）
+        if (this.sceneData.videos && this.sceneData.videos[videoKey]) {
+            return this.sceneData.videos[videoKey];
+        }
+        
+        // 尝试从缓存中获取
+        if (this.videoCache[videoKey]) {
+            return this.videoCache[videoKey];
+        }
+        
+        // 零配置模式：自动拼接 assets/video/ 路径
+        // 如果已经是完整路径，直接返回
+        if (videoKey.startsWith('../') || videoKey.startsWith('/')) {
+            this.videoCache[videoKey] = videoKey;
+            return videoKey;
+        }
+        
+        // 尝试常见的视频扩展名
+        const extensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi'];
+        const basePath = '../assets/video/';
+        
+        // 如果文件名包含扩展名，直接使用
+        if (videoKey.includes('.')) {
+            const fullPath = basePath + videoKey;
+            this.videoCache[videoKey] = fullPath;
+            return fullPath;
+        }
+        
+        // 否则尝试添加常见扩展名
+        for (const ext of extensions) {
+            const fullPath = basePath + videoKey + ext;
+            // 将路径缓存起来，避免重复计算
+            this.videoCache[videoKey] = fullPath;
+            return fullPath;
+        }
+        
+        // 如果都没找到，返回默认路径
+        console.warn(`视频文件未找到: ${videoKey}，使用默认路径`);
+        const defaultPath = basePath + videoKey + '.mp4';
+        this.videoCache[videoKey] = defaultPath;
+        return defaultPath;
+    },
+    
+    /**
      * 播放音频
      * 根据音频类型（BGM/语音）选择对应的播放器，处理浏览器自动播放限制
      * @param {string} audioKey - 音频键名，从场景数据的bgm或audio中查找
      */
     playAudio: function(audioKey) {
-        let audioPath = null;
-        let isBgm = false;
+        const audioInfo = this.resolveAudioPath(audioKey);
         
-        // 优先检查是否为BGM
-        if (this.sceneData.bgm && this.sceneData.bgm[audioKey]) {
-            audioPath = this.sceneData.bgm[audioKey];
-            isBgm = true;  
-        } 
-        // 否则检查是否为普通音频
-        else if (this.sceneData.audio && this.sceneData.audio[audioKey]) {
-            audioPath = this.sceneData.audio[audioKey];
-            isBgm = false;
-        }
-        
-        if (!audioPath) {
+        if (!audioInfo) {
             console.log("音频文件路径不存在:", audioKey);
             return;
         }
+        
+        const audioPath = audioInfo.path;
+        const isBgm = audioInfo.isBgm;
         
         console.log("播放音频:", audioKey, "路径:", audioPath, "是否为BGM:", isBgm);
         
@@ -2485,7 +2581,7 @@ const gameEngine = {
     
     /**
      * 播放视频
-     * @param {string} videoKey - 视频键名，从场景数据的videos中查找
+     * @param {string} videoKey - 视频键名，从场景数据的videos中查找或直接使用文件名
      */
     playVideo: function(videoKey) {
         if (!this.elements.videoPlayer || !this.elements.mainVideo) {
@@ -2493,7 +2589,8 @@ const gameEngine = {
             return;
         }
         
-        const videoPath = this.sceneData.videos ? this.sceneData.videos[videoKey] : null;
+        // 使用新的路径解析函数
+        const videoPath = this.resolveVideoPath(videoKey);
         
         if (!videoPath) {
             console.log('视频路径未找到:', videoKey);
