@@ -2,11 +2,11 @@
 
 **重要说明：**
 
-由于引擎在早期开发阶段缺乏完整的资源测试环境，旧版 README 中可能包含部分已废弃或不支持的语法。本文档将全面罗列当前版本所有可用的语法与指令。**若与其他文档存在冲突，请以本文档为准。**
+由于引擎在早期开发阶段缺乏完整的资源测试环境，旧版 README 中可能包含部分已废弃或不支持的语法。本文档将全面罗列当前版本（V1.2.3）所有可用的语法与指令。**若与其他文档存在冲突，请以本文档为准。**
 
 在更新日志中的内容本文件不再赘述，原README.md中正确的指令此文件也不再赘述。
 
-更新时间：2026/5/3 V1.2.5
+更新时间：2026/5/4 V1.2.6
 
 - 立绘类命令请参考[illustration.md](assets/chars/illustration.md) 
 - 背景类命令请参考[background.md](assets/bg/background.md)
@@ -158,29 +158,134 @@ bgm:"bgm wait bgm1",//淡入bgm1
 bgm:"bgm stop",//停止播放bgm
 ```
 
-### 3.3 资源配置
+### 3.3 资源配置（零配置管理）
 
-配置时，BGM和背景、CG无需再每个文件中重复引用，但是音效和视频需要。
+**重要更新：** BGM、背景、CG、音频和视频均支持零配置管理，无需在每个场景中重复定义路径映射。
+
+#### 音频资源零配置
+
+引擎现已支持音频资源的零配置管理，无需在场景文件中手动定义音频路径映射。引擎会自动解析音频文件名并拼接完整路径。
+
+**传统方式（仍然支持）：**
 ```javascript
 const sceneData = {
-    // 背景配置（推荐使用集中配置文件）
-    background: BG_CONFIG_SUB,  // 引用 bg_config.js 中的配置
-    
-    // BGM 配置（推荐使用集中配置文件）
-    bgm: BGM_CONFIG_SUB,        // 引用 bgm_config.js 中的配置
-    
-    // 音效和语音配置（可在场景中直接定义）
     audio: {
-        'se_door': '../assets/audio/door_open.ogg',   // 音效示例
-        'voice_greeting': '../assets/audio/voice1.ogg' // 语音示例
+        'voice1': '../assets/audio/voice1.ogg',
+        'voice2': '../assets/audio/voice2.ogg'
     },
-    
-    // 视频配置（需在场景中定义视频文件路径）
-    videos: {
-        'op': '../assets/video/OP.mp4',      // OP 视频
-        'ed': '../assets/video/ED.mp4'   // ED 视频
-    },
+    story: [
+        { 
+            text: "对话内容", 
+            speaker: "角色名", 
+            audio: "voice1"
+        }
+    ]
 };
+```
+
+**零配置方式（推荐）：**
+```javascript
+const sceneData = {
+    // 不需要定义 audio 对象，或保留为空
+    audio: {},
+    
+    story: [
+        { 
+            text: "对话内容", 
+            speaker: "角色名", 
+            audio: "voice1"  // 直接使用文件名，引擎自动拼接路径
+        },
+        { 
+            text: "另一段对话", 
+            speaker: "角色名", 
+            audio: "voice2"  // 大小写敏感，需与文件名一致
+        }
+    ]
+};
+```
+
+**音频序列（[a] 标签）：**
+```javascript
+{ 
+    text: "对话内容", 
+    speaker: "角色名", 
+    audio: "voice1[a]voice2[a]voice3"  // 依次播放三个音频
+}
+```
+
+**支持的音频格式：** `.ogg`, `.mp3`, `.wav`, `.m4a`, `.aac`
+
+**工作原理：**
+1. 优先检查 `sceneData.bgm`（BGM 优先）
+2. 然后检查 `sceneData.audio`（传统方式）
+3. 最后自动拼接 `../assets/audio/` 路径（零配置方式）
+4. 首次解析的路径会被缓存到 `gameEngine.audioCache`，提升性能
+
+#### 视频资源零配置
+
+引擎同样支持视频资源的零配置管理，适用于剧情场景和 video.html 页面。
+
+**传统方式（仍然支持）：**
+```javascript
+const sceneData = {
+    videos: {
+        'video1': '../assets/video/video1.mp4',
+        'video2': '../assets/video/video2.mp4'
+    },
+    story: [
+        { 
+            text: "对话内容", 
+            video: "video1"
+        }
+    ]
+};
+```
+
+**零配置方式（推荐）：**
+```javascript
+const sceneData = {
+    // 不需要定义 videos 对象，或保留为空
+    videos: {},
+    
+    story: [
+        { 
+            text: "对话内容", 
+            video: "video1"  // 直接使用文件名，引擎自动拼接路径
+        },
+        { 
+            text: "另一段对话", 
+            video: "video2.mp4"  // 也可以包含扩展名
+        }
+    ]
+};
+```
+
+**在 video.html 中使用：**
+```html
+<button onclick="playVideo('video1')">视频1</button>
+<button onclick="playVideo('video2')">视频2</button>
+```
+
+或通过 URL 参数播放：
+```
+video.html?video=video1
+video.html?video=video2.mp4
+```
+
+**支持的视频格式：** `.mp4`（推荐）, `.webm`, `.ogg`, `.mov`, `.avi`
+
+**工作原理：**
+1. 优先检查 `sceneData.videos`（传统方式）
+2. 然后自动拼接 `../assets/video/` 路径（零配置方式）
+3. 如果文件名已包含扩展名，直接使用
+4. 否则尝试添加常见扩展名（默认 .mp4）
+5. 首次解析的路径会被缓存到 `gameEngine.videoCache`，提升性能
+
+**注意事项：**
+- 所有音频/视频文件必须位于 `assets/audio/` 或 `assets/video/` 目录下
+- 文件名需与实际文件完全匹配（包括大小写）
+- BGM 优先级高于普通音频
+- 推荐使用 MP4 格式（H.264 编码）以获得最佳兼容性
 ```
 
 ### 3.4 文本格式标签
@@ -226,7 +331,7 @@ const sceneData = {
 ```
 换行符在分段显示中会正常生效。
 
-**文本注音标签 `[汉字,拼音]`**
+**文本注音标签 [汉字,拼音]**
 
 支持使用 `[汉字,拼音]` 语法为文本添加注音标注，类似于日语假名标注效果：
 ```javascript
@@ -255,7 +360,6 @@ const sceneData = {
 - 注音功能自动适配常规模式和全屏小说模式
 - 适用于所有HTML支持的语言
 - 注音内容会以内联方式显示在对应文字上方
-
 
 ## 4. BGM控制功能
 
