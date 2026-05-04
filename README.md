@@ -11,6 +11,8 @@
 由于引擎在早期开发阶段缺乏完整的资源测试环境，本 README 中可能包含部分已废弃或不支持的语法。**若与本文档存在冲突，请以README2.MD文档为准。**
 [README2.md](README2.md)
 
+资源的详细配置方案请参照[assets.md](assets.md)
+
 # Shiori 命名缘起
 
 “Shiori”（栞），在日语中意为“书签”。
