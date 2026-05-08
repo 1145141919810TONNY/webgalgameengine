@@ -264,7 +264,7 @@ const gameEngine = {
                 console.log('[State Restore] Playing BGM:', snapshot.lastActiveBgm);
             }
             
-            // 恢夏立绘
+            // 恢复立绘
             if (snapshot.lastActiveChars) {
                 this.renderChars(snapshot.lastActiveChars);
                 console.log('[State Restore] Rendered characters:', snapshot.lastActiveChars);
@@ -4893,7 +4893,7 @@ const gameEngine = {
      */
     applyCharAction: function(charId, charEl, actionType, props) {
         switch(actionType) {
-            case 'back':
+            case 'retreat':
                 this.applyRetreatAction(charEl, props);
                 break;
             case 'forward':
