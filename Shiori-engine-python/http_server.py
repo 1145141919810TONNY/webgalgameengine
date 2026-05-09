@@ -125,11 +125,30 @@ class ShioriHTTPServer:
             if self.is_debug:
                 print(f"[INFO] 正在关闭 HTTP 服务器...")
             
-            self.server.shutdown()
-            self.server.server_close()
+            try:
+                # 先shutdown再server_close，确保快速关闭
+                self.server.shutdown()
+            except Exception as e:
+                if self.is_debug:
+                    print(f"[WARN] shutdown时出错: {e}")
+            
+            try:
+                self.server.server_close()
+            except Exception as e:
+                if self.is_debug:
+                    print(f"[WARN] server_close时出错: {e}")
             
             if self.server_thread:
-                self.server_thread.join(timeout=5)
+                try:
+                    # 减少等待时间，加快退出速度
+                    self.server_thread.join(timeout=2)
+                except Exception as e:
+                    if self.is_debug:
+                        print(f"[WARN] join线程时出错: {e}")
+            
+            # 清理引用
+            self.server = None
+            self.server_thread = None
             
             if self.is_debug:
                 print(f"[INFO] HTTP 服务器已关闭")
