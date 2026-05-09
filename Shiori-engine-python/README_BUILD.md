@@ -115,7 +115,7 @@ cd Shiori
 shiori/                          # 项目根目录
 ── Shiori.exe                   # 标准版启动器（约 200MB）
 ├── Shiori_debug.exe             # 调试版启动器
-└── shiori engine/               # 引擎文件夹（不被打包）
+└── shiori engine/               # 引擎文件夹（不被打包，以前所有的文件都放在这个文件夹中）
     ├── index.html               # 入口文件
     ├── api/                     # API 接口
     ├── assets/                  # 资源文件（图片、音频等）
