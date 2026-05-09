@@ -43,7 +43,7 @@
 - **完全兼容旧版开发方式**：游戏内容（HTML/场景/资源）的修改方式与之前完全一致，无需改变开发习惯
 - 启动器版本跃升至V1.1.0
 - 该启动器还在测试阶段，可能会存在一些bug。日后更新的重心会侧重于新版的启动器。
-详情请参照文件[README_BUILD.md](Shiorienginepython/README_BUILD.md) 
+详情请参照文件[README_BUILD.md](Shiori-engine-python/README_BUILD.md) 
 
 # V1.2.7 更新内容（2026/5/8）
 - 修复`[后退]`指令映射错误导致的执行失效问题。
