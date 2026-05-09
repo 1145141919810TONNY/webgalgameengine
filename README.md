@@ -8,7 +8,7 @@
 
 本引擎的教学网页：[https://1145141919810tonny.github.io/Shioriteaching/](https://1145141919810tonny.github.io/Shioriteaching/)
 
-由于github的限制，如果你想要获取预编译的新版python的exe预编译文件，可以到[https://wakudemo.cn/games/100266](https://wakudemo.cn/games/100266)中的Shiori python engine DLC获取内容
+由于github的限制，如果你想要获取预编译的新版python的exe预编译文件，可以到[https://wakudemo.cn/games/100266](https://wakudemo.cn/games/100266)中的DLC内容：Shiori python engine获取预编译版本
 
 由于引擎在早期开发阶段缺乏完整的资源测试环境，本 README 中可能包含部分已废弃或不支持的语法。**若与本文档存在冲突，请以README2.MD文档为准。**
 [README2.md](README2.md)
