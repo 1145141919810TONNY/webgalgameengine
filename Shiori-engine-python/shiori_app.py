@@ -97,6 +97,24 @@ class ShioriApplication:
             self._cleanup()
             sys.exit(1)
     
+    def force_quit(self):
+        """强制退出应用程序，确保所有进程都被终止"""
+        if self.is_debug:
+            print("[INFO] 强制退出应用程序...")
+        
+        # 先尝试正常清理
+        self._cleanup()
+        
+        # 强制退出
+        import os
+        import signal
+        
+        # 对于Windows系统，使用os._exit确保完全退出
+        if os.name == 'nt':  # Windows
+            os._exit(0)
+        else:  # Unix-like systems
+            os.kill(os.getpid(), signal.SIGTERM)
+    
     def _start_http_server(self):
         """启动 HTTP 服务器"""
         self.http_server = ShioriHTTPServer(
@@ -139,7 +157,19 @@ class ShioriApplication:
         
         # 停止 HTTP 服务器
         if self.http_server:
-            self.http_server.stop()
+            try:
+                self.http_server.stop()
+            except Exception as e:
+                if self.is_debug:
+                    print(f"[WARN] 停止HTTP服务器时出错: {e}")
+        
+        # 清理API桥接
+        if hasattr(self, 'api_bridge') and self.api_bridge:
+            try:
+                self.api_bridge.deleteLater()
+            except Exception as e:
+                if self.is_debug:
+                    print(f"[WARN] 清理API桥接时出错: {e}")
         
         if self.is_debug:
             print("[INFO] 资源清理完成")
@@ -165,6 +195,7 @@ class ShioriMainWindow(QMainWindow):
         self.server_url = server_url
         self.app_dir = Path(app_dir)
         self.is_debug = is_debug
+        self._is_closing = False  # 防止重复关闭
         
         # 窗口基本设置
         self.setWindowTitle(APP_NAME)
@@ -213,6 +244,10 @@ class ShioriMainWindow(QMainWindow):
         settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
         settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
         settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True)
+        
+        # 禁用不必要的功能以加速关闭
+        settings.setAttribute(QWebEngineSettings.WebAttribute.PluginsEnabled, False)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.FullScreenSupportEnabled, True)
         
         # 配置配置文件（禁用持久化缓存）
         profile = QWebEngineProfile.defaultProfile()
@@ -457,11 +492,82 @@ class ShioriMainWindow(QMainWindow):
     
     def closeEvent(self, event):
         """窗口关闭事件"""
+        # 防止重复关闭
+        if self._is_closing:
+            event.ignore()
+            return
+        
+        self._is_closing = True
+        
         if self.is_debug:
             print("[INFO] 窗口关闭，正在退出程序...")
         
-        # 关闭开发者工具（如果打开）
-        if hasattr(self, 'devtools_view') and self.devtools_view:
-            self.devtools_view.close()
-        
+        # 立即接受事件，避免阻塞UI
         event.accept()
+        
+        # 异步执行清理操作，避免阻塞关闭窗口
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(0, self._async_cleanup)
+    
+    def _async_cleanup(self):
+        """异步清理资源"""
+        try:
+            # 关闭开发者工具（如果打开）
+            if hasattr(self, 'devtools_view') and self.devtools_view:
+                self.devtools_view.close()
+                self.devtools_view.deleteLater()
+            
+            # 快速清理 WebEngine 资源 - 不等待JS执行完成
+            try:
+                # 使用非阻塞方式停止媒体播放
+                self.web_view.page().runJavaScript("""
+                    // 快速停止所有音频和视频
+                    try {
+                        var audios = document.querySelectorAll('audio');
+                        var videos = document.querySelectorAll('video');
+                        audios.forEach(function(audio) { 
+                            try { audio.pause(); } catch(e) {}
+                            try { audio.src = ''; } catch(e) {}
+                        });
+                        videos.forEach(function(video) { 
+                            try { video.pause(); } catch(e) {}
+                            try { video.src = ''; } catch(e) {}
+                        });
+                    } catch(e) {}
+                """)
+            except Exception as e:
+                if self.is_debug:
+                    print(f"[WARN] 清理 WebEngine 资源时出错: {e}")
+            
+            # 强制删除Web视图以加速资源释放
+            if hasattr(self, 'web_view') and self.web_view:
+                self.web_view.stop()
+                self.web_view.deleteLater()
+            
+            # 清理其他资源
+            self._cleanup()
+            
+            # 延迟一小段时间后强制退出，确保清理完成
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(500, self._force_quit)
+            
+        except Exception as e:
+            if self.is_debug:
+                print(f"[ERROR] 清理过程中出错: {e}")
+                import traceback
+                traceback.print_exc()
+    
+    def _force_quit(self):
+        """强制退出应用程序"""
+        if self.is_debug:
+            print("[INFO] 执行强制退出...")
+        
+        # 获取主应用实例并强制退出
+        app_instance = QApplication.instance()
+        if app_instance:
+            app_instance.quit()
+        
+        # 如果quit没有生效，使用更强制的方式
+        import os
+        import sys
+        os._exit(0)
