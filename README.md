@@ -583,8 +583,7 @@ project/                              # 项目根目录<br>
 ├── shiori_data                       # 第一次运行exe时自动生成的文件夹（打包分发时无需包含此文件夹）<br>
 ├── img/                              # 图片资源目录<br>
 ├── Shiori/                           # Python启动器源代码目录<br>
-├── shiori engine/                    # Shiori视觉小说引擎（核心）<br>
-└── teach/                            # 教学文档与示例目录<br>
+└── shiori engine/                    # Shiori视觉小说引擎（核心）<br>
 
 ```
 
