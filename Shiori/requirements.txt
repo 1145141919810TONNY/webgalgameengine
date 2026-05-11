@@ -1,0 +1,4 @@
+PyQt6>=6.5.0
+PyQt6-WebEngine>=6.5.0
+pyinstaller>=6.0.0
+opencv-python>=4.5.0
