@@ -13,7 +13,7 @@
 
 资源的详细配置方案请参照[assets.md](assets.md)
 
-交付给用户时，最小的文件数量架构：
+交付给用户时，最小的文件数量架构（Shiori_debug.exe可以选择不放入）：
 
 ![img](https://github.com/1145141919810TONNY/webgalgameengine/blob/main/img/4.png)
 
