@@ -33,6 +33,52 @@
 - esc：打开游戏上下文菜单
 - ctrl：快进剧情
 
+# 版本更新内容 （2026/5/11）
+
+## 重要说明
+
+**1. 新版 Python 启动器已全面取代旧版启动器，旧版将逐步停止支持**
+
+**2. file:// 协议模式已完全停止支持，请勿直接双击 HTML 文件运行**
+
+**3. 部分核心功能（如视频播放、存档管理等）无法在 file:// 模式下正常工作**
+
+### 过渡期说明
+
+由于新版启动器仍处于测试阶段，可能存在未知问题。在正式宣布完全停用旧版启动器之前，我们仍会继续提供旧版启动器的相关优化与 bug 修复服务，以确保您的使用体验。
+
+
+## 启动器 V1.1.1 更新内容
+
+### 系统变更
+- **架构优化**：新版启动器改为多文件运行模式。虽然文件总大小有所增加，但显著提升了运行与启动速度。
+  - **部署说明**：请将 `Shiori\dist` 目录中的所有内容复制粘贴到项目根目录即可
+
+### 功能新增
+- **窗口比例锁定**：支持 16:9 和 4:3 两种长宽比模式，并提供常用分辨率预设，可通过菜单按需调整
+- **菜单集成**：新版启动器菜单中集成了相关链接的快速访问入口
+- **引擎完整性验证**：新增 `验证引擎完整性.bat` 工具，用于检测基本引擎文件架构，开发者可根据需求自定义修改
+
+### 问题修复
+- **视频播放修复**：修复了新版启动器无法播放视频的问题
+  - Python 端推荐使用 WebM 格式（VP9 编码）
+  - HTML 端保持原有 H.264 格式不变
+- **快捷键冲突修复**：解决了 F5 快捷键冲突问题，现在 F5 绑定为快速保存存档功能
+- **进程残留修复**：修复了关闭独立窗口后进程残留导致存档读取失败的问题
+  - 退出游戏后将自动静默运行 `check_process.bat` 清理后台进程
+  - 也可手动双击该脚本进行进程清理
+
+## 引擎核心 V2.0.1 更新内容
+
+### 内容优化
+- **样式适配**：优化了 `index.html` 的 CSS 样式，更好地适配新版启动器（主要针对 16:9 分辨率进行优化）
+- **视频播放重构**：完全重写了 `video.html` 的视频播放逻辑
+  - 支持 HTML/Python 双端统一播放
+  - 屏蔽非标准视频控制按钮
+  - 具体实现方式请参考 `video.html` 相关代码注释
+- **智能内容过滤**：剧本系统将自动根据 `video.html` 的配置，屏蔽不兼容的视频播放内容
+
+
 # V2.0.0 更新内容（2026/5/9）
 
 - **目前新版启动器存在无法播放的问题，目前正在尝试修复**
@@ -517,10 +563,38 @@ https://space.bilibili.com/87412647?spm_id_from=333.1007.0.0
 # 1. 项目概述与架构
 
 
-## 1.1 项目结构解析
+## 1.1 项目总览
 
 
-galgame-engine/
+```
+project/                              # 项目根目录<br>
+├── Shiori.exe                        # Python启动器主程序（正式版）<br>
+├── Shiori_debug.exe                  # Python启动器调试版<br>
+├── README.md                         # 项目主文档（本文件）<br>
+├── README2.md                        # 补充说明文档<br>
+├── license.txt                       # 许可证文件<br>
+├── check_process.bat                 # 进程检查脚本<br>
+├── check_process.vbs                 # VBScript进程检查<br>
+├── test_persistence.bat              # 持久化测试脚本<br>
+├── 验证引擎完整性.bat                 # 引擎完整性验证脚本<br>
+├── 运行游戏前请先看我.txt             # 使用前必读说明<br>
+├── _internal/                        # 引擎的依赖文件<br>
+├── shiori_cache                      # 第一次运行exe时自动生成的文件夹（打包分发时无需包含此文件夹）<br>
+├── shiori_data                       # 第一次运行exe时自动生成的文件夹（打包分发时无需包含此文件夹）<br>
+├── img/                              # 图片资源目录<br>
+├── Shiori/                           # Python启动器源代码目录<br>
+├── shiori engine/                    # Shiori视觉小说引擎（核心）<br>
+└── teach/                            # 教学文档与示例目录<br>
+
+```
+
+---
+
+## 1.2 Shiori Engine 详细结构
+
+
+```
+shiori engine/<br>
 ├── shiori.exe            # Windows 可执行启动器（推荐）<br>
 ├── index.html            # 主菜单页面<br>
 ├── engine.js             # 核心 JavaScript 引擎<br>
@@ -530,9 +604,11 @@ galgame-engine/
 ├── bgm_config.js         # BGM 集中配置文件<br>
 ├── cg_config.js          # CG 集中配置文件<br>
 ├── illustration.js       # 立绘集中配置文件<br>
-├── launch_game.bat       # 批处理启动脚本<br>
-├── icon/                 # 浏览器图标文件夹<br>
-│   └── icon-32.png       # 浏览器页面图标<br>
+├── icon-32.png           # 浏览器页面图标<br>
+├── background.md         # 背景配置说明文档<br>
+├── assets.md             # 资源管理说明文档<br>
+├── illustration.md       # 立绘指令说明文档<br>
+├── BGM_CONFIG_README.md  # BGM配置说明文档<br>
 ├── assets/               # 资源文件目录<br>
 │   ├── bg/               # 背景图片<br>
 │   ├── chars/            # 角色立绘<br>
@@ -552,7 +628,39 @@ galgame-engine/
 ├── api/                  # API 接口<br>
 │   ├── progress.json     # 进度数据<br>
 │   └── progress_api.js   # 进度API脚本<br>
-└── plugin/               # 插件扩展目录<br>
+
+```
+
+---
+
+## 1.3 Shiori Python 启动器结构
+
+
+```
+Shiori/<br>
+├── main.py                   # 主入口文件<br>
+├── shiori_app.py             # 应用主逻辑（PyQt6）<br>
+├── api_bridge.py             # API桥接模块<br>
+├── http_server.py            # HTTP服务器模块<br>
+├── video_decoder.py          # 视频解码模块<br>
+├── check_video_codec.py      # 视频编解码检查<br>
+├── reorganize_output.py      # 输出重组工具<br>
+├── version.py                # 版本信息<br>
+├── check_ico.py              # 图标检查工具<br>
+├── requirements.txt          # Python依赖列表<br>
+├── shiori.spec               # PyInstaller打包配置<br>
+├── shiori_debug.spec         # 调试版打包配置<br>
+├── build_fix.bat             # 构建修复脚本<br>
+├── test_video.py             # 视频测试工具<br>
+├── version.txt               # 版本文本文件<br>
+├── 详细信息                   # 详细信息文件<br>
+├── .gitignore                # Git忽略配置<br>
+├── README_BUILD.md/txt       # 构建说明文档<br>
+├── ico/                      # 图标资源目录<br>
+└── plugins/                  # 插件目录（可选）<br>
+```
+
+---
 
 # 2. 核心概念详解
 
