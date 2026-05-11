@@ -13,6 +13,14 @@
 
 资源的详细配置方案请参照[assets.md](assets.md)
 
+交付给用户时，最小的文件数量架构：
+
+![img](https://github.com/1145141919810TONNY/webgalgameengine/blob/main/img/4.png)
+
+用户运行了一次游戏后的文件架构：
+
+![img](https://github.com/1145141919810TONNY/webgalgameengine/blob/main/img/5.png)
+
 # Shiori 命名缘起
 
 “Shiori”（栞），在日语中意为“书签”。
