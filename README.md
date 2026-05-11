@@ -83,7 +83,7 @@
 - **启动器技术栈升级**：从 C# (.NET) 迁移至 Python (PyQt6 + QtWebEngine)，内置 Chromium 内核，无需外部浏览器，兼容性更好。
 - **单文件打包**：新版启动器采用单文件打包（约 200MB+），包含所有 Python/Qt 依赖，只需复制 exe 文件即可运行。
 - **启动器放置位置说明**：
-  - **新版启动器**（Python/PyQt6）：放置在**项目根目录**（与 `shiori engine` 文件夹同级），运行 `Shiori.exe` 即可（下载Shiori-engine-python文件夹内的所有内容）
+  - **新版启动器**（Python/PyQt6）：放置在**项目根目录**（与 `shiori engine` 文件夹同级），运行 `Shiori.exe` 即可（下载Shiori文件夹内的所有内容）
   - **旧版启动器**（C#/.NET）：放置在 `shiori engine/` 文件夹内（即 `shiori engine/shiori.exe`），仍可按原有方式正常使用
   - 两个版本的启动器可同时存在，互不影响
 - **重要提示**：新版启动器要求引擎文件夹必须命名为 `shiori engine`（全小写，中间有空格），不可更改为其他名称，否则启动器将无法找到引擎入口文件。
