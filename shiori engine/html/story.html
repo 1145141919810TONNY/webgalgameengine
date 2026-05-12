@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小剧场 - 场景鉴赏</title>
+    <link rel="icon" type="image/png" href="../icon/icon-32.png">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小剧场 - 场景鉴赏</title>
+    <link rel="icon" type="image/png" href="../icon/icon-32.png">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('../assets/cg/bg.jpg') center center/cover no-repeat;
+            display: flex;
+            justify-content: center;
+        }
+        
+        .container {
+            width: 75%;
+            margin-top: 70px; /* 为固定顶部菜单留出空间 */
+            margin-left: auto;
+            margin-right: auto;
+            background: transparent;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: none;
+            overflow-y: auto; /* 添加垂直滚动支持 */
+            max-height: calc(100vh - 90px); /* 限制最大高度，留出顶部和底部空间 */
+        }
+        
+        h1 {
+            color: #FFD700;
+            text-align: center;
+            margin: 40px auto 20px auto;
+            font-size: 32px;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            width: fit-content;
+        }
+        
+        .jump-section {
+            margin: 15px 0;
+        }
+        
+        h2 {
+            margin: 20px auto 15px auto;
+            color: #FFD700;
+            font-size: 18px;
+            text-shadow: 0 0 5px rgba(255, 215, 0, 0.8);
+            width: fit-content;
+            text-align: center;
+        }
+        
+        .scene-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+        
+        .scene-card {
+            background-color: transparent;
+            border: 1px solid #4CAF50;
+            border-radius: 6px;
+            padding: 10px;
+            text-align: center;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .scene-card button {
+            background-color: rgba(33, 150, 243, 0.8);
+            color: white;
+            padding: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 8px;
+            width: 100%;
+        }
+        
+        .scene-card button:hover {
+            background-color: #1976D2;
+        }
+        
+        .actions {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            text-align: center;
+            margin: 0;
+            padding: 10px;
+            border: none;
+            border-bottom: 1px solid #FFD700;
+            background-color: transparent;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        button {
+            background-color: transparent;
+            color: #FFD700;
+            padding: 8px 16px;
+            border: 2px solid #FFD700;
+            border-radius: 20px;
+            cursor: pointer;
+            margin: 0 5px;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            background-color: rgba(255, 215, 0, 0.2);
+            color: #FFA500;
+            border: 2px solid #FFA500;
+        }
+        
+        /* 隐藏游戏相关元素 */
+        #background-container,
+        #character-container,
+        #text-box-container,
+        #options-container,
+        #novel-mode-container {
+            display: none;
+        }
+        
+        /* 音频播放器保持隐藏 */
+        audio {
+            display: none;
+        }
+        
+        /* ========================================
+           响应式设计 - 小屏幕适配
+           ======================================== */
+        
+        /* 小屏幕适配（1366x768） */
+        @media (max-width: 1366px) and (max-height: 768px) {
+            h1 {
+                font-size: 28px;
+            }
+            
+            h2 {
+                font-size: 16px;
+            }
+            
+            .scene-card button {
+                font-size: 13px;
+                padding: 6px;
+            }
+            
+            button {
+                font-size: 13px;
+                padding: 6px 14px;
+            }
+        }
+        
+        /* 更小屏幕适配（1280x720） */
+        @media (max-width: 1280px) and (max-height: 720px) {
+            h1 {
+                font-size: 24px;
+            }
+            
+            h2 {
+                font-size: 15px;
+            }
+            
+            .scene-card button {
+                font-size: 12px;
+                padding: 5px;
+            }
+            
+            button {
+                font-size: 12px;
+                padding: 5px 12px;
+            }
+        }
+        
+        /* 极小屏幕适配（< 800px） */
+        @media (max-width: 800px) {
+            .container {
+                width: 95%;
+            }
+            
+            .scene-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            h1 {
+                font-size: 20px;
+            }
+            
+            h2 {
+                font-size: 14px;
+            }
+            
+            .scene-card button {
+                font-size: 11px;
+            }
+        }
+        
+        /* 超小高度适配（高度 < 500px） */
+        @media (max-height: 500px) {
+            .container {
+                margin-top: 50px;
+                max-height: calc(100vh - 70px);
+            }
+            
+            h1 {
+                font-size: 18px;
+                margin: 10px auto;
+            }
+            
+            h2 {
+                font-size: 13px;
+                margin: 10px auto;
+            }
+            
+            .scene-card {
+                min-height: 50px;
+                padding: 8px;
+            }
+            
+            .scene-card button {
+                font-size: 10px;
+                padding: 4px;
+            }
+            
+            button {
+                font-size: 10px;
+                padding: 4px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景容器 -->
+    <div id="background-container"></div>
+    
+    <!-- 角色立绘容器 -->
+    <div id="character-container"></div>
+    
+    <!-- 文本框区域 -->
+    <div id="text-box-container">
+                <div id="name-box">
+<span>[姓名]</span>
+        </div>
+        <div id="text-box">[文本]</div>
+    </div>
+    
+    <!-- 选项容器 -->
+    <div id="options-container"></div>
+    
+    <!-- 全屏文本模式 -->
+    <div id="novel-mode-container">
+        <div id="novel-text-box">[全屏文本]</div>
+    </div>
+    
+    <!-- 音频播放器 -->
+    <audio id="bgm-player" loop></audio>
+    <audio id="se-player"></audio>
+    <audio id="voice-player"></audio>
+    
+    <div class="container">
+        <div class="actions">
+            <button onclick="location.href='../index.html'" class="back">返回主菜单(esc)</button>
+        </div>
+        
+        <h1 id="page-title">小故事</h1>
+        
+        <div class="jump-section">
+            <h2>所有场景列表</h2>
+            <div id="scene-grid" class="scene-grid">
+                <!-- 动态加载所有场景按钮 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 预定义的所有场景列表
+        const ALL_SCENES = [
+            { id: 'story1', name: '故事1' },
+        ];
+        
+        // 渲染所有场景卡片
+        function renderAllScenes() {
+            const sceneGrid = document.getElementById('scene-grid');
+            sceneGrid.innerHTML = '';
+            
+            ALL_SCENES.forEach(scene => {
+                const cardDiv = document.createElement('div');
+                cardDiv.className = 'scene-card';
+                cardDiv.innerHTML = `
+                    <div class="scene-name">${scene.name}</div>
+                    <button onclick="jumpToScene('${scene.id}.html')">
+                        观看
+                    </button>
+                `;
+                sceneGrid.appendChild(cardDiv);
+            });
+        }
+        
+        // 跳转到指定场景
+        function jumpToScene(sceneFileName) {
+            window.location.href = '../scenes/' + sceneFileName;
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            renderAllScenes();
+        });
+        
+        // ESC键返回主菜单
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                window.location.href = '../index.html';
+            }
+        });
+    </script>
+</body>
+</html>
