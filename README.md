@@ -11,6 +11,8 @@
 由于引擎在早期开发阶段缺乏完整的资源测试环境，本 README 中可能包含部分已废弃或不支持的语法。**若与本文档存在冲突，请以README2.MD文档为准。**
 [README2.md](README2.md)
 
+关于启动器的说明请参照[README_BUILD.md](Shiori/README_BUILD.md)
+
 资源的详细配置方案请参照[assets.md](assets.md)
 
 交付给用户时，最小的文件数量架构（Shiori_debug.exe可以选择不放入）：
