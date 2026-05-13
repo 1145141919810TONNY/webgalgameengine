@@ -4655,7 +4655,7 @@ const gameEngine = {
         // 消失指令关键词
         const removeKeywords = ['消失', 'hide', 'remove'];
         // 渐入渐出关键词
-        const fadeKeywords = ['渐入', 'fadeIn', '渐出', 'fadeOut'];
+        const fadeKeywords = ['渐入', 'fadeIn', '渐出', 'fadeOut', '左渐出', 'lfadeOut', '右渐出', 'rfadeOut', '左渐入', 'lfadeIn', '右渐入', 'rfadeIn'];
         // 动作指令关键词
         const actionKeywords = ['后退', 'retreat', '前进', 'forward', '吓一跳', 'scare', '发抖', 'shake', '持续发抖', 'cshake', '结束发抖', 'sshake', '点头', 'nod'];
         
@@ -4746,76 +4746,103 @@ const gameEngine = {
 
         // 更新图片源（如果需要）
         if (charEl.src !== path) {
-            // 如果是同标识符切换不同图片，执行快速交叉淡入淡出过渡
+            // 如果是同标识符切换不同图片，执行双缓冲交叉淡入淡出过渡
             if (isSameRoleDifferentImage) {
-                // 保存当前的位置和样式属性，确保过渡期间不会丢失
-                const currentLeft = charEl.style.left;
-                const currentBottom = charEl.style.bottom;
-                const currentZIndex = charEl.style.zIndex;
-                const currentHeight = charEl.style.height;
-                const currentTransform = charEl.style.transform;
+                // 【优化】创建临时新元素实现真正的双缓冲交叉淡入淡出
+                const newCharEl = document.createElement('img');
+                newCharEl.id = `char-${charId}-temp`;
+                newCharEl.className = 'character-img';
+                newCharEl.src = path; // 先设置src，让浏览器开始加载
                 
-                // 第一阶段：渐出旧图片（0.1秒）
-                charEl.style.transition = 'opacity 0.1s ease-out';
-                charEl.style.opacity = '0';
+                // 复制当前位置和样式
+                newCharEl.style.left = charEl.style.left;
+                newCharEl.style.bottom = charEl.style.bottom;
+                newCharEl.style.zIndex = charEl.style.zIndex;
+                newCharEl.style.height = charEl.style.height;
+                newCharEl.style.transform = charEl.style.transform;
+                newCharEl.style.opacity = '0'; // 初始透明
                 
-                // 等待渐出完成后更换图片并渐入
-                setTimeout(() => {
-                    // 更换图片源
-                    charEl.src = path;
-                    
+                // 插入到容器中（在旧元素后面）
+                this.elements.characterContainer.appendChild(newCharEl);
+                
+                // 处理图片加载完成后的交叉淡入淡出
+                const handleCrossFade = () => {
                     // 解析新指令的修饰词
                     const newProps = this.parseCharModifiers(modifiers);
                     
-                    // 属性继承逻辑：如果新指令未指定某些属性，则继承旧状态
+                    // 属性继承逻辑
                     const hasExplicitLeft = modifiers.match(/(左|右|中|left|right|middle|x:)/i);
                     const hasExplicitBottom = modifiers.match(/(上|下|up|down|y:)/i);
                     const hasExplicitLayer = modifiers.match(/(前|后|front|back)/i);
                     const hasExplicitScale = modifiers.match(/\d+%$/);
                     
                     // 应用样式属性（带继承逻辑）
-                    charEl.style.left = hasExplicitLeft ? newProps.left : (currentLeft || newProps.left);
-                    charEl.style.bottom = hasExplicitBottom ? newProps.bottom : (currentBottom || newProps.bottom);
-                    charEl.style.zIndex = hasExplicitLayer ? newProps.zIndex : (currentZIndex || newProps.zIndex);
+                    newCharEl.style.left = hasExplicitLeft ? newProps.left : (charEl.style.left || newProps.left);
+                    newCharEl.style.bottom = hasExplicitBottom ? newProps.bottom : (charEl.style.bottom || newProps.bottom);
+                    newCharEl.style.zIndex = hasExplicitLayer ? newProps.zIndex : (charEl.style.zIndex || newProps.zIndex);
                     
                     // 缩放处理
                     if (hasExplicitScale) {
-                        charEl.style.height = `${newProps.scale * 100}%`;
-                    } else if (currentHeight) {
-                        charEl.style.height = currentHeight;
+                        newCharEl.style.height = `${newProps.scale * 100}%`;
+                    } else if (charEl.style.height) {
+                        newCharEl.style.height = charEl.style.height;
                     } else {
-                        charEl.style.height = `${newProps.scale * 100}%`;
+                        newCharEl.style.height = `${newProps.scale * 100}%`;
                     }
                     
-                    charEl.style.transform = 'translateX(-50%)';
-                    charEl.style.visibility = 'visible';
+                    newCharEl.style.transform = 'translateX(-50%)';
+                    newCharEl.style.visibility = 'visible';
                     
                     // 强制重绘以确保样式应用
-                    void charEl.offsetHeight;
+                    void newCharEl.offsetHeight;
                     
-                    // 处理动作指令（如果存在）
-                    if (newProps.actionType) {
-                        this.applyCharAction(charId, charEl, newProps.actionType, newProps);
-                    }
+                    // 开始交叉淡入淡出（0.15秒）
+                    charEl.style.transition = 'opacity 0.15s ease-out';
+                    newCharEl.style.transition = 'opacity 0.15s ease-in';
                     
-                    // 第二阶段：渐入新图片（0.1秒）
-                    charEl.style.transition = 'opacity 0.1s ease-in';
-                    charEl.style.opacity = '1';
+                    charEl.style.opacity = '0';
+                    newCharEl.style.opacity = '1';
                     
-                    // 过渡完成后恢复默认过渡效果
+                    // 淡出完成后移除旧元素，重命名新元素
                     setTimeout(() => {
-                        charEl.style.transition = 'all 0.5s ease';
-                    }, 100);
-                    
-                    // 更新最终应用的属性到状态记录
-                    const finalProps = {
-                        left: hasExplicitLeft ? newProps.left : (currentLeft || newProps.left),
-                        bottom: hasExplicitBottom ? newProps.bottom : (currentBottom || newProps.bottom),
-                        zIndex: hasExplicitLayer ? newProps.zIndex : (currentZIndex || newProps.zIndex),
-                        scale: hasExplicitScale ? newProps.scale : (currentHeight ? parseFloat(currentHeight) / 100 : newProps.scale)
+                        charEl.remove();
+                        newCharEl.id = `char-${charId}`; // 恢复正式ID
+                        
+                        // 处理动作指令（如果存在）
+                        if (newProps.actionType) {
+                            this.applyCharAction(charId, newCharEl, newProps.actionType, newProps);
+                        }
+                        
+                        // 过渡完成后恢复默认过渡效果
+                        setTimeout(() => {
+                            newCharEl.style.transition = 'all 0.5s ease';
+                        }, 50);
+                        
+                        // 更新最终应用的属性到状态记录
+                        const finalProps = {
+                            left: hasExplicitLeft ? newProps.left : (charEl.style.left || newProps.left),
+                            bottom: hasExplicitBottom ? newProps.bottom : (charEl.style.bottom || newProps.bottom),
+                            zIndex: hasExplicitLayer ? newProps.zIndex : (charEl.style.zIndex || newProps.zIndex),
+                            scale: hasExplicitScale ? newProps.scale : (charEl.style.height ? parseFloat(charEl.style.height) / 100 : newProps.scale)
+                        };
+                        this.state.activeChars[charId] = { path, ...finalProps };
+                    }, 150);
+                };
+                
+                // 检查图片是否已缓存
+                if (newCharEl.complete && newCharEl.naturalWidth > 0) {
+                    // 图片已缓存，直接执行
+                    handleCrossFade();
+                } else {
+                    // 等待图片加载
+                    newCharEl.onload = handleCrossFade;
+                    newCharEl.onerror = () => {
+                        console.error(`[updateChar] 图片加载失败: ${path}`);
+                        newCharEl.remove();
+                        // 回退到原逻辑
+                        charEl.src = path;
                     };
-                    this.state.activeChars[charId] = { path, ...finalProps };
-                }, 100); // 总持续时间：0.1s + 0.1s = 0.2s
+                }
                 
                 // 重要：对于同标识符切换，我们已经在异步回调中处理了所有逻辑
                 // 因此直接返回，跳过后续的样式应用和透明度处理
@@ -4838,10 +4865,14 @@ const gameEngine = {
 
             // 只有当 modifiers 中没有显式指定位置/层级/缩放时，才继承
             // 注意：parseCharModifiers 返回的是计算后的值，我们需要判断用户是否输入了关键词
-            const hasExplicitLeft = modifiers.match(/(左|右|中|left|right|middle|x:)/i);
+            // 特殊处理：排除方向渐入/渐出指令中的"左"和"右"
+            const hasExplicitLeft = modifiers.match(/(左|右|中|left|right|middle|x:)/i) && 
+                                   !modifiers.match(/(左渐出|右渐出|lfadeOut|rfadeOut|左渐入|右渐入|lfadeIn|rfadeIn)/i);
             const hasExplicitBottom = modifiers.match(/(上|下|up|down|y:)/i);
             const hasExplicitLayer = modifiers.match(/(前|后|front|back)/i);
             const hasExplicitScale = modifiers.match(/\d+%$/);
+
+            console.log(`[updateChar] Inheritance check for ${charId}: hasExplicitLeft=${hasExplicitLeft}, currentLeft=${currentLeft}, props.left before=${props.left}`);
 
             if (!hasExplicitLeft && currentLeft) props.left = currentLeft;
             if (!hasExplicitBottom && currentBottom) props.bottom = currentBottom;
@@ -4850,6 +4881,8 @@ const gameEngine = {
                 const oldScale = parseFloat(currentHeight) / 100;
                 if (!isNaN(oldScale)) props.scale = oldScale;
             }
+            
+            console.log(`[updateChar] After inheritance: props.left=${props.left}, props.bottom=${props.bottom}`);
         }
         
         // 防重复渲染机制：检查立绘状态是否真的需要更新
@@ -4894,6 +4927,54 @@ const gameEngine = {
         if (props.fadeType === 'fadeOut') {
             // 渐出指令：执行渐出动画
             this.fadeOutChar(charId, charEl);
+            return; // 直接返回，不继续执行后续逻辑
+        } else if (props.fadeType === 'leftFadeOut' || props.fadeType === 'rightFadeOut') {
+            // 方向渐出指令：需要先应用位置继承，再执行渐出动画
+            console.log(`[updateChar] Directional fade out for ${charId}, props.left=${props.left}, current left=${charEl.style.left}`);
+            
+            // 应用样式（位置继承已在上面完成）
+            charEl.style.left = props.left;
+            charEl.style.bottom = props.bottom;
+            charEl.style.zIndex = props.zIndex;
+            charEl.style.visibility = 'visible';
+            
+            // 应用缩放
+            charEl.style.height = `${props.scale * 100}%`;
+            
+            // 应用水平对齐变换
+            charEl.style.transform = 'translateX(-50%)';
+            
+            // 确定渐出方向
+            const direction = props.fadeType === 'leftFadeOut' ? 'left' : 'right';
+            
+            console.log(`[updateChar] Applying ${direction} fade out, final left=${charEl.style.left}`);
+            
+            // 执行方向渐出动画
+            this.fadeOutChar(charId, charEl, direction);
+            return; // 直接返回，不继续执行后续逻辑
+        } else if (props.fadeType === 'leftFadeIn' || props.fadeType === 'rightFadeIn') {
+            // 方向渐入指令：需要先应用位置继承，再执行渐入动画
+            console.log(`[updateChar] Directional fade in for ${charId}, props.left=${props.left}, current left=${charEl.style.left}`);
+            
+            // 应用样式（位置继承已在上面完成）
+            charEl.style.left = props.left;
+            charEl.style.bottom = props.bottom;
+            charEl.style.zIndex = props.zIndex;
+            charEl.style.visibility = 'visible';
+            
+            // 应用缩放
+            charEl.style.height = `${props.scale * 100}%`;
+            
+            // 应用水平对齐变换
+            charEl.style.transform = 'translateX(-50%)';
+            
+            // 确定渐入方向
+            const direction = props.fadeType === 'leftFadeIn' ? 'left' : 'right';
+            
+            console.log(`[updateChar] Applying ${direction} fade in, final left=${charEl.style.left}`);
+            
+            // 执行方向渐入动画
+            this.fadeInChar(charId, charEl, direction);
             return; // 直接返回，不继续执行后续逻辑
         } else if (props.fadeType === 'fadeIn') {
             // 渐入指令：从透明渐变到不透明
@@ -4983,8 +5064,9 @@ const gameEngine = {
      * 渐出指定立绘
      * @param {string} charId - 立绘ID
      * @param {HTMLElement} charEl - 可选，立绘DOM元素，如果不提供则自动获取
+     * @param {string} direction - 可选，渐出方向 ('left' 或 'right')，默认为普通渐出
      */
-    fadeOutChar: function(charId, charEl = null) {
+    fadeOutChar: function(charId, charEl = null, direction = null) {
         // 如果未提供 DOM 元素，则自动获取
         if (!charEl) {
             charEl = document.getElementById(`char-${charId}`);
@@ -5008,9 +5090,26 @@ const gameEngine = {
             delete this.state.charActionQueues[charId];
         }
         
-        // 设置渐出动画
-        charEl.style.transition = 'opacity 0.8s ease-in-out';
-        charEl.style.opacity = '0';
+        // 根据方向设置不同的动画效果
+        if (direction === 'left') {
+            // 左渐出：向左移动10%的同时渐出
+            charEl.style.transition = 'opacity 0.8s ease-in-out, transform 0.8s ease-in-out';
+            charEl.style.opacity = '0';
+            // 在现有transform基础上增加向左移动10%
+            const currentTransform = charEl.style.transform || 'translateX(-50%)';
+            charEl.style.transform = `${currentTransform} translateX(-10%)`;
+        } else if (direction === 'right') {
+            // 右渐出：向右移动10%的同时渐出
+            charEl.style.transition = 'opacity 0.8s ease-in-out, transform 0.8s ease-in-out';
+            charEl.style.opacity = '0';
+            // 在现有transform基础上增加向右移动10%
+            const currentTransform = charEl.style.transform || 'translateX(-50%)';
+            charEl.style.transform = `${currentTransform} translateX(10%)`;
+        } else {
+            // 普通渐出：只改变透明度
+            charEl.style.transition = 'opacity 0.8s ease-in-out';
+            charEl.style.opacity = '0';
+        }
         
         // 动画结束后移除元素
         setTimeout(() => {
@@ -5020,6 +5119,71 @@ const gameEngine = {
                 existingEl.remove();
             }
             delete this.state.activeChars[charId];
+            
+            // 更新调试日志中的立绘状态
+            this.syncDebugCharsState();
+        }, 800); // 与 transition 时长一致
+    },
+
+    /**
+     * 渐入指定立绘（支持方向）
+     * @param {string} charId - 立绘ID
+     * @param {HTMLElement} charEl - 可选，立绘DOM元素，如果不提供则自动获取
+     * @param {string} direction - 可选，渐入方向 ('left' 或 'right')，默认为普通渐入
+     */
+    fadeInChar: function(charId, charEl = null, direction = null) {
+        // 如果未提供 DOM 元素，则自动获取
+        if (!charEl) {
+            charEl = document.getElementById(`char-${charId}`);
+        }
+        
+        if (!charEl) {
+            console.warn(`立绘 ${charId} 不存在，无法执行渐入`);
+            return;
+        }
+        
+        // 根据方向设置不同的动画效果
+        if (direction === 'left') {
+            // 左渐入：从左侧10%的位置向右移动到当前位置并渐入
+            // 初始状态：透明 + 向左偏移10%
+            charEl.style.opacity = '0';
+            const currentTransform = charEl.style.transform || 'translateX(-50%)';
+            charEl.style.transform = `${currentTransform} translateX(-10%)`;
+            
+            // 强制重绘以确保初始状态生效
+            void charEl.offsetHeight;
+            
+            // 开始动画：渐变到不透明 + 移回原位
+            charEl.style.transition = 'opacity 0.8s ease-in-out, transform 0.8s ease-in-out';
+            charEl.style.opacity = '1';
+            charEl.style.transform = currentTransform;
+        } else if (direction === 'right') {
+            // 右渐入：从右侧10%的位置向左移动到当前位置并渐入
+            // 初始状态：透明 + 向右偏移10%
+            charEl.style.opacity = '0';
+            const currentTransform = charEl.style.transform || 'translateX(-50%)';
+            charEl.style.transform = `${currentTransform} translateX(10%)`;
+            
+            // 强制重绘以确保初始状态生效
+            void charEl.offsetHeight;
+            
+            // 开始动画：渐变到不透明 + 移回原位
+            charEl.style.transition = 'opacity 0.8s ease-in-out, transform 0.8s ease-in-out';
+            charEl.style.opacity = '1';
+            charEl.style.transform = currentTransform;
+        } else {
+            // 普通渐入：只改变透明度
+            charEl.style.opacity = '0';
+            // 强制重绘以确保透明度变化生效
+            void charEl.offsetHeight;
+            charEl.style.transition = 'opacity 0.8s ease-in-out';
+            charEl.style.opacity = '1';
+        }
+        
+        // 动画结束后更新状态
+        setTimeout(() => {
+            // 恢复默认过渡效果
+            charEl.style.transition = 'all 0.5s ease';
             
             // 更新调试日志中的立绘状态
             this.syncDebugCharsState();
@@ -5490,7 +5654,11 @@ const gameEngine = {
     
         const fadeMap = {
             '渐入': 'fadeIn', 'fadeIn': 'fadeIn',
-            '渐出': 'fadeOut', 'fadeOut': 'fadeOut'
+            '渐出': 'fadeOut', 'fadeOut': 'fadeOut',
+            '左渐出': 'leftFadeOut', 'lfadeOut': 'leftFadeOut',
+            '右渐出': 'rightFadeOut', 'rfadeOut': 'rightFadeOut',
+            '左渐入': 'leftFadeIn', 'lfadeIn': 'leftFadeIn',
+            '右渐入': 'rightFadeIn', 'rfadeIn': 'rightFadeIn'
         };
     
         // 第一步：检测精确坐标指令（具有最高优先级）
