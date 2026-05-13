@@ -102,6 +102,11 @@ body {
     -ms-user-select: none;
     -webkit-user-drag: none;
     pointer-events: none;
+    /* GPU加速优化 */
+    will-change: opacity, transform;
+    transform: translateZ(0) translateX(-50%);
+    /* 图像渲染优化 */
+    image-rendering: -webkit-optimize-contrast;
 }
 
 /* 文本框容器 - 默认状态 */
