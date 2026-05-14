@@ -13,6 +13,10 @@
 
 关于启动器的说明请参照[README_BUILD.md](Shiori/README_BUILD.md)
 
+本引擎自身开源协议。更新于2026/5/14日V1.2版本，请参照[license.txt](license.txt)
+
+本引擎所使用的第三方依赖开源协议综合文本。更新于2026/5/14日V1.2版本，请参照[OPEN_SOURCE_LICENSES.txt](OPEN_SOURCE_LICENSES.txt)
+
 资源的详细配置方案请参照[assets.md](assets.md)
 
 交付给用户时，最小的文件数量架构示例（Shiori_debug.exe可以选择不放入）：
