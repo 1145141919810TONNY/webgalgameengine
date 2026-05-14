@@ -1,0 +1,455 @@
+================================================================================
+Shiori Engine Launcher (C# Edition) - 开源协议完整文本
+================================================================================
+
+项目名称：Shiori Engine Launcher
+更新时启动器版本号：1.2.0 (C# Migration)
+作者：bilibili @月が綺麗ですね_
+创建日期：2026年5月14日
+版权所有 (c) 2026 bilibili @月が綺麗ですね_
+
+说明：本文档包含项目使用的所有开源库和第三方组件的完整许可证文本。
+      中文翻译仅供参考，法律效力以英文原文为准。
+
+================================================================================
+目录
+================================================================================
+
+1. .NET Runtime & WPF (MIT License)
+2. Microsoft Edge WebView2 (Proprietary with Redistribution Rights)
+3. OpenCvSharp4 (Apache License 2.0)
+4. OpenCV (Apache License 2.0)
+5. System.Text.Json (MIT License)
+
+================================================================================
+1. MIT License (.NET Runtime & WPF)
+================================================================================
+
+【英文原文】
+--------------------------------------------------------------------------------
+The MIT License (MIT)
+
+Copyright (c) .NET Foundation and Contributors
+
+All rights reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+【中文参考版本（仅供参考）】
+--------------------------------------------------------------------------------
+MIT 许可证
+
+版权所有 (c) .NET 基金会及贡献者
+
+特此授予任何人免费获得本软件及相关文档文件（"软件"）副本的许可，不受限制地处理
+本软件，包括但不限于使用、复制、修改、合并、发布、分发、再许可和/或出售
+软件副本的权利，并允许向其提供软件的人员这样做，但须符合以下条件：
+
+上述版权声明和本许可声明应包含在软件的所有副本或主要部分中。
+
+本软件按"现状"提供，不提供任何明示或暗示的保证，包括但不限于对适销性、
+特定用途适用性和不侵权的保证。在任何情况下，作者或版权持有人均不对任何
+索赔、损害或其他责任承担责任，无论是在合同诉讼、侵权诉讼还是其他诉讼中，
+由软件或软件的使用或其他交易引起、产生或与之相关。
+
+================================================================================
+2. Microsoft Edge WebView2 Runtime License
+================================================================================
+
+【许可摘要】
+--------------------------------------------------------------------------------
+Copyright (c) Microsoft Corporation
+
+Microsoft Edge WebView2 Runtime 是微软提供的专有软件组件，但允许开发者
+在应用程序中免费集成和重新分发。
+
+关键条款：
+1. 您可以将 WebView2 Runtime 与您的应用程序一起分发。
+2. 您不得修改、反向工程、反编译或反汇编 WebView2 Runtime。
+3. 您必须遵守所有适用的出口管制法律。
+4. 微软不提供任何保证，且不承担因使用该软件产生的任何责任。
+
+完整许可证文本请参阅微软官方网站：
+https://developer.microsoft.com/en-us/microsoft-edge/webview2/
+
+================================================================================
+3. Apache License 2.0 (OpenCvSharp4)
+================================================================================
+
+【版权信息】
+Copyright (c) 2011-2020 Atsushi Sakai, et al.
+
+【英文原文】
+--------------------------------------------------------------------------------
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer, and
+      charge a fee for, acceptance of support, warranty, indemnity, or
+      other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+【中文参考版本（仅供参考）】
+--------------------------------------------------------------------------------
+                                 Apache 许可证
+                           版本 2.0，2004年1月
+                        http://www.apache.org/licenses/
+
+   使用、复制和分发的条款和条件
+
+   1. 定义。
+
+      "许可证"指本文档第1至第9节中定义的使用、复制和分发的条款和条件。
+
+      "许可方"指版权所有者或由版权所有者授权授予许可证的实体。
+
+      "法律实体"指行为实体以及控制该实体、受该实体控制或与该实体共同
+      控制的所有其他实体的联合体。就本定义而言，"控制"指(i)通过合同或
+      其他方式直接或间接导致该实体的方向或管理的权力，或(ii)拥有百分之
+      五十(50%)或以上的已发行股份，或(iii)对该实体的受益所有权。
+
+      "您"（或"您的"）指行使本许可证授予权限的个人或法律实体。
+
+      "源代码"形式指进行修改的首选形式，包括但不限于软件源代码、
+      文档源代码和配置文件。
+
+      "目标代码"形式指由源代码形式机械转换或翻译产生的任何形式，
+      包括但不限于编译的目标代码、生成的文档和转换为其他媒体类型。
+
+      "作品"指在许可证下提供的作者作品，无论是源代码形式还是目标代码
+      形式，如作品中包含或附加的版权声明所示（附录中提供了一个示例）。
+
+      "衍生作品"指基于（或源自）作品的任何作品，无论是源代码形式还是
+      目标代码形式，其中的编辑修订、注释、阐述或其他修改作为一个整体
+      代表原创的作者作品。就本许可证而言，衍生作品不包括与作品及其
+      衍生作品保持可分离或仅链接（或通过名称绑定）到其接口的作品。
+
+      "贡献"指任何作者作品，包括作品的原始版本以及对该作品或其衍生
+      作品的任何修改或添加，由版权所有者或经授权代表版权所有者提交
+      的个人或法律实体有意提交给许可方以包含在作品中。就本定义而言，
+      "提交"指发送给许可方或其代表的任何形式的电子、口头或书面通信，
+      包括但不限于由许可方或代表许可方管理的用于讨论和改进作品的
+      电子邮件列表、源代码控制系统和问题跟踪系统上的通信，但不包括
+      由版权所有者明确标记或以其他方式以书面形式指定为"非贡献"的通信。
+
+      "贡献者"指许可方以及代表其向许可方接收贡献并随后纳入作品中的
+      任何个人或法律实体。
+
+   2. 版权许可授予。在遵守本许可证条款和条件的前提下，每位贡献者
+      特此向您授予永久的、全球性的、非独占的、免费的、免版税的、
+      不可撤销的版权许可，以复制、准备衍生作品、公开展示、公开表演、
+      再许可和分发作品及此类衍生作品的源代码和目标代码形式。
+
+   3. 专利许可授予。在遵守本许可证条款和条件的前提下，每位贡献者
+      特此向您授予永久的、全球性的、非独占的、免费的、免版税的、
+      不可撤销的（除本节所述外）专利许可，以制造、委托制造、使用、
+      要约销售、销售、进口和以其他方式转让作品，其中此类许可仅适用
+      于由该贡献者单独或与其提交的作品的组合必然侵犯的专利权利要求。
+      如果您针对任何实体（包括诉讼中的交叉索赔或反索赔）提起专利诉讼，
+      声称作品或作品中包含的贡献构成直接或间接专利侵权，则根据本许可
+      证授予您的该作品的任何专利许可将在提起诉讼之日终止。
+
+   4. 重新分发。您可以以任何媒介复制和分发作品或其衍生作品的副本，
+      无论是否经过修改，也无论是源代码形式还是目标代码形式，只要您
+      满足以下条件：
+
+      (a) 您必须向作品或衍生作品的任何其他接收者提供本许可证的副本；并且
+
+      (b) 您必须使任何修改过的文件带有明显的声明，说明您更改了文件；并且
+
+      (c) 您必须在分发的任何衍生作品的源代码形式中保留作品源代码形式
+          中的所有版权、专利、商标和归属声明，不包括与衍生作品任何部分
+          无关的声明；并且
+
+      (d) 如果作品在其分发中包含"NOTICE"文本文件，则您分发的任何衍生
+          作品必须在以下至少一个位置包含此类 NOTICE 文件中包含的归属
+          声明的可读副本（不包括与衍生作品任何部分无关的声明）：作为
+          衍生作品一部分分发的 NOTICE 文本文件中；如果与衍生作品一起
+          提供，则在源代码形式或文档中；或者，如果且在此类第三方声明
+          通常出现的地方，在衍生作品生成的显示中。NOTICE 文件的内容
+          仅用于信息目的，不修改许可证。您可以在分发的衍生作品中添加
+          自己的归属声明，与作品中的 NOTICE 文本并列或作为其附录，
+          前提是此类额外的归属声明不能被解释为修改许可证。
+
+      您可以为您的修改添加自己的版权声明，并可以为您的修改的使用、
+      复制或分发，或为此类衍生作品作为一个整体提供额外或不同的许可
+      条款和条件，只要您对作品的使用、复制和分发 otherwise 遵守本
+      许可证中规定的条件。
+
+   5. 贡献提交。除非您明确声明否则，您有意提交以包含在作品中的任何
+      贡献都应在本许可证的条款和条件下，没有任何额外的条款或条件。
+      尽管如此，本文中的任何内容都不应取代或修改您可能与许可方就此类
+      贡献执行的任何单独许可协议的条款。
+
+   6. 商标。本许可证不授予使用许可方的商号、商标、服务标记或产品名称
+      的权限，除非在描述作品来源和重现 NOTICE 文件内容时的合理和惯常
+      使用所必需的范围内。
+
+   7. 免责声明。除非适用法律要求或书面同意，许可方按"现状"基础提供
+      作品（每位贡献者提供其贡献），不提供任何明示或暗示的保证或条件，
+      包括但不限于对所有权、不侵权、适销性或特定用途适用性的任何保证
+      或条件。您全权负责确定使用或重新分发作品的适当性，并承担与本许
+      可证下行使权限相关的任何风险。
+
+   8. 责任限制。在任何情况下，根据任何法律理论，无论是侵权（包括疏忽）、
+      合同还是其他，除非适用法律要求（如故意和严重疏忽行为）或书面同意，
+      任何贡献者均不对您承担损害赔偿责任，包括因本许可证或使用或无法
+      使用作品（包括但不限于商誉损失、停工、计算机故障或故障或任何其他
+      商业损害或损失）而产生的任何直接、间接、特殊、偶然或后果性损害，
+      即使已告知此类贡献者此类损害的可能性。
+
+   9. 接受保证或额外责任。在重新分发作品或其衍生作品时，您可以选择
+      提供并接受支持、保证、赔偿或其他责任义务和/或与本许可证一致的
+      权利，并收取费用。但是，在接受此类义务时，您只能代表您自己并
+      在您自己的责任下行事，而不是代表任何其他贡献者，并且只有在您
+      同意赔偿、辩护并使每位贡献者免受因您接受任何此类保证或额外责任
+      而由此类贡献者承担或被主张的任何责任的情况下。
+
+   条款和条件结束
+
+================================================================================
+4. Apache License 2.0 (OpenCV)
+================================================================================
+
+【版权信息】
+Copyright (C) 2000-2021, Intel Corporation, et al.
+
+OpenCvSharp4 底层依赖的 OpenCV 库同样遵循 Apache License 2.0。
+具体条款同上。
+
+================================================================================
+5. MIT License (System.Text.Json & Microsoft.Web.WebView2.Wpf)
+================================================================================
+
+【版权信息】
+Copyright (c) .NET Foundation and Contributors
+
+这些 .NET 生态的标准库和封装库均遵循 MIT License。
+具体条款同第1节。
+
+================================================================================
+总结
+================================================================================
+
+本项目（C# 技术栈）使用的开源协议特点：
+
+1. **宽松许可证**（允许商业使用，无传染性）：
+   - .NET Runtime / WPF (MIT License)
+   - OpenCvSharp4 (Apache License 2.0)
+   - OpenCV (Apache License 2.0)
+   - System.Text.Json (MIT License)
+   - Microsoft.Web.WebView2.Wpf (MIT License)
+
+2. **专有组件但允许自由分发**：
+   - Microsoft Edge WebView2 Runtime
+     * 允许随应用程序免费分发
+     * 禁止反向工程或修改二进制文件
+
+3. **商业使用合规性**：
+   允许商业用途
+   允许闭源分发
+   无需公开源代码
+   需在软件中包含许可证声明和版权声明
+
+4. **需要遵守的义务**：
+   - 在软件中或文档中包含所有许可证文本
+   - 保留原始版权声明
+   - 如果修改了 OpenCvSharp4 或 OpenCV 本身，需开源修改部分
+
+================================================================================
+重要声明
+================================================================================
+
+1. 本文档中的中文翻译仅供参考，不具有法律效力。如有争议，以英文原文为准。
+2. 建议在发布商业软件前咨询专业律师，确保完全符合所有许可证要求。
+3. 开源许可证可能会更新，请定期检查各项目的最新许可证版本。
+4. 本文档不构成法律建议，仅作为技术参考。
+
+================================================================================
+文档结束
+================================================================================
