@@ -125,6 +125,158 @@
             border: 2px solid #FFA500;
         }
         
+        /* ========================================
+           响应式设计 - 完整适配方案
+           ======================================== */
+        
+        /* 标准/大屏 (1920x1080及以上) - 保持现有布局 */
+        
+        /* 中屏适配（1366x768） */
+        @media (max-width: 1366px) {
+            .container {
+                width: 85%;
+            }
+            
+            h1 {
+                font-size: clamp(1.5rem, 2.5vw, 2rem);
+            }
+            
+            h2 {
+                font-size: clamp(1rem, 1.8vw, 1.125rem);
+            }
+            
+            .scene-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: clamp(0.5rem, 1vw, 0.625rem);
+            }
+            
+            .scene-card button {
+                font-size: clamp(0.8rem, 1.3vw, 0.875rem);
+                padding: clamp(0.4rem, 0.8vh, 0.5rem);
+            }
+            
+            button {
+                font-size: clamp(0.8rem, 1.3vw, 0.875rem);
+                padding: clamp(0.4rem, 0.8vh, 0.5rem) clamp(0.8rem, 1.5vw, 1rem);
+            }
+        }
+        
+        /* 小屏适配（1280x720或宽度<1024px） */
+        @media (max-width: 1024px) {
+            .container {
+                width: 90%;
+            }
+            
+            .scene-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            h1 {
+                font-size: clamp(1.3rem, 2.2vw, 1.8rem);
+            }
+            
+            h2 {
+                font-size: clamp(0.9rem, 1.6vw, 1rem);
+            }
+        }
+        
+        /* 极小屏幕适配（宽度 < 800px） */
+        @media (max-width: 800px) {
+            .container {
+                width: 95%;
+                margin-top: clamp(3rem, 6vh, 4.375rem);
+            }
+            
+            .actions {
+                padding: clamp(0.4rem, 1vh, 0.625rem);
+                gap: clamp(0.3rem, 0.8vw, 0.625rem);
+            }
+            
+            .scene-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: clamp(0.4rem, 1vw, 0.625rem);
+            }
+            
+            h1 {
+                font-size: clamp(1.1rem, 3vw, 1.5rem);
+                margin: clamp(1rem, 2vh, 1.5rem) auto;
+            }
+            
+            h2 {
+                font-size: clamp(0.85rem, 2.2vw, 1rem);
+            }
+            
+            .scene-card {
+                min-height: clamp(3rem, 5vh, 3.75rem);
+                padding: clamp(0.4rem, 1vh, 0.625rem);
+            }
+            
+            .scene-card button {
+                font-size: clamp(0.7rem, 1.8vw, 0.8rem);
+                padding: clamp(0.3rem, 0.6vh, 0.4rem);
+            }
+            
+            button {
+                font-size: clamp(0.7rem, 1.8vw, 0.8rem);
+                padding: clamp(0.3rem, 0.6vh, 0.4rem) clamp(0.5rem, 1.2vw, 0.75rem);
+            }
+        }
+        
+        /* 超小横屏适配（高度 < 500px 或极端宽高比） */
+        @media (max-height: 500px), (max-width: 600px) and (orientation: landscape) {
+            body {
+                overflow-y: auto;
+            }
+            
+            .container {
+                width: 98%;
+                margin-top: clamp(2.5rem, 5vh, 3.125rem);
+                padding: clamp(0.5rem, 1vh, 0.75rem);
+            }
+            
+            .actions {
+                padding: clamp(0.3rem, 0.8vh, 0.5rem);
+                gap: clamp(0.2rem, 0.5vw, 0.4rem);
+                flex-wrap: wrap;
+            }
+            
+            .scene-grid {
+                grid-template-columns: repeat(auto-fill, minmax(clamp(8rem, 20vw, 10rem), 1fr));
+                gap: clamp(0.3rem, 0.8vw, 0.5rem);
+            }
+            
+            h1 {
+                font-size: clamp(1rem, 3.5vw, 1.3rem);
+                margin: clamp(0.5rem, 1.5vh, 1rem) auto;
+            }
+            
+            h2 {
+                font-size: clamp(0.75rem, 2.5vw, 0.9rem);
+                margin: clamp(0.5rem, 1vh, 0.75rem) auto;
+            }
+            
+            .scene-card {
+                min-height: clamp(2.5rem, 4vh, 3rem);
+                padding: clamp(0.3rem, 0.8vh, 0.5rem);
+            }
+            
+            .scene-name {
+                font-size: clamp(0.7rem, 2vw, 0.85rem);
+                line-height: 1.2;
+            }
+            
+            .scene-card button {
+                font-size: clamp(0.65rem, 1.8vw, 0.75rem);
+                padding: clamp(0.2rem, 0.5vh, 0.35rem);
+                margin-top: clamp(0.2rem, 0.5vh, 0.4rem);
+            }
+            
+            button {
+                font-size: clamp(0.65rem, 1.8vw, 0.75rem);
+                padding: clamp(0.2rem, 0.5vh, 0.35rem) clamp(0.4rem, 1vw, 0.6rem);
+            }
+        }
+        
         /* 隐藏游戏相关元素 */
         #background-container,
         #character-container,
