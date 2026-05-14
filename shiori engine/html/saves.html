@@ -310,38 +310,86 @@
 			/* 超小高度适配（高度 < 500px） */
 			@media (max-height: 500px) {
 				.container {
-					margin-top: 50px;
-					max-height: calc(100vh - 70px);
+					margin-top: clamp(2.5rem, 5vh, 3.125rem);
+					max-height: calc(100vh - clamp(4rem, 8vh, 5rem));
 				}
 
 				h1 {
-					font-size: 18px;
-					margin: 10px auto;
+					font-size: clamp(1rem, 3vw, 1.125rem);
+					margin: clamp(0.5rem, 1.5vh, 0.625rem) auto;
 				}
 
 				h2 {
-					font-size: 13px;
-					margin: 10px auto;
+					font-size: clamp(0.75rem, 2.2vw, 0.8125rem);
+					margin: clamp(0.5rem, 1vh, 0.625rem) auto;
 				}
 
 				.scene-card {
-					min-height: 50px;
-					padding: 8px;
+					min-height: clamp(2.5rem, 4vh, 3.125rem);
+					padding: clamp(0.4rem, 0.8vh, 0.5rem);
 				}
 
 				.scene-card button {
-					font-size: 10px;
-					padding: 4px;
+					font-size: clamp(0.6rem, 1.6vw, 0.625rem);
+					padding: clamp(0.2rem, 0.5vh, 0.3125rem);
 				}
 
 				button {
-					font-size: 10px;
-					padding: 4px 10px;
+					font-size: clamp(0.6rem, 1.6vw, 0.625rem);
+					padding: clamp(0.2rem, 0.5vh, 0.3125rem) clamp(0.4rem, 1vw, 0.625rem);
 				}
 
 				.actions {
-					padding: 6px;
-					gap: 6px;
+					padding: clamp(0.3rem, 0.8vh, 0.375rem);
+					gap: clamp(0.2rem, 0.6vw, 0.375rem);
+				}
+			}
+			
+			/* 超小横屏适配（宽度 < 600px 且横向） */
+			@media (max-width: 600px) and (orientation: landscape) {
+				.container {
+					width: 98%;
+					margin-top: clamp(2.2rem, 4.5vh, 2.8125rem);
+				}
+				
+				.scene-grid {
+					grid-template-columns: repeat(auto-fill, minmax(clamp(6rem, 18vw, 8rem), 1fr));
+					gap: clamp(0.3rem, 0.8vw, 0.5rem);
+				}
+				
+				h1 {
+					font-size: clamp(0.9rem, 3vw, 1.1rem);
+				}
+				
+				h2 {
+					font-size: clamp(0.7rem, 2vw, 0.8rem);
+				}
+				
+				.scene-card {
+					min-height: clamp(2.2rem, 3.5vh, 2.8125rem);
+					padding: clamp(0.3rem, 0.6vh, 0.4rem);
+				}
+				
+				.scene-name {
+					font-size: clamp(0.65rem, 1.8vw, 0.75rem);
+					line-height: 1.2;
+				}
+				
+				.scene-card button {
+					font-size: clamp(0.55rem, 1.5vw, 0.65rem);
+					padding: clamp(0.15rem, 0.4vh, 0.25rem);
+					margin-top: clamp(0.15rem, 0.4vh, 0.25rem);
+				}
+				
+				button {
+					font-size: clamp(0.55rem, 1.5vw, 0.65rem);
+					padding: clamp(0.15rem, 0.4vh, 0.25rem) clamp(0.3rem, 0.8vw, 0.5rem);
+				}
+				
+				.actions {
+					padding: clamp(0.25rem, 0.6vh, 0.375rem);
+					gap: clamp(0.15rem, 0.4vw, 0.25rem);
+					flex-wrap: wrap;
 				}
 			}
 		</style>
