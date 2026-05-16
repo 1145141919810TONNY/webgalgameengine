@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -12,8 +12,6 @@
     <script src="../bg_config.js"></script>
     <script src="../illustration.js"></script>
     <script src="../modules/progress_api.js"></script>
-    <!-- QWebChannel - 仅在QtWebEngine环境中需要 -->
-    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
 </head>
 <body>
     <!-- 背景容器 -->
@@ -45,7 +43,6 @@
     
     <!-- 视频播放器 -->
     <div id="video-player" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:100; background-color:black;">
-        <!-- 原生video标签（HTML和宿主环境通用） -->
         <video id="main-video" style="width:100%; height:100%; object-fit:contain;">
             您的浏览器不支持视频播放。
         </video>
@@ -95,6 +92,7 @@
                     background: "bg_示例",     // 背景图 ID（可选）
                     bgm: "bgm_示例",           // BGM ID（可选）
                     audio: "audio_示例",       // 音频文件名（可选，零配置）
+                    se: "se_示例",             // SE 文件名（可选，零配置）
                     chars: "[中 char_示例]",   // 立绘指令（可选）
                     command: "[指令]",         // 引擎指令（可选）
                     action: null               // 动作对象（可选）
