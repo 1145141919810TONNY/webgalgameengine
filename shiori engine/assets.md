@@ -127,9 +127,9 @@ const CHAR_CONFIG_SUB = {
 
 ## 4. 音频资源 (Audio - SE/Voice)
 
-音效和语音文件存放在 `assets/audio/` 目录中。
+音效和语音文件分别存放在 `assets/se/` 和 `assets/audio/` 目录中。
 
-### 零配置管理模式（推荐）
+### 4.1 零配置管理模式（推荐）
 
 从 V1.2.6 开始，引擎支持音频资源零配置管理。你无需在场景中定义映射，直接使用文件名即可。
 
@@ -143,6 +143,110 @@ const CHAR_CONFIG_SUB = {
     audio: "voice1[a]voice2" // 依次播放两个音频文件
 }
 ```
+
+### 4.2 独立音频通道
+
+Shiori 引擎提供了三种独立的音频通道，可以在同一剧情行中同时触发：
+
+| 属性 | 用途 | 文件路径 | 播放器 | 特性 |
+| :--- | :--- | :--- | :--- | :--- |
+| `bgm` | 背景音乐 | `assets/bgm/` | bgmPlayer | 循环播放，切换场景时自动过渡 |
+| `voice` | 人物语音 | `assets/audio/` | voicePlayer | 单次播放，不与音效冲突 |
+| `se` | 音效 | `assets/se/` | sePlayer | 单次播放，可与语音同时播放 |
+
+**重要特性：**
+- **独立性**：`voice` 和 `se` 使用不同的播放器，可以同时播放而不会互相打断
+- **零配置加载**：所有音频文件无需在 `sceneData` 中预定义映射，引擎会根据文件名自动拼接路径并播放
+- **多格式支持**：`.ogg`, `.mp3`, `.wav`, `.m4a`, `.aac`
+
+### 4.3 使用示例
+
+#### 基础用法
+
+```javascript
+// 单个语音
+{
+    text: "你好！",
+    speaker: "主角",
+    voice: "hello"  // 自动播放 assets/audio/hello.ogg/mp3/wav...
+}
+
+// 单个音效
+{
+    text: "点击按钮",
+    se: "click"     // 自动播放 assets/se/click.ogg/mp3/wav...
+}
+
+// 背景音乐
+{
+    text: "场景开始",
+    bgm: "theme"    // 自动播放 assets/bgm/theme.ogg/mp3/wav...（循环）
+}
+```
+
+#### 组合使用
+
+```javascript
+// 同时播放语音和音效
+{
+    text: "攻击！",
+    speaker: "战士",
+    voice: "attack_voice",  // 播放语音
+    se: "sword_hit"         // 同时播放音效（互不干扰）
+}
+
+// 完整示例：BGM + 语音 + 音效
+{
+    text: "欢迎来到这个世界！",
+    speaker: "向导",
+    bgm: "opening_theme",       // 背景音乐（循环）
+    voice: "welcome",           // 人物语音
+    se: "magic_sparkle"         // 魔法音效
+}
+```
+
+#### 多个音效
+
+```javascript
+// 支持数组形式播放多个音效
+{
+    text: "连击！",
+    se: ["hit1", "hit2", "hit3"]  // 依次播放三个音效
+}
+```
+
+### 4.4 注意事项
+
+1. **独立性**：`voice` 和 `se` 使用不同的播放器，可以同时播放而不会互相打断
+2. **BGM 特殊性**：BGM 会循环播放，切换场景时会自动淡出并播放新的 BGM
+3. **音量控制**：所有音频通道的音量由系统模块统一管理
+4. **自动播放限制**：浏览器可能阻止自动播放，需要用户交互后才能播放音频
+5. **文件命名**：建议使用小写字母和下划线，避免特殊字符
+
+### 4.5 与传统 audio 属性的区别
+
+**旧版方式**（仍兼容）：
+```javascript
+{
+    text: "测试",
+    audio: "sound_file"  // 混用 voicePlayer，会与语音冲突
+}
+```
+
+**新版方式**（推荐）：
+```javascript
+{
+    text: "测试",
+    voice: "voice_file",  // 独立语音通道
+    se: "se_file"         // 独立音效通道
+}
+```
+
+**优势**：
+- 语音和音效可以同时播放
+- 更清晰的语义表达
+- 更好的音频管理
+- 向后兼容旧版 `audio` 属性
 
 ---
 
