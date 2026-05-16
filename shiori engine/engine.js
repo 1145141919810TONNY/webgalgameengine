@@ -707,6 +707,28 @@ const gameEngine = {
             this.playAudio(line.audio);
         }
         
+        // 播放音效（SE）- 独立通道，与语音互不干扰
+        if (line.se) {
+            // 支持数组或字符串
+            if (Array.isArray(line.se)) {
+                // 如果是数组，依次播放
+                line.se.forEach(seKey => {
+                    this.playSE(seKey);
+                });
+            } else if (typeof line.se === 'string') {
+                // 检查是否包含 [a] 标签（序列播放）
+                if (line.se.includes('[a]')) {
+                    const seSegments = this.parseAudioSequence(line.se);
+                    seSegments.forEach(seKey => {
+                        this.playSE(seKey);
+                    });
+                } else {
+                    // 单个音效
+                    this.playSE(line.se);
+                }
+            }
+        }
+        
         // 切换背景图片
         if (line.background) {
             let bgPath = null;
@@ -2311,44 +2333,83 @@ const gameEngine = {
      * 2. 从 sceneData.audio 中查找（传统方式）
      * 3. 自动拼接 assets/audio/ 路径（零配置方式）
      * @param {string} audioKey - 音频键名或文件名（不含扩展名）
-     * @returns {Object|null} - { path: string, isBgm: boolean } 或 null
+     * @returns {object|null} - { path: string, isBgm: boolean } 或 null
      */
     resolveAudioPath: function(audioKey) {
         if (!audioKey || typeof audioKey !== 'string') {
             return null;
         }
-        
+            
         // 优先检查是否为BGM
         if (this.sceneData.bgm && this.sceneData.bgm[audioKey]) {
             return { path: this.sceneData.bgm[audioKey], isBgm: true };
         }
-        
+            
         // 检查是否在 sceneData.audio 中定义（传统方式）
         if (this.sceneData.audio && this.sceneData.audio[audioKey]) {
             return { path: this.sceneData.audio[audioKey], isBgm: false };
         }
-        
+            
         // 尝试从缓存中获取
         if (this.audioCache[audioKey]) {
             return { path: this.audioCache[audioKey], isBgm: false };
         }
-        
+            
         // 零配置模式：自动拼接 assets/audio/ 路径
         // 尝试常见的音频扩展名
         const extensions = ['.ogg', '.mp3', '.wav', '.m4a', '.aac'];
         const basePath = '../assets/audio/';
-        
+            
         for (const ext of extensions) {
             // 尝试原始文件名（保持大小写）
             const fullPath = basePath + audioKey + ext;
-            
+                
             // 将路径缓存起来，避免重复计算
             this.audioCache[audioKey] = fullPath;
             return { path: fullPath, isBgm: false };
         }
-        
+            
         // 如果都没找到，返回 null
         console.warn(`音频文件未找到: ${audioKey}`);
+        return null;
+    },
+        
+    /**
+     * 解析音效路径
+     * 支持零配置自动加载，统一指向 assets/se/ 目录
+     * @param {string} seKey - 音效键名或文件名（不含扩展名）
+     * @returns {string|null} - 音效路径或 null
+     */
+    resolveSEPath: function(seKey) {
+        if (!seKey || typeof seKey !== 'string') {
+            return null;
+        }
+            
+        // 尝试从缓存中获取
+        if (this.seCache && this.seCache[seKey]) {
+            return this.seCache[seKey];
+        }
+            
+        // 零配置模式：自动拼接 assets/se/ 路径
+        // 尝试常见的音频扩展名
+        const extensions = ['.ogg', '.mp3', '.wav', '.m4a', '.aac'];
+        const basePath = '../assets/se/';
+            
+        for (const ext of extensions) {
+            // 尝试原始文件名（保持大小写）
+            const fullPath = basePath + seKey + ext;
+                
+            // 初始化缓存对象
+            if (!this.seCache) {
+                this.seCache = {};
+            }
+            // 将路径缓存起来，避免重复计算
+            this.seCache[seKey] = fullPath;
+            return fullPath;
+        }
+            
+        // 如果都没找到，返回 null
+        console.warn(`音效文件未找到: ${seKey}`);
         return null;
     },
     
@@ -2475,6 +2536,51 @@ const gameEngine = {
                     });
                 });
             }
+        }
+    },
+    
+    /**
+     * 播放音效（SE）
+     * 使用独立的 se-player，与 voice-player 互不干扰
+     * 支持零配置自动加载，统一指向 assets/se/ 目录
+     * @param {string} seKey - 音效键名或文件名（不含扩展名）
+     */
+    playSE: function(seKey) {
+        const sePath = this.resolveSEPath(seKey);
+        
+        if (!sePath) {
+            console.log("音效文件路径不存在:", seKey);
+            return;
+        }
+        
+        console.log("播放音效:", seKey, "路径:", sePath);
+        
+        // 停止当前正在播放的音效
+        this.elements.sePlayer.pause();
+        
+        // 加载并播放新音效
+        this.elements.sePlayer.loop = false;
+        this.elements.sePlayer.src = sePath;
+        const playPromise = this.elements.sePlayer.play();
+        
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                console.log("音效播放失败，请注意浏览器自动播放策略限制:", error);
+                
+                // 尝试解锁音频上下文
+                this.elements.sePlayer.volume = 0;
+                this.elements.sePlayer.play().then(() => {
+                    // 使用系统模块保存的音量值
+                    if (typeof systemModule !== 'undefined') {
+                        this.elements.sePlayer.volume = systemModule.currentVolume;
+                    } else {
+                        this.elements.sePlayer.volume = 1;
+                    }
+                    this.elements.sePlayer.currentTime = 0;
+                }).catch(err => {
+                    console.log("即使尝试解锁后音效仍无法播放:", err);
+                });
+            });
         }
     },
     
@@ -4441,6 +4547,8 @@ const gameEngine = {
         const fadeKeywords = ['渐入', 'fadeIn', '渐出', 'fadeOut', '左渐出', 'lfadeOut', '右渐出', 'rfadeOut', '左渐入', 'lfadeIn', '右渐入', 'rfadeIn'];
         // 动作指令关键词
         const actionKeywords = ['后退', 'retreat', '前进', 'forward', '吓一跳', 'scare', '发抖', 'shake', '持续发抖', 'cshake', '结束发抖', 'sshake', '点头', 'nod'];
+        // 亮度控制关键词
+        const brightnessKeywords = ['明', 'bright', '暗', 'dim', 'dark'];
         
         // 检查是否匹配任何关键词
         if (positionKeywords.includes(word)) return true;
@@ -4450,6 +4558,7 @@ const gameEngine = {
         if (removeKeywords.includes(word)) return true;
         if (fadeKeywords.includes(word)) return true;
         if (actionKeywords.includes(word)) return true;
+        if (brightnessKeywords.includes(word)) return true;
         
         // 检查是否以 x: 或 y: 开头
         if (word.startsWith('x:') || word.startsWith('y:')) return true;
@@ -4531,7 +4640,7 @@ const gameEngine = {
         if (charEl.src !== path) {
             // 如果是同标识符切换不同图片，执行双缓冲交叉淡入淡出过渡
             if (isSameRoleDifferentImage) {
-                // 【优化】创建临时新元素实现真正的双缓冲交叉淡入淡出
+                // 创建临时新元素实现真正的双缓冲交叉淡入淡出
                 const newCharEl = document.createElement('img');
                 newCharEl.id = `char-${charId}-temp`;
                 newCharEl.className = 'character-img';
@@ -4558,6 +4667,7 @@ const gameEngine = {
                     const hasExplicitBottom = modifiers.match(/(上|下|up|down|y:)/i);
                     const hasExplicitLayer = modifiers.match(/(前|后|front|back)/i);
                     const hasExplicitScale = modifiers.match(/\d+%$/);
+                    const hasExplicitZ = modifiers.match(/z:/i);
                     
                     // 应用样式属性（带继承逻辑）
                     newCharEl.style.left = hasExplicitLeft ? newProps.left : (charEl.style.left || newProps.left);
@@ -4573,7 +4683,22 @@ const gameEngine = {
                         newCharEl.style.height = `${newProps.scale * 100}%`;
                     }
                     
-                    newCharEl.style.transform = 'translateX(-50%)';
+                    // 构建transform属性，包含水平对齐和Z轴旋转
+                    let transformValue = 'translateX(-50%)';
+                    if (hasExplicitZ) {
+                        // 如果新指令指定了z:，使用新的旋转角度
+                        if (newProps.preciseZ !== null && newProps.preciseZ !== undefined) {
+                            transformValue += ` rotate(${newProps.preciseZ}deg)`;
+                        }
+                    } else {
+                        // 否则继承旧的transform（包含旋转）
+                        const oldTransform = charEl.style.transform || 'translateX(-50%)';
+                        // 检查旧transform是否包含rotate
+                        if (oldTransform.includes('rotate')) {
+                            transformValue = oldTransform;
+                        }
+                    }
+                    newCharEl.style.transform = transformValue;
                     newCharEl.style.visibility = 'visible';
                     
                     // 强制重绘以确保样式应用
@@ -4646,7 +4771,7 @@ const gameEngine = {
             const currentZIndex = charEl.style.zIndex;
             const currentHeight = charEl.style.height;
 
-            // 只有当 modifiers 中没有显式指定位置/层级/缩放时，才继承
+            // 只有当 modifiers 中没有显式指定位置/层级/缩放/旋转/亮度时，才继承
             // 注意：parseCharModifiers 返回的是计算后的值，我们需要判断用户是否输入了关键词
             // 特殊处理：排除方向渐入/渐出指令中的"左"和"右"
             const hasExplicitLeft = modifiers.match(/(左|右|中|left|right|middle|x:)/i) && 
@@ -4654,6 +4779,8 @@ const gameEngine = {
             const hasExplicitBottom = modifiers.match(/(上|下|up|down|y:)/i);
             const hasExplicitLayer = modifiers.match(/(前|后|front|back)/i);
             const hasExplicitScale = modifiers.match(/\d+%$/);
+            const hasExplicitZ = modifiers.match(/z:/i);
+            const hasExplicitBrightness = modifiers.match(/(明|暗|bright|dim|dark)/i);
 
             console.log(`[updateChar] Inheritance check for ${charId}: hasExplicitLeft=${hasExplicitLeft}, currentLeft=${currentLeft}, props.left before=${props.left}`);
 
@@ -4664,6 +4791,29 @@ const gameEngine = {
                 const oldScale = parseFloat(currentHeight) / 100;
                 if (!isNaN(oldScale)) props.scale = oldScale;
             }
+            // Z轴旋转继承：从当前transform中提取旋转角度
+            if (!hasExplicitZ && charEl.style.transform) {
+                const transformMatch = charEl.style.transform.match(/rotate\(([^)]+)deg\)/);
+                if (transformMatch) {
+                    const oldRotation = parseFloat(transformMatch[1]);
+                    if (!isNaN(oldRotation)) {
+                        props.preciseZ = oldRotation;
+                    }
+                }
+            }
+            // 亮度状态继承：从当前filter中提取亮度设置
+            if (!hasExplicitBrightness && charEl.style.filter) {
+                const filterMatch = charEl.style.filter.match(/brightness\(([^)]+)\)/);
+                if (filterMatch) {
+                    const brightnessValue = filterMatch[1];
+                    // 如果当前是50%亮度，设置为'dim'；如果是100%，设置为'bright'
+                    if (brightnessValue === '50%') {
+                        props.brightness = 'dim';
+                    } else if (brightnessValue === '100%') {
+                        props.brightness = 'bright';
+                    }
+                }
+            }
             
             console.log(`[updateChar] After inheritance: props.left=${props.left}, props.bottom=${props.bottom}`);
         }
@@ -4673,6 +4823,8 @@ const gameEngine = {
         if (!isNewChar && !isSameRoleDifferentImage) {
             const currentState = this.state.activeChars[charId];
             if (currentState) {
+                console.log(`[updateChar] 防重复检查: currentState.left=${currentState.left}, props.left=${props.left}`);
+                console.log(`[updateChar] 防重复检查: currentState.bottom=${currentState.bottom}, props.bottom=${props.bottom}`);
                 // 比较关键属性是否相同
                 const isSameState = (
                     currentState.path === path &&
@@ -4680,9 +4832,13 @@ const gameEngine = {
                     currentState.bottom === props.bottom &&
                     currentState.zIndex === props.zIndex &&
                     Math.abs((currentState.scale || 1) - props.scale) < 0.01 && // 允许小的浮点数误差
+                    Math.abs((currentState.preciseZ || 0) - (props.preciseZ || 0)) < 0.01 && // 允许小的浮点数误差
+                    (currentState.brightness || null) === (props.brightness || null) && // 亮度状态必须相同
                     !props.actionType && // 如果有动作指令，总是需要更新
                     !props.fadeType // 如果有渐入/渐出指令，总是需要更新
                 );
+                
+                console.log(`[updateChar] isSameState=${isSameState}`);
                 
                 if (isSameState) {
                     console.log(`[updateChar] 立绘 ${charId} 状态未改变，跳过重复渲染`);
@@ -4692,14 +4848,30 @@ const gameEngine = {
             }
         }
                         
-        // 检查是否包含"瞬"指令或外部强制瞬间
+        // 检查是否包含“瞬”指令或外部强制瞬间
         const isInstant = props.instant || forceInstant;
-                        
-        if (isInstant) {
-            // 禁用过渡动画，实现瞬间切换
+                                
+        // 区分初次渲染与状态更新
+        // 如果是新立绘（isNewChar）或同标识符切换不同图片（isSameRoleDifferentImage），
+        // 需要在应用初始状态时禁用 transition，防止从默认值渐变到目标值
+        const isFirstRender = isNewChar || isSameRoleDifferentImage;
+                
+        console.log(`[updateChar] charId=${charId}, isNewChar=${isNewChar}, isFirstRender=${isFirstRender}, isInstant=${isInstant}`);
+        console.log(`[updateChar] 当前 left=${charEl.style.left}, 目标 left=${props.left}`);
+                                                
+        if (isInstant || isFirstRender) {
+            // 禁用过渡动画，实现瞬间切换或初次渲染无动画
+            console.log(`[updateChar] 设置 transition=none`);
             charEl.style.transition = 'none';
+        } else {
+            // 已有立绘的状态更新（位置、旋转等变化），确保有 transition 设置
+            // 这样可以保证位置变化时有平滑的过渡动画
+            // 注意：必须在应用样式之前设置，否则变化不会触发动画
+            // 总是设置为 'all 0.5s ease'，覆盖之前可能存在的 opacity-only transition
+            console.log(`[updateChar] 设置 transition=all 0.5s ease`);
+            charEl.style.transition = 'all 0.5s ease';
         }
-                        
+                                        
         // 应用样式
         charEl.style.left = props.left;
         charEl.style.bottom = props.bottom;
@@ -4764,20 +4936,35 @@ const gameEngine = {
             charEl.style.opacity = '0';
             // 强制重绘以确保透明度变化生效
             void charEl.offsetHeight;
-            // 设置渐变效果
-            charEl.style.transition = 'all 0.5s ease, opacity 0.8s ease-in-out';
+            // 如果已有 transition（如位置动画），保留它并追加 opacity transition
+            const currentTransition = charEl.style.transition;
+            if (currentTransition && currentTransition !== 'none') {
+                // 已有其他属性的 transition，追加 opacity
+                charEl.style.transition = `${currentTransition}, opacity 0.8s ease-in-out`;
+            } else {
+                // 没有其他 transition，只设置 opacity
+                charEl.style.transition = 'opacity 0.8s ease-in-out';
+            }
             charEl.style.opacity = '1';
         } else {
             // 检查是否应该使用默认渐变出现效果
-            const shouldFadeIn = !isInstant && !this.state.isBackgroundTransitioning;
+            // 注意：初次渲染（isNewChar 或 isSameRoleDifferentImage）时不应该有默认渐入效果
+            const shouldFadeIn = !isInstant && !isFirstRender && !this.state.isBackgroundTransitioning;
                     
             if (shouldFadeIn) {
                 // 先设置为透明，然后渐变到不透明
                 charEl.style.opacity = '0';
                 // 强制重绘以确保透明度变化生效
                 void charEl.offsetHeight;
-                // 设置渐变效果
-                charEl.style.transition = 'all 0.5s ease, opacity 0.8s ease-in-out';
+                // 如果已有 transition（如位置动画），保留它并追加 opacity transition
+                const currentTransition = charEl.style.transition;
+                if (currentTransition && currentTransition !== 'none') {
+                    // 已有其他属性的 transition，追加 opacity
+                    charEl.style.transition = `${currentTransition}, opacity 0.8s ease-in-out`;
+                } else {
+                    // 没有其他 transition，只设置 opacity
+                    charEl.style.transition = 'opacity 0.8s ease-in-out';
+                }
                 charEl.style.opacity = '1';
             } else {
                 charEl.style.opacity = '1';
@@ -4792,7 +4979,29 @@ const gameEngine = {
         // 无论是否使用精确坐标，都需要translateX(-50%)来让立绘的中心点对齐
         // 文字指令模式：left为百分比值（如50%），需要translateX(-50%)居中
         // 精确坐标模式：left为calc(50% + x%)，也需要translateX(-50%)让立绘中心对齐到计算后的位置
-        charEl.style.transform = 'translateX(-50%)';
+        
+        // 构建transform属性，包含水平对齐和Z轴旋转
+        let transformValue = 'translateX(-50%)';
+        if (props.preciseZ !== null && props.preciseZ !== undefined) {
+            transformValue += ` rotate(${props.preciseZ}deg)`;
+        }
+        charEl.style.transform = transformValue;
+                
+        // 应用亮度控制（明/暗）
+        if (props.brightness === 'dim') {
+            // 变暗：应用50%亮度滤镜
+            charEl.style.filter = 'brightness(50%)';
+        } else if (props.brightness === 'bright') {
+            // 明亮：恢复100%亮度
+            charEl.style.filter = 'brightness(100%)';
+        } else {
+            // 未指定亮度控制，保持当前状态或清除滤镜
+            // 如果立绘已有filter且不是因为亮度设置的，保留它
+            // 否则清除filter
+            if (!charEl.style.filter || charEl.style.filter.includes('brightness')) {
+                charEl.style.filter = '';
+            }
+        }
                 
         if (isInstant) {
             // 强制浏览器重绘，确保样式立即应用
@@ -4802,6 +5011,19 @@ const gameEngine = {
             setTimeout(() => {
                 charEl.style.transition = 'all 0.5s ease';
             }, 50);
+        } else if (isFirstRender) {
+            // 初次渲染后，需要恢复 transition 以支持后续的动画
+            // 但不能立即恢复，否则 opacity 动画会触发缩放动画
+            // 先强制重绘，确保所有初始状态已应用
+            void charEl.offsetHeight;
+            
+            // 如果使用了渐入效果，等待渐入完成后再恢复 transition
+            // 如果没有渐入效果，则延迟一小段时间后恢复
+            const restoreDelay = (props.fadeType === 'fadeIn' || (!isInstant && !this.state.isBackgroundTransitioning)) ? 800 : 50;
+            
+            setTimeout(() => {
+                charEl.style.transition = 'all 0.5s ease';
+            }, restoreDelay);
         }
         
         // 处理动作指令
@@ -4822,11 +5044,17 @@ const gameEngine = {
         // 先设置停止标记，通知正在执行的回调停止
         if (charEl) {
             charEl.dataset.shakeStopped = 'true';
+            charEl.dataset.proudStopped = 'true';
         }
         // 清除持续发抖状态
         if (this.state.shakingChars && this.state.shakingChars[charId]) {
             clearTimeout(this.state.shakingChars[charId]);
             delete this.state.shakingChars[charId];
+        }
+        // 清除持续得意状态
+        if (this.state.proudChars && this.state.proudChars[charId]) {
+            clearTimeout(this.state.proudChars[charId]);
+            delete this.state.proudChars[charId];
         }
         // 移除 DOM 元素
         if (charEl) {
@@ -4862,10 +5090,16 @@ const gameEngine = {
         
         // 先设置停止标记，通知正在执行的回调停止
         charEl.dataset.shakeStopped = 'true';
+        charEl.dataset.proudStopped = 'true';
         // 清除持续发抖状态
         if (this.state.shakingChars && this.state.shakingChars[charId]) {
             clearTimeout(this.state.shakingChars[charId]);
             delete this.state.shakingChars[charId];
+        }
+        // 清除持续得意状态
+        if (this.state.proudChars && this.state.proudChars[charId]) {
+            clearTimeout(this.state.proudChars[charId]);
+            delete this.state.proudChars[charId];
         }
         // 清除连续动作队列
         if (this.state.charActionQueues && this.state.charActionQueues[charId]) {
@@ -5136,6 +5370,24 @@ const gameEngine = {
             case 'nod':
                 this.applyNodAction(charEl, props);
                 break;
+            case 'ltilt':
+                this.applyLeftTiltAction(charEl, props);
+                break;
+            case 'rtilt':
+                this.applyRightTiltAction(charEl, props);
+                break;
+            case 'stand':
+                this.applyStandAction(charEl, props);
+                break;
+            case 'proud':
+                this.applyProudAction(charEl, props, false);
+                break;
+            case 'cproud':
+                this.applyProudAction(charEl, props, true);
+                break;
+            case 'sproud':
+                this.stopProudAction(charId);
+                break;
         }
     },
 
@@ -5274,6 +5526,249 @@ const gameEngine = {
     },
 
     /**
+     * 应用“左倒”动作
+     * 立绘逆时针旋转90度，模拟向左侧倒下
+     */
+    applyLeftTiltAction: function(charEl, props) {
+        // 保存原始的 transition 设置
+        const originalTransition = charEl.style.transition;
+        
+        // 设置过渡效果（0.5秒平滑过渡）
+        charEl.style.transition = 'transform 0.5s ease-in-out';
+        
+        // 获取当前的 transform 值
+        const currentTransform = charEl.style.transform || 'translateX(-50%)';
+        
+        // 检查是否已有 rotate，如果有则替换，否则追加
+        if (currentTransform.includes('rotate')) {
+            // 替换现有的 rotate
+            charEl.style.transform = currentTransform.replace(/rotate\([^)]+\)/, 'rotate(-90deg)');
+        } else {
+            // 追加 rotate
+            charEl.style.transform = `${currentTransform} rotate(-90deg)`;
+        }
+        
+        // 动画结束后恢复原始 transition
+        setTimeout(() => {
+            charEl.style.transition = originalTransition;
+        }, 500);
+    },
+
+    /**
+     * 应用“右倒”动作
+     * 立绘顺时针旋转90度，模拟向右侧倒下
+     */
+    applyRightTiltAction: function(charEl, props) {
+        // 保存原始的 transition 设置
+        const originalTransition = charEl.style.transition;
+        
+        // 设置过渡效果（0.5秒平滑过渡）
+        charEl.style.transition = 'transform 0.5s ease-in-out';
+        
+        // 获取当前的 transform 值
+        const currentTransform = charEl.style.transform || 'translateX(-50%)';
+        
+        // 检查是否已有 rotate，如果有则替换，否则追加
+        if (currentTransform.includes('rotate')) {
+            // 替换现有的 rotate
+            charEl.style.transform = currentTransform.replace(/rotate\([^)]+\)/, 'rotate(90deg)');
+        } else {
+            // 追加 rotate
+            charEl.style.transform = `${currentTransform} rotate(90deg)`;
+        }
+        
+        // 动画结束后恢复原始 transition
+        setTimeout(() => {
+            charEl.style.transition = originalTransition;
+        }, 500);
+    },
+
+    /**
+     * 应用“站立”动作
+     * 重置立绘的旋转角度到0°，使其恢复垂直站立状态
+     */
+    applyStandAction: function(charEl, props) {
+        // 保存原始的 transition 设置
+        const originalTransition = charEl.style.transition;
+        
+        // 设置过渡效果（0.3秒平滑过渡）
+        charEl.style.transition = 'transform 0.3s ease-in-out';
+        
+        // 获取当前的 transform 值
+        const currentTransform = charEl.style.transform || 'translateX(-50%)';
+        
+        // 检查是否已有 rotate，如果有则替换为0度，否则不需要改变
+        if (currentTransform.includes('rotate')) {
+            // 替换现有的 rotate 为 0 度
+            charEl.style.transform = currentTransform.replace(/rotate\([^)]+\)/, 'rotate(0deg)');
+        }
+        // 如果没有 rotate，说明已经是直立状态，无需操作
+        
+        // 动画结束后恢复原始 transition
+        setTimeout(() => {
+            charEl.style.transition = originalTransition;
+        }, 300);
+    },
+
+    /**
+     * 应用"得意"或"持续得意"动作
+     * 动画序列：z:-5同时y:5% → y:-5% → z:5同时y:5% （重复两次）
+     * @param {HTMLElement} charEl - 立绘DOM元素
+     * @param {Object} props - 解析后的属性
+     * @param {boolean} isContinuous - 是否为持续模式
+     */
+    applyProudAction: function(charEl, props, isContinuous) {
+        const charId = charEl.id.replace('char-', '');
+            
+        // 保存基准状态
+        const baseBottomStr = charEl.style.bottom || '0%';
+        const baseBottom = parseFloat(baseBottomStr) || 0;
+        const baseRotation = props.preciseZ || 0; // 获取用户设置的Z轴旋转角度
+        
+        console.log(`[得意] 启动 char-${charId}, isContinuous=${isContinuous}, 基准bottom: ${baseBottom}, 基准rotation: ${baseRotation}`);
+            
+        // 如果是持续得意，先停止之前的定时器
+        if (isContinuous && this.state.proudChars) {
+            if (this.state.proudChars[charId]) {
+                console.log(`[得意] 清除旧的定时器`);
+                clearTimeout(this.state.proudChars[charId]);
+                delete this.state.proudChars[charId];
+            }
+        }
+            
+        let step = 0; // 动画步骤计数器
+        const maxSteps = isContinuous ? Infinity : 8; // 单次得意执行2次循环 × 4步 = 8步
+            
+        const animate = () => {
+            // 检查是否已被外部停止
+            if (isContinuous && charEl.dataset.proudStopped === 'true') {
+                console.log(`[得意] char-${charId} 检测到停止标记，退出动画`);
+                // 已被停止，恢复原位并退出
+                this.resetProudState(charEl, baseBottom, baseRotation);
+                delete charEl.dataset.proudStopped;
+                return;
+            }
+                
+            if (!isContinuous && step >= maxSteps) {
+                // 非持续模式，完成指定步数后恢复原位
+                this.resetProudState(charEl, baseBottom, baseRotation);
+                return;
+            }
+                
+            // 动画序列（每步300ms）：
+            // Step 0: baseRotation-5, y:+5% (逆时针旋转5度 + 向上5%)
+            // Step 1: baseRotation, y:-5% (向下到基准下方5%，旋转回归基准)
+            // Step 2: baseRotation+5, y:+5% (顺时针旋转5度 + 向上5%)
+            // Step 3: baseRotation, y:-5% (向下到基准下方5%，旋转回归基准) -> 完成一次循环
+                
+            const stepInCycle = step % 4;
+            let newTransform = 'translateX(-50%)';
+            let newBottom = baseBottom;
+            let currentRotation = baseRotation;
+                
+            if (stepInCycle === 0) {
+                // baseRotation-5, y:+5%
+                currentRotation = baseRotation - 5;
+                newBottom = baseBottom + 5;
+            } else if (stepInCycle === 1) {
+                // baseRotation, y:-5%
+                currentRotation = baseRotation;
+                newBottom = baseBottom - 5;
+            } else if (stepInCycle === 2) {
+                // baseRotation+5, y:+5%
+                currentRotation = baseRotation + 5;
+                newBottom = baseBottom + 5;
+            } else if (stepInCycle === 3) {
+                // baseRotation, y:-5%
+                currentRotation = baseRotation;
+                newBottom = baseBottom - 5;
+            }
+            
+            // 构建transform：始终包含 translateX(-50%) 和 rotate
+            newTransform += ` rotate(${currentRotation}deg)`;
+                
+            // 应用变换
+            charEl.style.bottom = `${newBottom}%`;
+            charEl.style.transform = newTransform;
+                
+            step++;
+                
+            if (isContinuous) {
+                // 持续模式，使用定时器
+                if (!this.state.proudChars) {
+                    this.state.proudChars = {};
+                }
+                this.state.proudChars[charId] = setTimeout(animate, 300);
+            } else {
+                // 非持续模式
+                setTimeout(animate, 300);
+            }
+        };
+            
+        // 启动动画
+        animate();
+    },
+    
+    /**
+     * 重置得意状态，恢复到基准位置
+     * @param {HTMLElement} charEl - 立绘DOM元素
+     * @param {number} baseBottom - 基准bottom值
+     * @param {number} baseRotation - 基准旋转角度
+     */
+    resetProudState: function(charEl, baseBottom, baseRotation) {
+        // 设置过渡效果，平滑回归
+        const originalTransition = charEl.style.transition;
+        charEl.style.transition = 'all 0.3s ease-in-out';
+        
+        // 恢复到基准状态
+        charEl.style.bottom = `${baseBottom}%`;
+        
+        // 恢复基准旋转角度
+        charEl.style.transform = `translateX(-50%) rotate(${baseRotation}deg)`;
+        
+        // 恢复原始 transition
+        setTimeout(() => {
+            charEl.style.transition = originalTransition;
+        }, 300);
+    },
+    
+    /**
+     * 停止得意动作
+     * @param {string} charId - 立绘ID
+     */
+    stopProudAction: function(charId) {
+        console.log(`[结束得意] 尝试停止 char-${charId}`);
+        
+        const charEl = document.getElementById(`char-${charId}`);
+        if (!charEl) {
+            console.log(`[结束得意] char-${charId} 不存在`);
+            return;
+        }
+        
+        // 先设置停止标记，通知正在执行的回调停止
+        charEl.dataset.proudStopped = 'true';
+        
+        // 清除持续得意状态
+        if (this.state.proudChars && this.state.proudChars[charId]) {
+            console.log(`[结束得意] 清除定时器`);
+            clearTimeout(this.state.proudChars[charId]);
+            delete this.state.proudChars[charId];
+        }
+        
+        // 恢复立绘到正常位置
+        if (this.state.activeChars[charId]) {
+            const props = this.state.activeChars[charId];
+            this.resetProudState(charEl, parseFloat(props.bottom) || 0, props.preciseZ || 0);
+            console.log(`[结束得意] 已恢复基准状态`);
+        }
+        
+        // 清除停止标记
+        setTimeout(() => {
+            delete charEl.dataset.proudStopped;
+        }, 350);
+    },
+
+    /**
      * 应用“发抖”或“持续发抖”动作
      * X轴左右偏移 -2% / +2%，重复3次（非持续）或持续进行
      */
@@ -5390,7 +5885,9 @@ const gameEngine = {
         let instant = false; // 默认不禁用动画
         let preciseX = null; // 精确X坐标（以屏幕中心为0%）
         let preciseY = null; // 精确Y坐标（以屏幕底部为0%）
+        let preciseZ = null; // 精确Z轴旋转角度（度）
         let actionType = null; // 动作类型指令
+        let brightness = null; // 亮度控制：'bright'(明亮/100%) 或 'dim'(变暗/50%)
     
         // 将修饰词按空格分割为数组，便于精确匹配
         const modArray = mods.split(' ').filter(Boolean);
@@ -5432,7 +5929,13 @@ const gameEngine = {
             '发抖': 'shake', 'shake': 'shake',
             '持续发抖': 'cshake', 'cshake': 'cshake',
             '结束发抖': 'sshake', 'sshake': 'sshake',
-            '点头': 'nod', 'nod': 'nod'
+            '点头': 'nod', 'nod': 'nod',
+            '左倒': 'ltilt', 'ltilt': 'ltilt',
+            '右倒': 'rtilt', 'rtilt': 'rtilt',
+            '站立': 'stand', 'stand': 'stand',
+            '得意': 'proud', 'proud': 'proud',
+            '持续得意': 'cproud', 'cproud': 'cproud',
+            '结束得意': 'sproud', 'sproud': 'sproud'
         };
     
         const fadeMap = {
@@ -5442,6 +5945,11 @@ const gameEngine = {
             '右渐出': 'rightFadeOut', 'rfadeOut': 'rightFadeOut',
             '左渐入': 'leftFadeIn', 'lfadeIn': 'leftFadeIn',
             '右渐入': 'rightFadeIn', 'rfadeIn': 'rightFadeIn'
+        };
+    
+        const brightnessMap = {
+            '明': 'bright', 'bright': 'bright',
+            '暗': 'dim', 'dim': 'dim', 'dark': 'dim'
         };
     
         // 第一步：检测精确坐标指令（具有最高优先级）
@@ -5474,6 +5982,19 @@ const gameEngine = {
                     }
                 } else {
                     console.warn(`[CharParser] Invalid Y coordinate format (missing %): ${mod}`);
+                }
+            }
+            // 检测 z: 格式
+            if (mod.startsWith('z:')) {
+                const value = mod.substring(2);
+                // z: 不需要百分比符号，直接是角度值
+                const angleValue = parseFloat(value);
+                if (!isNaN(angleValue)) {
+                    // 限制角度范围在 -360 到 360 度之间
+                    preciseZ = Math.max(-360, Math.min(360, angleValue));
+                    console.log(`[CharParser] Detected precise Z rotation: z:${preciseZ}°`);
+                } else {
+                    console.warn(`[CharParser] Invalid Z rotation format: ${mod}`);
                 }
             }
         }
@@ -5651,12 +6172,27 @@ const gameEngine = {
             }
         }
     
-        // 如果存在动作指令，自动屏蔽“瞬”指令
+        // 第九步：提取亮度控制指令（取第一个匹配的）
+        let brightnessKeywordFound = false;
+        for (const mod of modArray) {
+            if (brightnessMap.hasOwnProperty(mod)) {
+                if (brightnessKeywordFound) {
+                    console.warn(`[CharParser] Conflict: Brightness keyword '${mod}' ignored. First match retained.`);
+                } else {
+                    brightness = brightnessMap[mod];
+                    console.log(`[CharParser] Brightness control detected: '${mod}' -> ${brightness}`);
+                    brightnessKeywordFound = true;
+                }
+                break; // 取第一个匹配的亮度控制指令
+            }
+        }
+    
+        // 如果存在动作指令，自动屏蔽"瞬"指令
         if (hasAction && instant) {
             console.log(`[CharParser] Action '${actionType}' executed. 'instant' flag ignored due to action priority.`);
             instant = false;
         }
-    
+            
         // 检测未识别的修饰词
         const allKnownKeywords = [
             ...Object.keys(positionMap),
@@ -5664,14 +6200,15 @@ const gameEngine = {
             ...Object.keys(layerMap),
             ...Object.keys(animationMap),
             ...Object.keys(actionMap),
-            ...Object.keys(fadeMap)
+            ...Object.keys(fadeMap),
+            ...Object.keys(brightnessMap)
         ];
         
         for (const mod of modArray) {
             // 跳过已知的关键词
             if (allKnownKeywords.includes(mod)) continue;
-            // 跳过精确坐标
-            if (mod.startsWith('x:') || mod.startsWith('y:')) continue;
+            // 跳过精确坐标和旋转
+            if (mod.startsWith('x:') || mod.startsWith('y:') || mod.startsWith('z:')) continue;
             // 跳过百分比缩放
             if (mod.endsWith('%')) continue;
             // 跳过角色ID（最后一个部分，在 updateChar 中处理）
@@ -5680,7 +6217,7 @@ const gameEngine = {
             console.warn(`[CharParser] Warning: Unknown modifier '${mod}' in '[${mods} lhX]'. Ignored.`);
         }
     
-        console.log(`[CharParser] Final result: left=${left}, bottom=${bottom}, zIndex=${10 + zIndexOffset}, scale=${(scale * 100).toFixed(0)}%, instant=${instant}, action=${actionType || 'none'}, fade=${fadeType || 'none'}`);
+        console.log(`[CharParser] Final result: left=${left}, bottom=${bottom}, zIndex=${10 + zIndexOffset}, scale=${(scale * 100).toFixed(0)}%, instant=${instant}, action=${actionType || 'none'}, fade=${fadeType || 'none'}, brightness=${brightness || 'none'}`);
     
         return {
             left,
@@ -5691,8 +6228,10 @@ const gameEngine = {
             instant,
             preciseX,
             preciseY,
+            preciseZ,
             actionType,
-            fadeType
+            fadeType,
+            brightness
         };
     }
 };
