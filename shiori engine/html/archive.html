@@ -530,6 +530,8 @@
 <body>
     <div class="actions">
         <button onclick="ArchiveManager.refreshArchives()">刷新存档</button>
+        <button onclick="location.href='saves.html'" class="primary">进度管理</button>
+        <button onclick="location.href='flowchart.html'" class="primary">剧本流程图</button>
         <button onclick="ArchiveManager.exportAllArchives()" class="primary">导出所有存档</button>
         <button onclick="ArchiveManager.importArchives()" class="primary">导入存档</button>
         <button onclick="ArchiveManager.clearAllArchives()" class="delete">清空所有存档</button>
@@ -643,8 +645,8 @@
                 archives.splice(index, 1);
                 this.saveArchives(archives);
                 
-                // 通知宿主层：存档已删除
-                this.notifyStorageOperation('DELETE', 'galgame_archives', 'localStorage');
+                // 通知 Python 层：存档已删除
+                this.notifyPythonStorageOperation('DELETE', 'galgame_archives', 'localStorage');
                 
                 this.showMessage('存档已删除', 'success');
                 this.renderArchiveList();
@@ -976,8 +978,8 @@
                 
                 localStorage.removeItem(this.STORAGE_KEY);
                 
-                // 通知宿主层：存档已清空
-                this.notifyStorageOperation('DELETE', 'galgame_archives (all)', 'localStorage');
+                // 通知 Python 层：存档已清空
+                this.notifyPythonStorageOperation('DELETE', 'galgame_archives (all)', 'localStorage');
                 
                 this.renderArchiveList();
                 this.showMessage('所有存档已清空', 'success');
@@ -1107,27 +1109,26 @@
         };
         
         /**
-         * 通知宿主层存储操作（通过 WebView2/通用桥接）
+         * 通知 Python 层存储操作（通过 QWebChannel）
          * @param {string} operation - 操作类型：'CREATE', 'DELETE', 'UPDATE'
          * @param {string} key - localStorage 的键名
          * @param {string} storageType - 存储类型：'localStorage' 或 'sessionStorage'
          */
-        ArchiveManager.notifyStorageOperation = function(operation, key, storageType) {
+        ArchiveManager.notifyPythonStorageOperation = function(operation, key, storageType) {
             try {
-                if (typeof window.shiori !== 'undefined' && 
-                    window.shiori.api && 
-                    typeof window.shiori.api.onStorageOperation === 'function') {
+                // 检查 ShioriAPI 是否可用
+                if (typeof ShioriAPI !== 'undefined' && ShioriAPI.onStorageOperation) {
                     const data = {
                         operation: operation,
                         key: key,
                         storageType: storageType,
                         timestamp: new Date().toISOString()
                     };
-                    window.shiori.api.onStorageOperation(JSON.stringify(data));
-                    console.log(`[Storage Monitor] Notified Host: ${operation} ${key} (${storageType})`);
+                    ShioriAPI.onStorageOperation(JSON.stringify(data));
+                    console.log(`[Storage Monitor] Notified Python: ${operation} ${key} (${storageType})`);
                 }
             } catch (e) {
-                console.warn('[Storage Monitor] Failed to notify Host:', e);
+                console.warn('[Storage Monitor] Failed to notify Python:', e);
             }
         };
         
