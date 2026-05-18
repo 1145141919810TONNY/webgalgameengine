@@ -62,30 +62,26 @@
 
 			.scene-card {
 				background-color: transparent;
-				border: 1px solid #4CAF50;
-				border-radius: 6px;
-				padding: 10px;
+				color: #FFD700;
+				border: 2px solid #FFD700;
+				border-radius: 20px;
+				padding: 8px 15px;
 				text-align: center;
-				min-height: 60px;
+				min-height: 40px;
 				display: flex;
 				flex-direction: column;
 				justify-content: center;
-			}
-
-			.scene-card button {
-				background-color: rgba(33, 150, 243, 0.8);
-				color: white;
-				padding: 8px;
-				border: 1px solid rgba(255, 255, 255, 0.3);
-				border-radius: 4px;
 				cursor: pointer;
-				font-size: 14px;
-				margin-top: 8px;
-				width: 100%;
+				transition: all 0.3s ease;
+				font-size: 16px;
+				font-weight: bold;
 			}
 
-			.scene-card button:hover {
-				background-color: #1976D2;
+			.scene-card:hover {
+				background-color: rgba(255, 215, 0, 0.2);
+				color: #FFA500;
+				border: 2px solid #FFA500;
+				transform: scale(1.03);
 			}
 
 
@@ -94,7 +90,7 @@
 			.current-playing-highlight {
 				border: 3px solid #2196F3 !important;
 				box-shadow: 0 0 15px rgba(33, 150, 243, 0.6), inset 0 0 10px rgba(33, 150, 243, 0.2) !important;
-				background-color: rgba(33, 150, 243, 0.1) !important;
+				background-color: rgba(33, 150, 243, 0.15) !important;
 				position: relative;
 				animation: pulse-blue 2s ease-in-out infinite;
 			}
@@ -112,6 +108,11 @@
 				font-weight: bold;
 				box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
 				z-index: 10;
+			}
+
+			.current-playing-highlight:hover {
+				background-color: rgba(33, 150, 243, 0.25) !important;
+				border-color: #1976D2 !important;
 			}
 
 
@@ -252,9 +253,10 @@
 					font-size: 16px;
 				}
 
-				.scene-card button {
-					font-size: 13px;
-					padding: 6px;
+				.scene-card {
+					font-size: 15px;
+					padding: 7px 13px;
+					min-height: 38px;
 				}
 
 				button {
@@ -273,9 +275,10 @@
 					font-size: 15px;
 				}
 
-				.scene-card button {
-					font-size: 12px;
-					padding: 5px;
+				.scene-card {
+					font-size: 14px;
+					padding: 6px 12px;
+					min-height: 36px;
 				}
 
 				button {
@@ -302,8 +305,10 @@
 					font-size: 14px;
 				}
 
-				.scene-card button {
-					font-size: 11px;
+				.scene-card {
+					font-size: 13px;
+					padding: 5px 10px;
+					min-height: 32px;
 				}
 			}
 
@@ -325,13 +330,9 @@
 				}
 
 				.scene-card {
-					min-height: clamp(2.5rem, 4vh, 3.125rem);
-					padding: clamp(0.4rem, 0.8vh, 0.5rem);
-				}
-
-				.scene-card button {
-					font-size: clamp(0.6rem, 1.6vw, 0.625rem);
-					padding: clamp(0.2rem, 0.5vh, 0.3125rem);
+					font-size: clamp(0.75rem, 2vw, 0.875rem);
+					padding: clamp(0.35rem, 0.9vh, 0.45rem) clamp(0.6rem, 1.5vw, 0.75rem);
+					min-height: clamp(1.8rem, 3vh, 2.2rem);
 				}
 
 				button {
@@ -366,19 +367,14 @@
 				}
 				
 				.scene-card {
-					min-height: clamp(2.2rem, 3.5vh, 2.8125rem);
-					padding: clamp(0.3rem, 0.6vh, 0.4rem);
+					font-size: clamp(0.7rem, 1.8vw, 0.8rem);
+					padding: clamp(0.25rem, 0.6vh, 0.35rem) clamp(0.5rem, 1.2vw, 0.6rem);
+					min-height: clamp(1.6rem, 2.5vh, 2rem);
 				}
 				
 				.scene-name {
-					font-size: clamp(0.65rem, 1.8vw, 0.75rem);
+					font-size: inherit;
 					line-height: 1.2;
-				}
-				
-				.scene-card button {
-					font-size: clamp(0.55rem, 1.5vw, 0.65rem);
-					padding: clamp(0.15rem, 0.4vh, 0.25rem);
-					margin-top: clamp(0.15rem, 0.4vh, 0.25rem);
 				}
 				
 				button {
@@ -391,6 +387,62 @@
 					gap: clamp(0.15rem, 0.4vw, 0.25rem);
 					flex-wrap: wrap;
 				}
+			}
+			
+			/* 智能返回提示框 */
+			#smart-return-box {
+				position: fixed;
+				top: 80px;
+				right: 30px;
+				background: rgba(0, 0, 0, 0.85);
+				border: 2px solid #2196F3;
+				border-radius: 12px;
+				padding: 20px;
+				z-index: 1500;
+				display: none;
+				min-width: 280px;
+				backdrop-filter: blur(10px);
+				box-shadow: 0 4px 20px rgba(33, 150, 243, 0.3);
+				animation: slideInRight 0.3s ease;
+			}
+
+			@keyframes slideInRight {
+				from {
+					opacity: 0;
+					transform: translateX(50px);
+				}
+				to {
+					opacity: 1;
+					transform: translateX(0);
+				}
+			}
+
+			#return-message {
+				color: #2196F3;
+				font-size: 16px;
+				font-weight: bold;
+				margin-bottom: 15px;
+				text-align: center;
+			}
+
+			#return-button {
+				width: 100%;
+				background: linear-gradient(135deg, rgba(33, 150, 243, 0.4), rgba(25, 118, 210, 0.4));
+				border: 2px solid #2196F3;
+				color: #fff;
+				padding: 12px;
+				border-radius: 8px;
+				cursor: pointer;
+				font-size: 14px;
+				font-weight: bold;
+				transition: all 0.3s ease;
+			}
+
+			#return-button:hover {
+				background: linear-gradient(135deg, rgba(33, 150, 243, 0.6), rgba(25, 118, 210, 0.6));
+				border-color: #1976D2;
+				transform: translateY(-2px);
+				box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
 			}
 		</style>
 	</head>
@@ -427,8 +479,9 @@
 
 			<div class="actions">
 				<button onclick="loadProgress()">刷新进度</button>
-				<button onclick="exportSave()" class="export">导出存档</button>
 				<button onclick="location.href='archive.html'" class="primary">多存档位管理</button>
+				<button onclick="location.href='flowchart.html'" class="primary">剧本流程图</button>
+				<button onclick="exportSave()" class="export">导出存档</button>
 				<button onclick="resetProgress()" class="delete">重置进度</button>
 				<button onclick="location.href='../index.html'" class="back">返回主菜单(esc)</button>
 			</div>
@@ -436,14 +489,9 @@
 			<h1 id="page-title">游戏进度管理</h1>
 
 			<!-- 智能返回提示框 -->
-			<div id="smart-return-box"
-				style="display:none; margin: 20px auto; padding: 20px; background-color: rgba(0, 0, 0, 0.6); border: 2px solid #FFD700; border-radius: 10px; text-align: center;">
-				<div id="return-message"
-					style="color: #FFD700; font-size: 18px; margin-bottom: 15px; font-weight: bold;"></div>
-				<button id="return-button" onclick="handleSmartReturn()"
-					style="background-color: rgba(33, 150, 243, 0.8); color: white; padding: 10px 30px; border: 2px solid #2196F3; border-radius: 25px; cursor: pointer; font-size: 16px; font-weight: bold; transition: all 0.3s ease;">
-					返回
-				</button>
+			<div id="smart-return-box" style="display: none;">
+				<div id="return-message"></div>
+				<button id="return-button" onclick="handleSmartReturn()"></button>
 			</div>
 
 			<div class="jump-section">
@@ -571,11 +619,12 @@
 
 									const cardDiv = document.createElement('div');
 									cardDiv.className = 'scene-card';
+									cardDiv.setAttribute('data-scene', sceneFileName);
+									cardDiv.onclick = function() {
+										SaveManager.jumpToScene(sceneFileName);
+									};
 									cardDiv.innerHTML = `
                                     <div class="scene-name">${displayName}</div>
-                                    <button onclick="SaveManager.jumpToScene('${sceneFileName}')">
-                                        跳转
-                                    </button>
                                 `;
 									jumpGrid.appendChild(cardDiv);
 								}
@@ -712,19 +761,15 @@
 					// 从pagePath中提取场景文件名
 					const pathParts = snapshot.pagePath.split('/');
 					const sceneFileName = pathParts[pathParts.length - 1];
-					const sceneId = sceneFileName.replace('.html', '');
 
-					// 查找对应的场景卡片
+					// 查找对应的场景卡片（通过data-scene属性匹配）
 					const cards = document.querySelectorAll('.scene-card');
 					cards.forEach(card => {
-						const button = card.querySelector('button');
-						if (button) {
-							const onclickAttr = button.getAttribute('onclick');
-							if (onclickAttr && onclickAttr.includes(sceneFileName)) {
-								card.classList.add('current-playing-highlight');
-								console.log('[Smart Return] Highlighted current playing scene:', sceneFileName,
-									'at line', snapshot.currentLine);
-							}
+						const cardScene = card.getAttribute('data-scene');
+						if (cardScene === sceneFileName) {
+							card.classList.add('current-playing-highlight');
+							console.log('[Smart Return] Highlighted current playing scene:', sceneFileName,
+								'at line', snapshot.currentLine);
 						}
 					});
 				},
