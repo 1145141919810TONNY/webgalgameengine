@@ -299,12 +299,11 @@ Powered by Shiori Engine
 
 11.1 第三方依赖库声明
 本引擎在开发过程中使用了以下第三方开源库：
-- Python (PSF License)
-- pywebview (BSD 3-Clause License)
+- .NET Runtime & WPF (MIT License)
+- Microsoft Edge WebView2 (专有协议，含再分发授权)
+- OpenCvSharp4 (Apache License 2.0)
 - OpenCV (Apache License 2.0)
-- PyInstaller (GNU General Public License v2 with Special Exception)
-- tkinter (Python Standard Library - PSF License)
-- webbrowser (Python Standard Library - PSF License)
+- System.Text.Json (MIT License)
 
 11.2 第三方协议文档保留义务
 在分发、发布或部署本引擎（包括编译后的可执行文件、源代码包或其他形式）时，必须保留第三方开源协议的完整文本（OPEN_SOURCE_LICENSES.txt 或同等内容的文档）。
