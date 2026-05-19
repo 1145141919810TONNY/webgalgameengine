@@ -4546,7 +4546,7 @@ const gameEngine = {
         // 渐入渐出关键词
         const fadeKeywords = ['渐入', 'fadeIn', '渐出', 'fadeOut', '左渐出', 'lfadeOut', '右渐出', 'rfadeOut', '左渐入', 'lfadeIn', '右渐入', 'rfadeIn'];
         // 动作指令关键词
-        const actionKeywords = ['后退', 'retreat', '前进', 'forward', '吓一跳', 'scare', '发抖', 'shake', '持续发抖', 'cshake', '结束发抖', 'sshake', '点头', 'nod'];
+        const actionKeywords = ['后退', 'retreat', '前进', 'forward', '吓一跳', 'scare', '发抖', 'shake', '持续发抖', 'cshake', '结束发抖', 'sshake', '点头', 'nod', '左倒', 'ltilt', '右倒', 'rtilt', '站立', 'stand', '得意', 'proud', '持续得意', 'cproud', '结束得意', 'sproud'];
         // 亮度控制关键词
         const brightnessKeywords = ['明', 'bright', '暗', 'dim', 'dark'];
         
@@ -4560,8 +4560,8 @@ const gameEngine = {
         if (actionKeywords.includes(word)) return true;
         if (brightnessKeywords.includes(word)) return true;
         
-        // 检查是否以 x: 或 y: 开头
-        if (word.startsWith('x:') || word.startsWith('y:')) return true;
+        // 检查是否以 x: 或 y: 或 z: 开头
+        if (word.startsWith('x:') || word.startsWith('y:') || word.startsWith('z:')) return true;
         
         // 检查是否为百分比缩放（以%结尾且不是x:或y:格式）
         if (word.endsWith('%') && !word.startsWith('x:') && !word.startsWith('y:')) {
@@ -4774,8 +4774,9 @@ const gameEngine = {
             // 只有当 modifiers 中没有显式指定位置/层级/缩放/旋转/亮度时，才继承
             // 注意：parseCharModifiers 返回的是计算后的值，我们需要判断用户是否输入了关键词
             // 特殊处理：排除方向渐入/渐出指令中的"左"和"右"
+            // 特殊处理：排除旋转动作指令中的"左"和"右"（左倒、右倒）
             const hasExplicitLeft = modifiers.match(/(左|右|中|left|right|middle|x:)/i) && 
-                                   !modifiers.match(/(左渐出|右渐出|lfadeOut|rfadeOut|左渐入|右渐入|lfadeIn|rfadeIn)/i);
+                                   !modifiers.match(/(左渐出|右渐出|lfadeOut|rfadeOut|左渐入|右渐入|lfadeIn|rfadeIn|左倒|右倒|ltilt|rtilt)/i);
             const hasExplicitBottom = modifiers.match(/(上|下|up|down|y:)/i);
             const hasExplicitLayer = modifiers.match(/(前|后|front|back)/i);
             const hasExplicitScale = modifiers.match(/\d+%$/);
