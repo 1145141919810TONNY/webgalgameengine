@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -6,6 +6,7 @@
     <title>视频鉴赏</title>
     <link rel="icon" type="image/png" href="../icon/icon-32.png">
     <link rel="stylesheet" href="../style.css">
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
     <style>
         body {
             margin: 0;
@@ -136,6 +137,18 @@
             flex-direction: row;
             gap: 8px;
             z-index: 100;
+            transition: opacity 0.3s ease;
+            pointer-events: auto; /* 确保始终可以接收鼠标事件 */
+        }
+        
+        /* 视频播放时默认隐藏（仅透明，仍可接收鼠标事件） */
+        .control-buttons.video-playing {
+            opacity: 0;
+        }
+        
+        /* 视频播放时，鼠标悬停显示 */
+        .control-buttons.video-playing.visible {
+            opacity: 1;
         }
         
         /* 控制按钮样式 */
@@ -166,124 +179,109 @@
         }
         
         /* ========================================
-           响应式设计 - 完整适配方案
+           响应式设计 - 小屏幕适配
            ======================================== */
         
-        /* 中屏适配（1366x768） */
-        @media (max-width: 1366px) {
+        /* 小屏幕适配（1366x768） */
+        @media (max-width: 1366px) and (max-height: 768px) {
             #page-title {
-                font-size: clamp(1.5rem, 2.5vw, 2rem);
-                top: clamp(0.8rem, 2vh, 1.25rem);
-            }
-            
-            #menu-container {
-                top: clamp(4rem, 8vh, 5rem);
-                height: calc(100% - clamp(6rem, 12vh, 9.375rem));
-                padding: clamp(0.8rem, 1.5vw, 1.25rem);
-                gap: clamp(0.6rem, 1.2vw, 0.9375rem);
+                font-size: 28px;
             }
             
             .menu-btn {
-                font-size: clamp(0.9rem, 1.5vw, 1rem);
-                padding: clamp(0.6rem, 1.2vh, 0.9375rem);
-                border-width: clamp(0.15rem, 0.3vw, 0.1875rem);
+                font-size: 14px;
+                padding: 12px;
             }
             
             .control-btn {
-                font-size: clamp(0.8rem, 1.3vw, 0.875rem);
-                padding: clamp(0.5rem, 1vh, 0.625rem) clamp(0.6rem, 1.2vw, 0.9375rem);
+                font-size: 13px;
+                padding: 8px 12px;
             }
             
-            .back-btn {
-                font-size: clamp(0.8rem, 1.3vw, 0.875rem);
-                padding: clamp(0.5rem, 1vh, 0.625rem) clamp(0.8rem, 1.5vw, 1.25rem);
+            .control-buttons {
+                bottom: 15px;
+                right: 15px;
+                gap: 6px;
             }
         }
         
-        /* 小屏适配（宽度 < 1024px） */
-        @media (max-width: 1024px) {
-            #menu-container {
-                grid-template-columns: repeat(2, 1fr);
+        /* 更小屏幕适配（1280x720） */
+        @media (max-width: 1280px) and (max-height: 720px) {
+            #page-title {
+                font-size: 24px;
+            }
+            
+            .menu-btn {
+                font-size: 13px;
+                padding: 10px;
+            }
+            
+            .control-btn {
+                font-size: 12px;
+                padding: 6px 10px;
+            }
+            
+            .control-buttons {
+                bottom: 10px;
+                right: 10px;
+                gap: 5px;
             }
         }
         
-        /* 极小屏幕适配（宽度 < 800px） */
+        /* 极小屏幕适配（< 800px） */
         @media (max-width: 800px) {
             #page-title {
-                font-size: clamp(1.2rem, 3vw, 1.5rem);
+                font-size: 20px;
             }
             
-            #menu-container {
-                top: clamp(3rem, 6vh, 3.75rem);
-                height: calc(100% - clamp(5rem, 10vh, 6.25rem));
-                padding: clamp(0.5rem, 1.2vw, 0.75rem);
-                gap: clamp(0.4rem, 1vw, 0.625rem);
-            }
+            /* 保持两列布局，不改为单列 */
+            /* grid-template-columns: 1fr 1fr 保持不变 */
             
             .menu-btn {
-                font-size: clamp(0.75rem, 2vw, 0.9rem);
-                padding: clamp(0.5rem, 1vh, 0.625rem);
-                border-radius: clamp(1rem, 2vw, 1.875rem);
+                font-size: 12px;
+                padding: 8px;
+                /* width 保持 100% 不变 */
             }
             
             .control-buttons {
-                bottom: clamp(0.8rem, 2vh, 1.25rem);
-                right: clamp(0.8rem, 2vw, 1.25rem);
-                gap: clamp(0.3rem, 0.8vw, 0.5rem);
+                bottom: 8px;
+                right: 8px;
+                gap: 4px;
             }
             
             .control-btn {
-                font-size: clamp(0.7rem, 1.8vw, 0.8rem);
-                padding: clamp(0.4rem, 0.8vh, 0.5rem) clamp(0.5rem, 1.2vw, 0.75rem);
-            }
-            
-            .back-btn {
-                bottom: clamp(0.8rem, 2vh, 1.25rem);
-                right: clamp(0.8rem, 2vw, 1.25rem);
-                font-size: clamp(0.7rem, 1.8vw, 0.8rem);
-                padding: clamp(0.4rem, 0.8vh, 0.5rem) clamp(0.6rem, 1.5vw, 1rem);
+                font-size: 11px;
+                padding: 5px 8px;
             }
         }
         
-        /* 超小横屏适配（高度 < 500px 或极端宽高比） */
-        @media (max-height: 500px), (max-width: 600px) and (orientation: landscape) {
+        /* 超小高度适配（高度 < 500px） */
+        @media (max-height: 500px) {
             #page-title {
-                font-size: clamp(1rem, 3.5vw, 1.3rem);
-                top: clamp(0.5rem, 1.5vh, 0.75rem);
+                font-size: 18px;
+                top: 10px;
             }
             
             #menu-container {
-                top: clamp(2.5rem, 5vh, 3.125rem);
-                height: calc(100% - clamp(4rem, 8vh, 5rem));
-                padding: clamp(0.4rem, 1vh, 0.625rem);
-                gap: clamp(0.3rem, 0.8vw, 0.5rem);
-                grid-template-columns: repeat(auto-fill, minmax(clamp(6rem, 18vw, 8rem), 1fr));
+                top: 50px;
+                height: calc(100% - 80px);
             }
             
             .menu-btn {
-                font-size: clamp(0.65rem, 1.8vw, 0.75rem);
-                padding: clamp(0.3rem, 0.8vh, 0.5rem);
-                border-radius: clamp(0.8rem, 2vw, 1.25rem);
-                border-width: clamp(0.1rem, 0.2vw, 0.15rem);
+                font-size: 11px;
+                padding: 6px;
+                margin: 3px;
             }
             
             .control-buttons {
-                bottom: clamp(0.5rem, 1.5vh, 0.75rem);
-                right: clamp(0.5rem, 1.5vw, 0.75rem);
-                gap: clamp(0.2rem, 0.5vw, 0.4rem);
-                flex-wrap: wrap;
+                bottom: 5px;
+                right: 5px;
+                gap: 3px;
             }
             
             .control-btn {
-                font-size: clamp(0.6rem, 1.6vw, 0.7rem);
-                padding: clamp(0.25rem, 0.6vh, 0.35rem) clamp(0.4rem, 1vw, 0.6rem);
-            }
-            
-            .back-btn {
-                bottom: clamp(0.5rem, 1.5vh, 0.75rem);
-                right: clamp(0.5rem, 1.5vw, 0.75rem);
-                font-size: clamp(0.6rem, 1.6vw, 0.7rem);
-                padding: clamp(0.25rem, 0.6vh, 0.35rem) clamp(0.4rem, 1vw, 0.6rem);
+                font-size: 9px;
+                padding: 3px 6px;
             }
         }
     </style>
@@ -318,7 +316,8 @@
     
     <!-- 视频播放器 -->
     <div id="video-player">
-        <video id="main-video" controls>
+        <!-- 原生video标签（HTML和Python环境通用） -->
+        <video id="main-video" style="width:100%; height:100%; object-fit:contain;">
             您的浏览器不支持视频播放。
         </video>
     </div>
@@ -334,13 +333,109 @@
     
     <!-- 视频列表容器 -->
     <div id="menu-container">
-        <button class="menu-btn" onclick="playVideo('video1')">视频 1</button>
-        <button class="menu-btn" onclick="playVideo('video2')">视频 2</button>
+        <button class="menu-btn" data-env="html" onclick="playVideo('OP')">OP视频</button>
+        <button class="menu-btn" data-env="html" onclick="playVideo('video1')">宣传视频1</button>
+        <button class="menu-btn" data-env="html" onclick="playVideo('video2')">宣传视频2</button>
+        <button class="menu-btn" data-env="html" onclick="playVideo('video3')">宣传视频3</button>
+        <button class="menu-btn" data-env="html" onclick="playVideo('video4')">宣传视频5</button>
+        
     </div>
     
     <script>
         // 视频播放状态
         let isVideoPlaying = false;
+        
+        // 环境检测：判断是否在QtWebEngine中运行
+        let isQtWebEngine = false;
+        
+        // 视频解码器相关（仅用于获取URL）
+        let videoDecoder = null;
+        
+        // 检测是否在QtWebEngine环境中
+        function detectEnvironment() {
+            // 方法1: 检查 QWebChannel 是否存在
+            if (typeof qt !== 'undefined' && qt.webChannelTransport) {
+                isQtWebEngine = true;
+                console.log('[环境检测] 检测到 QtWebEngine 环境');
+                return true;
+            }
+            
+            // 方法2: 检查特定的 Qt 对象
+            if (navigator.userAgent.indexOf('QtWebEngine') !== -1) {
+                isQtWebEngine = true;
+                console.log('[环境检测] UserAgent 包含 QtWebEngine');
+                return true;
+            }
+            
+            console.log('[环境检测] 使用标准浏览器环境');
+            return false;
+        }
+        
+        // 根据环境过滤视频按钮
+        function filterVideoButtons() {
+            const buttons = document.querySelectorAll('.menu-btn[data-env]');
+            
+            buttons.forEach(function(button) {
+                const env = button.getAttribute('data-env');
+                
+                if (isQtWebEngine) {
+                    // QtWebEngine环境：只显示python按钮，隐藏html按钮
+                    if (env === 'python') {
+                        button.style.display = 'block';
+                    } else {
+                        button.style.display = 'none';
+                    }
+                } else {
+                    // 外部浏览器环境：只显示html按钮，隐藏python按钮
+                    if (env === 'html') {
+                        button.style.display = 'block';
+                    } else {
+                        button.style.display = 'none';
+                    }
+                }
+            });
+        }
+        
+        // 初始化视频解码器
+        function initVideoDecoder(callback) {
+            if (!isQtWebEngine) {
+                if (callback) callback(null);
+                return;
+            }
+            
+            // 等待 QWebChannel 就绪
+            if (typeof qt !== 'undefined' && qt.webChannelTransport) {
+                new QWebChannel(qt.webChannelTransport, function(channel) {
+                    videoDecoder = channel.objects.VideoDecoder;
+                    if (callback) callback(videoDecoder);
+                });
+            } else {
+                if (callback) callback(null);
+            }
+        }
+        
+        /**
+         * 获取所有视频的环境配置（供剧本引擎调用）
+         * @returns {Object} - 视频名到环境的映射 {videoName: 'html'|'python'}
+         */
+        function getVideoEnvironmentMap() {
+            const videoMap = {};
+            const buttons = document.querySelectorAll('.menu-btn[data-env]');
+            
+            buttons.forEach(function(button) {
+                const onclick = button.getAttribute('onclick');
+                const env = button.getAttribute('data-env');
+                
+                // 从 onclick="playVideo('XXX')" 中提取视频名
+                const match = onclick.match(/playVideo\(['"]([^'"]+)['"]\)/);
+                if (match && match[1]) {
+                    const videoName = match[1];
+                    videoMap[videoName] = env;
+                }
+            });
+            
+            return videoMap;
+        }
             
         // 更新退出按钮的可见性
         function updateExitButtonVisibility() {
@@ -358,6 +453,12 @@
             
         // 检查是否从剧情中直接播放视频
         window.addEventListener('load', function() {
+            // 先检测环境
+            detectEnvironment();
+            
+            // 根据环境过滤视频按钮
+            filterVideoButtons();
+            
             const videoParam = getVideoFromUrl();
             if (videoParam) {
                 // 直接播放指定的视频文件
@@ -370,11 +471,8 @@
             // 构建视频路径
             let videoPath;
             if (videoFileName.startsWith('../') || videoFileName.startsWith('/')) {
-                // 如果已经是完整路径，直接使用
                 videoPath = videoFileName;
             } else {
-                // 否则假设视频在 assets/video 目录下
-                // 如果文件名不含扩展名，尝试添加常见扩展名
                 if (!videoFileName.includes('.')) {
                     videoPath = '../assets/video/' + videoFileName + '.mp4';
                 } else {
@@ -382,183 +480,164 @@
                 }
             }
             
-            const videoPlayer = document.getElementById('video-player');
-            const mainVideo = document.getElementById('main-video');
-                    
-            // 尝试播放视频，支持多种格式
-            function tryVideoPlayback(videoPath) {
-                // 获取视频的基本路径（不包含扩展名）
-                const baseVideoPath = videoPath.substring(0, videoPath.lastIndexOf('.'));
-                const extension = videoPath.substring(videoPath.lastIndexOf('.'));
-                        
-                // 定义要尝试的视频格式列表（按优先级排序）
-                const videoFormats = [extension, '.mp4', '.webm', '.ogg', '.mov'];
-                        
-                let currentFormatIndex = 0;
-                        
-                // 定义尝试播放的函数
-                function attemptPlay() {
-                    if (currentFormatIndex >= videoFormats.length) {
-                        // 所有格式都尝试过了，仍无法播放
-                        console.error('所有视频格式都无法播放:', videoPath);
-                                
-                        // 提供错误消息给用户
-                        alert("无法播放视频文件: " + videoPath + "\n请检查文件是否存在或转换为Web兼容格式（如MP4）");
-                                
-                        // 播放失败后，仍然返回到剧情
-                        setTimeout(() => {
-                            window.history.back();
-                        }, 100);
-                        return;
-                    }
-                            
-                    // 构建当前格式的视频路径
-                    const currentFormat = videoFormats[currentFormatIndex];
-                    const currentVideoPath = baseVideoPath + currentFormat;
-                            
-                    console.log('尝试播放视频格式:', currentVideoPath);
-                            
-                    // 设置视频源
-                    mainVideo.src = currentVideoPath;
-                            
-                    // 显示视频播放器
-                    videoPlayer.style.display = 'block';
-                    isVideoPlaying = true;
-                    updateExitButtonVisibility();
-                            
-                    // 设置一个超时计时器，防止长时间等待
-                    const timeoutId = setTimeout(() => {
-                        console.log('视频加载超时，尝试下一个格式');
-                        currentFormatIndex++;
-                        attemptPlay();
-                    }, 5000); // 5秒超时
-                            
-                    // 成功加载元数据后清除超时计时器
-                    const onLoadedMetadata = () => {
-                        clearTimeout(timeoutId);
-                                        
-                        // 检查视频是否真的有视频轨道
-                        if (mainVideo.videoWidth === 0 && mainVideo.videoHeight === 0) {
-                            console.warn('视频文件没有视频轨道，只有音频:', currentVideoPath);
-                                            
-                            // 尝试下一个格式
-                            currentFormatIndex++;
-                            attemptPlay();
-                            return;
-                        }
-                                        
-                        console.log('视频尺寸:', mainVideo.videoWidth + 'x' + mainVideo.videoHeight);
-                                        
-                        // 尝试播放视频
-                        mainVideo.play().then(() => {
-                            console.log('视频播放开始:', currentVideoPath);
-                                            
-                            // 添加错误处理
-                            mainVideo.addEventListener('error', (e) => {
-                                console.error('视频播放错误:', e);
-                                                
-                                // 检查错误类型
-                                const mediaError = mainVideo.error;
-                                if (mediaError) {
-                                    console.error('媒体错误代码:', mediaError.code, '媒体错误信息:', mediaError.message);
-                                                    
-                                    // 根据错误类型决定是否尝试下一个格式
-                                    if (mediaError.code === 4) { // MEDIA_ERR_SRC_NOT_SUPPORTED
-                                        console.log('视频格式不受支持，尝试下一个格式');
-                                        // 尝试下一个格式
-                                        currentFormatIndex++;
-                                        attemptPlay();
-                                        return;
-                                    }
-                                }
-                                                
-                                // 尝试下一个格式
-                                currentFormatIndex++;
-                                attemptPlay();
-                            }, { once: true });
-                                            
-                            // 添加暂停/播放事件监听器
-                            mainVideo.addEventListener('pause', () => {
-                                console.log('视频已暂停');
-                            });
-                                            
-                            mainVideo.addEventListener('play', () => {
-                                console.log('视频已开始播放');
-                            });
-                        }).catch(error => {
-                            console.error('视频播放失败:', error);
-                                            
-                            // 尝试下一个格式
-                            currentFormatIndex++;
-                            attemptPlay();
-                        });
-                    };
-                            
-                    // 添加错误处理
-                    const onError = () => {
-                        clearTimeout(timeoutId);
-                                
-                        console.log('当前格式无法播放，尝试下一个格式:', currentVideoPath);
-                                
-                        // 尝试下一个格式
-                        currentFormatIndex++;
-                        attemptPlay();
-                    };
-                            
-                    // 监听事件
-                    mainVideo.addEventListener('loadedmetadata', onLoadedMetadata, { once: true });
-                    mainVideo.addEventListener('error', onError, { once: true });
+            // 检测是否在QtWebEngine环境中
+            const inQtWebEngine = typeof qt !== 'undefined' && qt.webChannelTransport;
+            
+            // 根据环境选择播放模式
+            if (inQtWebEngine) {
+                // QtWebEngine环境：使用Python解码获取URL
+                playVideoDecoded(videoFileName);
+            } else {
+                // 外部浏览器：通过HTTP服务器播放
+                const isHttpProtocol = window.location.protocol === 'http:' || window.location.protocol === 'https:';
+                
+                if (isHttpProtocol) {
+                    // 通过HTTP服务器访问，使用相对路径
+                    playVideoNative(videoPath);
+                } else {
+                    alert('无法直接播放视频。\n\n请通过HTTP服务器访问此页面。');
                 }
-                        
-                // 开始尝试播放
-                attemptPlay();
             }
-                    
-            // 开始尝试播放视频
-            tryVideoPlayback(videoPath);
         }
 
         // 播放预设视频（零配置：直接使用文件名）
         function playVideo(videoName) {
+            // 检测是否在QtWebEngine环境中
+            const inQtWebEngine = typeof qt !== 'undefined' && qt.webChannelTransport;
+            
+            // 根据环境选择播放模式
+            if (inQtWebEngine) {
+                // QtWebEngine环境：使用Python解码获取URL
+                playVideoDecoded(videoName);
+            } else {
+                // 外部浏览器：通过HTTP服务器播放
+                const isHttpProtocol = window.location.protocol === 'http:' || window.location.protocol === 'https:';
+                
+                if (isHttpProtocol) {
+                    // 通过HTTP服务器访问，使用相对路径
+                    let videoPath;
+                    if (!videoName.includes('.')) {
+                        videoPath = '../assets/video/' + videoName + '.mp4';
+                    } else {
+                        videoPath = '../assets/video/' + videoName;
+                    }
+                    playVideoNative(videoPath);
+                } else {
+                    alert('无法直接播放视频。\n\n请通过HTTP服务器访问此页面。');
+                }
+            }
+        }
+        
+        // 原生video标签播放模式（用于外部浏览器）
+        function playVideoNative(videoPath) {
             const videoPlayer = document.getElementById('video-player');
             const mainVideo = document.getElementById('main-video');
             
-            // 构建视频路径
-            let videoPath;
-            if (videoName.startsWith('../') || videoName.startsWith('/')) {
-                // 如果已经是完整路径，直接使用
-                videoPath = videoName;
-            } else {
-                // 否则假设视频在 assets/video 目录下
-                // 如果文件名不含扩展名，添加 .mp4 扩展名
-                if (!videoName.includes('.')) {
-                    videoPath = '../assets/video/' + videoName + '.mp4';
-                } else {
-                    videoPath = '../assets/video/' + videoName;
-                }
+            if (!videoPlayer || !mainVideo) {
+                return;
             }
             
+            // 设置视频源
             mainVideo.src = videoPath;
+            
             videoPlayer.style.display = 'block';
             isVideoPlaying = true;
             updateExitButtonVisibility();
-            mainVideo.play().catch(e => console.log("视频播放失败:", e));
+            
+            // 更新控制按钮状态为播放模式（默认隐藏）
+            updateControlButtonsState();
+            
+            // 添加事件监听器
+            mainVideo.addEventListener('ended', function() {
+                stopVideo();
+            }, { once: true });
+            
+            // 尝试播放视频
+            mainVideo.play().catch(error => {
+                console.error('[NativePlayer] 播放失败:', error.message);
+            });
+        }
+        
+        // Python解码播放模式（用于QtWebEngine）- 使用原生video标签
+        async function playVideoDecoded(videoFileName) {
+            const videoPlayer = document.getElementById('video-player');
+            const mainVideo = document.getElementById('main-video');
+            
+            if (!videoPlayer || !mainVideo) {
+                return;
+            }
+            
+            videoPlayer.style.display = 'block';
+            isVideoPlaying = true;
+            updateExitButtonVisibility();
+            
+            // 更新控制按钮状态为播放模式（默认隐藏）
+            updateControlButtonsState();
+            
+            // 初始化视频解码器获取URL
+            initVideoDecoder(async function(decoder) {
+                if (!decoder) {
+                    stopVideo();
+                    return;
+                }
+                
+                try {
+                    // 调用Python端加载视频
+                    const result = await decoder.loadVideo(videoFileName);
+                    const loadResult = JSON.parse(result);
+                    
+                    if (!loadResult.success) {
+                        stopVideo();
+                        return;
+                    }
+                    
+                    // 使用HTTP服务器提供的视频URL播放
+                    if (loadResult.videoUrl) {
+                        mainVideo.src = loadResult.videoUrl;
+                        
+                        mainVideo.addEventListener('ended', function() {
+                            stopVideo();
+                        }, { once: true });
+                        
+                        // 开始播放
+                        mainVideo.play().catch(err => {
+                            console.error('[DecodedPlayer] 播放失败:', err.message);
+                            stopVideo();
+                        });
+                    }
+                } catch (err) {
+                    stopVideo();
+                }
+            });
         }
 
         // 停止视频
         function stopVideo() {
             const videoPlayer = document.getElementById('video-player');
             const mainVideo = document.getElementById('main-video');
-            videoPlayer.style.display = 'none';
-            mainVideo.pause();
-            mainVideo.currentTime = 0;
+            
+            // 如果是Python解码模式，通知后端关闭
+            if (isQtWebEngine && videoDecoder) {
+                videoDecoder.closeVideo();
+            }
+            
+            // 停止视频播放
+            if (mainVideo) {
+                mainVideo.pause();
+                mainVideo.currentTime = 0;
+                mainVideo.removeAttribute('src');
+            }
+            
+            if (videoPlayer) {
+                videoPlayer.style.display = 'none';
+            }
+            
             isVideoPlaying = false;
             updateExitButtonVisibility();
             
             // 如果是通过URL参数播放的，关闭页面
             const videoParam = getVideoFromUrl();
             if (videoParam) {
-                // 延迟一小段时间后返回上一页，让视频完全停止
                 setTimeout(() => {
                     window.history.back();
                 }, 100);
@@ -572,18 +651,85 @@
             }
         });
         
-        // 添加键盘事件监听，允许ESC键关闭视频或返回主菜单
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                const videoPlayer = document.getElementById('video-player');
-                if (videoPlayer.style.display === 'block') {
-                    stopVideo();
-                } else {
-                    // 如果视频播放器是关闭的，返回主菜单
-                    window.location.href = '../index.html';
-                }
+        // ========================================
+        // 控制按钮自动隐藏与显示功能
+        // ========================================
+        
+        const videoPlayer = document.getElementById('video-player');
+        const controlButtons = document.querySelector('.control-buttons');
+        
+        // 更新控制按钮状态（根据视频播放状态）
+        function updateControlButtonsState() {
+            if (!controlButtons) return;
+            
+            if (isVideoPlaying) {
+                // 视频播放中：添加 video-playing 类，初始隐藏
+                controlButtons.classList.add('video-playing');
+                controlButtons.classList.remove('visible');
+            } else {
+                // 非视频播放状态：移除 video-playing 类，始终可见
+                controlButtons.classList.remove('video-playing');
+                controlButtons.classList.remove('visible');
             }
-        });
+        }
+        
+        // 显示控制按钮（仅在视频播放时有效）
+        function showControlButtons() {
+            if (controlButtons && isVideoPlaying) {
+                controlButtons.classList.add('visible');
+            }
+        }
+        
+        // 隐藏控制按钮（仅在视频播放时有效）
+        function hideControlButtons() {
+            if (controlButtons && isVideoPlaying) {
+                controlButtons.classList.remove('visible');
+            }
+        }
+        
+        // 视频播放器鼠标事件
+        if (videoPlayer) {
+            // 移除 mouseenter 和 mousemove 事件，不再在视频区域显示按钮
+            // 只保留 mouseleave 用于清理状态
+            
+            // 鼠标离开视频播放器区域时，确保按钮隐藏
+            videoPlayer.addEventListener('mouseleave', function() {
+                if (isVideoPlaying && controlButtons) {
+                    controlButtons.classList.remove('visible');
+                }
+            });
+        }
+        
+        // 控制按钮本身的悬停事件（这是唯一显示按钮的方式）
+        if (controlButtons) {
+            // 鼠标进入按钮区域时显示
+            controlButtons.addEventListener('mouseenter', function() {
+                if (isVideoPlaying) {
+                    showControlButtons();
+                }
+            });
+            
+            // 鼠标离开按钮区域时隐藏
+            controlButtons.addEventListener('mouseleave', function() {
+                if (isVideoPlaying) {
+                    // 立即隐藏
+                    controlButtons.classList.remove('visible');
+                }
+            });
+        }
+        
+        // 视频播放状态改变时更新按钮可见性
+        const originalStopVideo = stopVideo;
+        stopVideo = function() {
+            // 调用原始函数
+            originalStopVideo();
+            
+            // 更新按钮状态（此时 isVideoPlaying 已变为 false）
+            updateControlButtonsState();
+        };
+        
+        // 初始化按钮状态
+        updateControlButtonsState();
     </script>
 </body>
 </html>
