@@ -333,109 +333,22 @@
     
     <!-- 视频列表容器 -->
     <div id="menu-container">
-        <button class="menu-btn" data-env="html" onclick="playVideo('OP')">OP视频</button>
-        <button class="menu-btn" data-env="html" onclick="playVideo('video1')">宣传视频1</button>
-        <button class="menu-btn" data-env="html" onclick="playVideo('video2')">宣传视频2</button>
-        <button class="menu-btn" data-env="html" onclick="playVideo('video3')">宣传视频3</button>
-        <button class="menu-btn" data-env="html" onclick="playVideo('video4')">宣传视频5</button>
+        <!-- HTML环境按钮 (MP4) -->
+        <button class="menu-btn"  onclick="playVideo('OP')">OP视频</button>
+        <button class="menu-btn"  onclick="playVideo('video1')">宣传视频1</button>
+        <button class="menu-btn"  onclick="playVideo('video2')">宣传视频2</button>
+        <button class="menu-btn"  onclick="playVideo('video3')">宣传视频3</button>
+        <button class="menu-btn"  onclick="playVideo('video4')">宣传视频5</button>
         
     </div>
     
     <script>
         // 视频播放状态
         let isVideoPlaying = false;
-        
-        // 环境检测：判断是否在QtWebEngine中运行
-        let isQtWebEngine = false;
+
         
         // 视频解码器相关（仅用于获取URL）
         let videoDecoder = null;
-        
-        // 检测是否在QtWebEngine环境中
-        function detectEnvironment() {
-            // 方法1: 检查 QWebChannel 是否存在
-            if (typeof qt !== 'undefined' && qt.webChannelTransport) {
-                isQtWebEngine = true;
-                console.log('[环境检测] 检测到 QtWebEngine 环境');
-                return true;
-            }
-            
-            // 方法2: 检查特定的 Qt 对象
-            if (navigator.userAgent.indexOf('QtWebEngine') !== -1) {
-                isQtWebEngine = true;
-                console.log('[环境检测] UserAgent 包含 QtWebEngine');
-                return true;
-            }
-            
-            console.log('[环境检测] 使用标准浏览器环境');
-            return false;
-        }
-        
-        // 根据环境过滤视频按钮
-        function filterVideoButtons() {
-            const buttons = document.querySelectorAll('.menu-btn[data-env]');
-            
-            buttons.forEach(function(button) {
-                const env = button.getAttribute('data-env');
-                
-                if (isQtWebEngine) {
-                    // QtWebEngine环境：只显示python按钮，隐藏html按钮
-                    if (env === 'python') {
-                        button.style.display = 'block';
-                    } else {
-                        button.style.display = 'none';
-                    }
-                } else {
-                    // 外部浏览器环境：只显示html按钮，隐藏python按钮
-                    if (env === 'html') {
-                        button.style.display = 'block';
-                    } else {
-                        button.style.display = 'none';
-                    }
-                }
-            });
-        }
-        
-        // 初始化视频解码器
-        function initVideoDecoder(callback) {
-            if (!isQtWebEngine) {
-                if (callback) callback(null);
-                return;
-            }
-            
-            // 等待 QWebChannel 就绪
-            if (typeof qt !== 'undefined' && qt.webChannelTransport) {
-                new QWebChannel(qt.webChannelTransport, function(channel) {
-                    videoDecoder = channel.objects.VideoDecoder;
-                    if (callback) callback(videoDecoder);
-                });
-            } else {
-                if (callback) callback(null);
-            }
-        }
-        
-        /**
-         * 获取所有视频的环境配置（供剧本引擎调用）
-         * @returns {Object} - 视频名到环境的映射 {videoName: 'html'|'python'}
-         */
-        function getVideoEnvironmentMap() {
-            const videoMap = {};
-            const buttons = document.querySelectorAll('.menu-btn[data-env]');
-            
-            buttons.forEach(function(button) {
-                const onclick = button.getAttribute('onclick');
-                const env = button.getAttribute('data-env');
-                
-                // 从 onclick="playVideo('XXX')" 中提取视频名
-                const match = onclick.match(/playVideo\(['"]([^'"]+)['"]\)/);
-                if (match && match[1]) {
-                    const videoName = match[1];
-                    videoMap[videoName] = env;
-                }
-            });
-            
-            return videoMap;
-        }
             
         // 更新退出按钮的可见性
         function updateExitButtonVisibility() {
@@ -479,15 +392,7 @@
                     videoPath = '../assets/video/' + videoFileName;
                 }
             }
-            
-            // 检测是否在QtWebEngine环境中
-            const inQtWebEngine = typeof qt !== 'undefined' && qt.webChannelTransport;
-            
-            // 根据环境选择播放模式
-            if (inQtWebEngine) {
-                // QtWebEngine环境：使用Python解码获取URL
-                playVideoDecoded(videoFileName);
-            } else {
+
                 // 外部浏览器：通过HTTP服务器播放
                 const isHttpProtocol = window.location.protocol === 'http:' || window.location.protocol === 'https:';
                 
@@ -497,19 +402,12 @@
                 } else {
                     alert('无法直接播放视频。\n\n请通过HTTP服务器访问此页面。');
                 }
-            }
+
         }
 
         // 播放预设视频（零配置：直接使用文件名）
         function playVideo(videoName) {
-            // 检测是否在QtWebEngine环境中
-            const inQtWebEngine = typeof qt !== 'undefined' && qt.webChannelTransport;
-            
-            // 根据环境选择播放模式
-            if (inQtWebEngine) {
-                // QtWebEngine环境：使用Python解码获取URL
-                playVideoDecoded(videoName);
-            } else {
+           
                 // 外部浏览器：通过HTTP服务器播放
                 const isHttpProtocol = window.location.protocol === 'http:' || window.location.protocol === 'https:';
                 
@@ -525,7 +423,6 @@
                 } else {
                     alert('无法直接播放视频。\n\n请通过HTTP服务器访问此页面。');
                 }
-            }
         }
         
         // 原生video标签播放模式（用于外部浏览器）
@@ -557,69 +454,11 @@
                 console.error('[NativePlayer] 播放失败:', error.message);
             });
         }
-        
-        // Python解码播放模式（用于QtWebEngine）- 使用原生video标签
-        async function playVideoDecoded(videoFileName) {
-            const videoPlayer = document.getElementById('video-player');
-            const mainVideo = document.getElementById('main-video');
-            
-            if (!videoPlayer || !mainVideo) {
-                return;
-            }
-            
-            videoPlayer.style.display = 'block';
-            isVideoPlaying = true;
-            updateExitButtonVisibility();
-            
-            // 更新控制按钮状态为播放模式（默认隐藏）
-            updateControlButtonsState();
-            
-            // 初始化视频解码器获取URL
-            initVideoDecoder(async function(decoder) {
-                if (!decoder) {
-                    stopVideo();
-                    return;
-                }
-                
-                try {
-                    // 调用Python端加载视频
-                    const result = await decoder.loadVideo(videoFileName);
-                    const loadResult = JSON.parse(result);
-                    
-                    if (!loadResult.success) {
-                        stopVideo();
-                        return;
-                    }
-                    
-                    // 使用HTTP服务器提供的视频URL播放
-                    if (loadResult.videoUrl) {
-                        mainVideo.src = loadResult.videoUrl;
-                        
-                        mainVideo.addEventListener('ended', function() {
-                            stopVideo();
-                        }, { once: true });
-                        
-                        // 开始播放
-                        mainVideo.play().catch(err => {
-                            console.error('[DecodedPlayer] 播放失败:', err.message);
-                            stopVideo();
-                        });
-                    }
-                } catch (err) {
-                    stopVideo();
-                }
-            });
-        }
 
         // 停止视频
         function stopVideo() {
             const videoPlayer = document.getElementById('video-player');
             const mainVideo = document.getElementById('main-video');
-            
-            // 如果是Python解码模式，通知后端关闭
-            if (isQtWebEngine && videoDecoder) {
-                videoDecoder.closeVideo();
-            }
             
             // 停止视频播放
             if (mainVideo) {
