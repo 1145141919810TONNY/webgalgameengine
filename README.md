@@ -11,8 +11,6 @@
 由于引擎在早期开发阶段缺乏完整的资源测试环境，本 README 中可能包含部分已废弃或不支持的语法。**若与本文档存在冲突，请以README2.MD文档为准。**
 [README2.md](README2.md)
 
-关于启动器的说明请参照[README_BUILD.md](Shiori/README_BUILD.md)
-
 本引擎自身开源协议。更新于2026/5/14日V1.2版本，请参照[license.txt](license.txt)
 
 本引擎所使用的第三方依赖开源协议综合文本。更新于2026/5/14日V1.2版本，请参照[OPEN_SOURCE_LICENSES.txt](OPEN_SOURCE_LICENSES.txt)
