@@ -919,16 +919,9 @@ project/                              # 项目根目录<br>
 ├── README.md                         # 项目主文档（本文件）<br>
 ├── README2.md                        # 补充说明文档<br>
 ├── license.txt                       # 许可证文件<br>
-├── check_process.bat                 # 进程检查脚本<br>
-├── check_process.vbs                 # VBScript进程检查<br>
-├── test_persistence.bat              # 持久化测试脚本<br>
 ├── 验证引擎完整性.bat                 # 引擎完整性验证脚本<br>
-├── 运行游戏前请先看我.txt             # 使用前必读说明<br>
-├── _internal/                        # 引擎的依赖文件<br>
-├── shiori_cache                      # 第一次运行exe时自动生成的文件夹（打包分发时无需包含此文件夹）<br>
-├── shiori_data                       # 第一次运行exe时自动生成的文件夹（打包分发时无需包含此文件夹）<br>
 ├── img/                              # 图片资源目录<br>
-├── Shiori/                           # Python启动器源代码目录<br>
+├── Shiori/                           # 启动器源代码目录<br>
 └── shiori engine/                    # Shiori视觉小说引擎（核心）<br>
 
 ```
@@ -940,7 +933,6 @@ project/                              # 项目根目录<br>
 
 ```
 shiori engine/<br>
-├── shiori.exe            # Windows 可执行启动器（推荐）<br>
 ├── index.html            # 主菜单页面<br>
 ├── engine.js             # 核心 JavaScript 引擎<br>
 ├── system.js             # 系统功能模块<br>
@@ -980,34 +972,6 @@ shiori engine/<br>
 
 ---
 
-## 1.3 Shiori Python 启动器结构
-
-
-```
-Shiori/<br>
-├── main.py                   # 主入口文件<br>
-├── shiori_app.py             # 应用主逻辑（PyQt6）<br>
-├── api_bridge.py             # API桥接模块<br>
-├── http_server.py            # HTTP服务器模块<br>
-├── video_decoder.py          # 视频解码模块<br>
-├── check_video_codec.py      # 视频编解码检查<br>
-├── reorganize_output.py      # 输出重组工具<br>
-├── version.py                # 版本信息<br>
-├── check_ico.py              # 图标检查工具<br>
-├── requirements.txt          # Python依赖列表<br>
-├── shiori.spec               # PyInstaller打包配置<br>
-├── shiori_debug.spec         # 调试版打包配置<br>
-├── build_fix.bat             # 构建修复脚本<br>
-├── test_video.py             # 视频测试工具<br>
-├── version.txt               # 版本文本文件<br>
-├── 详细信息                   # 详细信息文件<br>
-├── .gitignore                # Git忽略配置<br>
-├── README_BUILD.md/txt       # 构建说明文档<br>
-├── ico/                      # 图标资源目录<br>
-└── plugins/                  # 插件目录（可选）<br>
-```
-
----
 
 # 2. 核心概念详解
 
