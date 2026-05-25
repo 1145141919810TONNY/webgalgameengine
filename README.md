@@ -914,8 +914,8 @@ https://space.bilibili.com/87412647?spm_id_from=333.1007.0.0
 
 ```
 project/                              # 项目根目录<br>
-├── Shiori.exe                        # Python启动器主程序（正式版）<br>
-├── Shiori_debug.exe                  # Python启动器调试版<br>
+├── Shiori.exe                        # 启动器主程序（正式版）<br>
+├── Shiori_debug.exe                  # 启动器调试版<br>
 ├── README.md                         # 项目主文档（本文件）<br>
 ├── README2.md                        # 补充说明文档<br>
 ├── license.txt                       # 许可证文件<br>
