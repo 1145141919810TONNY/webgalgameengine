@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>游戏可视化窗口</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* ========== 响应式基础 ========== */
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+        }
+
+        /* ========== 基础元素恢复显示（移除 !important 隐藏规则） ========== */
+
+        /* 背景容器：完整显示作为底层画面 */
+        #background-container {
+            display: block;
+            opacity: 1;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* 立绘容器：恢复标准高度 75%，为对话框留出空间 */
+        #character-container {
+            position: absolute !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 75% !important;
+            z-index: 1;
+            pointer-events: none;
+            overflow: visible !important;
+        }
+
+        .character-img {
+            max-height: 100% !important;
+            max-width: 90% !important;
+            object-fit: contain !important;
+        }
+
+        /* 新系统立绘分层容器 */
+        .character-layered {
+            position: absolute;
+            pointer-events: none;
+            user-select: none;
+        }
+        .character-layered .char-dress,
+        .character-layered .char-face {
+            position: absolute;
+            object-fit: contain;
+            image-rendering: -webkit-optimize-contrast;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        /* 文本框容器：隐藏 */
+        #text-box-container {
+            display: none !important;
+        }
+
+        /* 姓名框：隐藏 */
+        #name-box {
+            display: none !important;
+        }
+
+        /* 选项容器：隐藏 */
+        #options-container {
+            display: none !important;
+        }
+
+        /* 全屏小说模式容器：隐藏 */
+        #novel-mode-container {
+            display: none !important;
+        }
+
+        /* 右键菜单：隐藏 */
+        #context-menu, #context-menu-backdrop {
+            display: none !important;
+        }
+
+        /* ========== 音频元素：保持功能可用（通过API控制），但视觉上隐藏 ========== */
+        #bgm-player, #se-player, #voice-player {
+            position: absolute;
+            left: -9999px;
+            width: 0;
+            height: 0;
+        }
+
+        /* ========== 视频元素：保持隐藏 ========== */
+        #video-player {
+            display: none !important;
+        }
+    </style>
+    <!-- 加载资源配置（供C#获取列表） -->
+    <script src="bg_config.js"></script>
+    <script src="bgm_config.js"></script>
+    <script id="illustration-script" src="illustration.js"></script>
+    <script src="modules/progress_api.js"></script>
+</head>
+<body>
+    <!-- 背景容器 -->
+    <div id="background-container"></div>
+
+    <!-- 角色立绘容器 -->
+    <div id="character-container"></div>
+
+    <!-- 对话框 -->
+    <div id="text-box-container">
+        <div id="name-box"><span></span></div>
+        <div id="text-box"></div>
+    </div>
+
+    <!-- 选项容器 -->
+    <div id="options-container"></div>
+
+    <!-- 全屏小说模式 -->
+    <div id="novel-mode-container">
+        <div id="novel-text-box"></div>
+    </div>
+
+    <!-- 视频播放器（保持隐藏） -->
+    <div id="video-player" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:100; background-color:black;">
+        <video id="main-video" style="width:100%; height:100%; object-fit:contain;"></video>
+    </div>
+
+    <!-- 音频播放器（功能可用，C# API 控制） -->
+    <audio id="bgm-player" loop preload="auto">
+    <audio id="se-player" preload="auto">
+    <audio id="voice-player" preload="auto">
+
+    <!-- 右键菜单 -->
+    <div id="context-menu-backdrop" class="context-menu-backdrop"></div>
+    <div id="context-menu" class="context-menu"><ul></ul></div>
+
+    <!-- F1 调试面板根源拦截（system.js 加载前执行） -->
+    <script>
+        (function() {
+            'use strict';
+
+            // 1. 拦截 localStorage 读写，强制 F1 调试模式键始终为 false
+            const _originalGetItem = Storage.prototype.getItem;
+            const _originalSetItem = Storage.prototype.setItem;
+            const BLOCKED_KEY = 'galgame_debug_mode';
+
+            Storage.prototype.getItem = function(key) {
+                // 始终返回 false，杜绝其他页面持久化的状态
+                if (key === BLOCKED_KEY) {
+                    console.log('[F1-Blocker] Intercepted localStorage.getItem("' + BLOCKED_KEY + '") => forced "false"');
+                    return 'false';
+                }
+                return _originalGetItem.call(this, key);
+            };
+
+            Storage.prototype.setItem = function(key, value) {
+                // 禁止写入，防止从本页面扩散到全局
+                if (key === BLOCKED_KEY) {
+                    console.log('[F1-Blocker] Blocked localStorage.setItem("' + BLOCKED_KEY + '", "' + value + '")');
+                    return;
+                }
+                return _originalSetItem.call(this, key, value);
+            };
+
+            // 2. 注入 CSS 全局规则，!important 强制隐藏面板（无论何时创建）
+            const blockerCss = document.createElement('style');
+            blockerCss.id = 'f1-blocker-css';
+            blockerCss.textContent = '#debug-panel { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }';
+            document.documentElement.appendChild(blockerCss);
+
+            console.log('[F1-Blocker] Root-level protection installed (localStorage + CSS)');
+        })();
+    </script>
+    <script src="system.js"></script>
+    <script id="engine-script" src="engine.js"></script>
+    <script>
+        // 最小 sceneData（无实际剧本内容，仅用于初始化引擎）
+        const sceneData = {
+            background: {},
+            bgm: {},
+            audio: {},
+            videos: {},
+            story: [{ text: "", command: "[msgoff]", chars: "" }]
+        };
+
+        // 保存当前状态（供C#获取）
+        let _currentCharsStr = "";
+        
+        // 控制台状态（供C#获取/设置）
+        const consoleState = {
+            chars: '',
+            background: '',
+            bgm: ''
+        };
+
+        // ==================== F1 调试面板多层根源拦截 ====================
+
+        // 第1层：按键捕获阶段拦截（优先级高于 system.js 的绑定）
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'F1') {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                console.log('[F1-Blocker] Keydown captured & blocked');
+            }
+        }, { capture: true });
+
+        // 第2层：强制关闭 systemModule.debugVisible + 立即隐藏面板（引擎初始化后执行）
+        function _forceHideF1Panel() {
+            try {
+                if (typeof systemModule !== 'undefined') {
+                    systemModule.debugVisible = false;
+                    if (systemModule.saveDebugMode) {
+                        // 同时清空持久化存储（直接操作底层 Storage）
+                        const rawLocalStorage = Object.getPrototypeOf(localStorage);
+                        if (rawLocalStorage && rawLocalStorage.setItem) {
+                            // 已被拦截，无需额外操作；仅作防御性覆盖
+                        }
+                    }
+                }
+                const panel = document.getElementById('debug-panel');
+                if (panel) {
+                    panel.style.setProperty('display', 'none', 'important');
+                    panel.style.setProperty('visibility', 'hidden', 'important');
+                    panel.style.setProperty('opacity', '0', 'important');
+                    console.log('[F1-Blocker] Forcibly hidden existing #debug-panel');
+                }
+            } catch (e) { /* silent */ }
+        }
+
+        // 第3层：MutationObserver 监控 DOM 变化 — 一旦面板出现或被修改样式，立即强制隐藏
+        const _f1Observer = new MutationObserver(function(mutations) {
+            for (const mut of mutations) {
+                // 检查新增节点
+                if (mut.type === 'childList') {
+                    for (const node of mut.addedNodes) {
+                        if (node.id === 'debug-panel' ||
+                            (node.querySelector && node.querySelector('#debug-panel'))) {
+                            _forceHideF1Panel();
+                            return;
+                        }
+                    }
+                }
+                // 检查属性变化（防止 style.display 被设置回 block）
+                if (mut.type === 'attributes' && mut.target.id === 'debug-panel') {
+                    _forceHideF1Panel();
+                    return;
+                }
+            }
+        });
+
+        // 第4层：setInterval 兜底 — 每 300ms 强制检查，防御所有绕过前面层的异常路径
+        let _f1IntervalId = null;
+        function _startF1Polling() {
+            if (_f1IntervalId) return;
+            _f1IntervalId = setInterval(function() {
+                const panel = document.getElementById('debug-panel');
+                if (panel && (panel.style.display !== 'none' || panel.style.visibility !== 'hidden')) {
+                    _forceHideF1Panel();
+                }
+                if (typeof systemModule !== 'undefined' && systemModule.debugVisible) {
+                    systemModule.debugVisible = false;
+                }
+            }, 300);
+        }
+
+        // ==================================================================
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                gameEngine.init(sceneData, 0);
+                console.log('[GameWindow] Engine initialized OK');
+
+                // 屏蔽 CHAR_DIFF_OFFSET 的影响
+                if (typeof CHAR_DIFF_OFFSET !== 'undefined') {
+                    window.CHAR_DIFF_OFFSET = {};
+                    console.log('[GameWindow] CHAR_DIFF_OFFSET disabled');
+                }
+
+                // --- F1 面板根源拦截：引擎初始化后立即执行 ---
+                _forceHideF1Panel();
+
+                // 启动 MutationObserver 监听 body
+                _f1Observer.observe(document.body, {
+                    childList: true,
+                    subtree: true,
+                    attributes: true,
+                    attributeFilter: ['style', 'class']
+                });
+
+                // 启动 setInterval 轮询兜底
+                _startF1Polling();
+
+                console.log('[F1-Blocker] Multi-layer defense active (keydown + localStorage + CSS + MutationObserver + setInterval)');
+                console.log('[GameWindow] CHAR_CONFIG keys:', Object.keys(typeof CHAR_CONFIG !== 'undefined' ? CHAR_CONFIG : {}));
+                console.log('[GameWindow] Ready for C# control');
+            } catch (err) {
+                console.error('[GameWindow] Engine init FAILED:', err);
+            }
+        });
+
+        // ============================================================
+        //  背景图片控制（供C#调用）
+        // ============================================================
+
+        /**
+         * 设置背景图片
+         * @param {string} imagePath - 背景图片的完整路径
+         *   C# 调用示例: ExecuteScriptAsync("setBackgroundImage('../assets/bg/bg_001_00_00.png')")
+         */
+        window.setBackgroundImage = function(imagePath) {
+            try {
+                if (!imagePath) {
+                    console.warn('[GameWindow] setBackgroundImage: empty path');
+                    return;
+                }
+                if (typeof gameEngine.setBackground === 'function') {
+                    gameEngine.setBackground(imagePath);
+                    console.log('[GameWindow] Background set:', imagePath);
+                } else {
+                    const bg = document.getElementById('background-container');
+                    if (bg) {
+                        bg.style.backgroundImage = `url('${imagePath}')`;
+                        console.log('[GameWindow] Background set (fallback):', imagePath);
+                    }
+                }
+            } catch (err) {
+                console.error('[GameWindow] setBackgroundImage error:', err);
+            }
+        };
+
+        /**
+         * 隐藏背景
+         * C# 调用示例: ExecuteScriptAsync("hideBackground()")
+         */
+        window.hideBackground = function() {
+            const bg = document.getElementById('background-container');
+            if (bg) {
+                bg.style.display = 'none';
+                console.log('[GameWindow] Background hidden');
+            }
+        };
+
+        /**
+         * 显示背景
+         * C# 调用示例: ExecuteScriptAsync("showBackground()")
+         */
+        window.showBackground = function() {
+            const bg = document.getElementById('background-container');
+            if (bg) {
+                bg.style.display = 'block';
+                console.log('[GameWindow] Background shown');
+            }
+        };
+
+        /**
+         * 清除背景（移除图片，恢复黑色）
+         * C# 调用示例: ExecuteScriptAsync("clearBackground()")
+         */
+        window.clearBackground = function() {
+            consoleState.background = '';
+            const bg = document.getElementById('background-container');
+            if (bg) {
+                bg.style.backgroundImage = '';
+                bg.style.backgroundColor = '#000';
+                console.log('[GameWindow] Background cleared');
+            }
+        };
+
+        /**
+         * 获取背景配置列表（供C#构建UI）
+         * @returns {string} JSON字符串，包含背景配置键值对
+         *   C# 调用示例: var result = await ExecuteScriptAsync("getBackgroundList()")
+         */
+        window.getBackgroundList = function() {
+            return JSON.stringify(BG_CONFIG_SUB);
+        };
+
+        // ============================================================
+        //  BGM（背景音乐）控制（供C#调用）
+        // ============================================================
+
+        /**
+         * 设置并播放 BGM
+         * @param {string} audioPath - BGM 音频文件的完整路径
+         * @param {number} [volume=1.0] - 音量（0.0 ~ 1.0）
+         *   C# 调用示例: ExecuteScriptAsync("setBgm('../assets/bgm/bgm1.ogg', 0.8)")
+         */
+        window.setBgm = function(audioPath, volume) {
+            try {
+                const bgm = document.getElementById('bgm-player');
+                if (!bgm) {
+                    console.error('[GameWindow] BGM player not found');
+                    return;
+                }
+                if (!audioPath) {
+                    console.warn('[GameWindow] setBgm: empty path');
+                    return;
+                }
+
+                const vol = (typeof volume === 'number') ? Math.max(0, Math.min(1, volume)) : 1.0;
+                bgm.volume = vol;
+                bgm.src = audioPath;
+                bgm.loop = true;
+                bgm.play().then(() => {
+                    console.log('[GameWindow] BGM playing:', audioPath, 'volume:', vol);
+                }).catch(err => {
+                    console.warn('[GameWindow] BGM play failed (autoplay policy):', err);
+                });
+            } catch (err) {
+                console.error('[GameWindow] setBgm error:', err);
+            }
+        };
+
+        /**
+         * 停止 BGM 播放
+         *   C# 调用示例: ExecuteScriptAsync("stopBgm()")
+         */
+        window.stopBgm = function() {
+            consoleState.bgm = '';
+            const bgm = document.getElementById('bgm-player');
+            if (bgm) {
+                bgm.pause();
+                bgm.currentTime = 0;
+                console.log('[GameWindow] BGM stopped');
+            }
+        };
+
+        /**
+         * 暂停 BGM（保留播放位置）
+         *   C# 调用示例: ExecuteScriptAsync("pauseBgm()")
+         */
+        window.pauseBgm = function() {
+            const bgm = document.getElementById('bgm-player');
+            if (bgm) {
+                bgm.pause();
+                console.log('[GameWindow] BGM paused');
+            }
+        };
+
+        /**
+         * 恢复 BGM 播放
+         *   C# 调用示例: ExecuteScriptAsync("resumeBgm()")
+         */
+        window.resumeBgm = function() {
+            const bgm = document.getElementById('bgm-player');
+            if (bgm && bgm.src) {
+                bgm.play().catch(err => {
+                    console.warn('[GameWindow] BGM resume failed:', err);
+                });
+                console.log('[GameWindow] BGM resumed');
+            }
+        };
+
+        /**
+         * 设置 BGM 音量
+         * @param {number} volume - 音量（0.0 ~ 1.0）
+         *   C# 调用示例: ExecuteScriptAsync("setBgmVolume(0.5)")
+         */
+        window.setBgmVolume = function(volume) {
+            const bgm = document.getElementById('bgm-player');
+            if (bgm) {
+                const vol = (typeof volume === 'number') ? Math.max(0, Math.min(1, volume)) : 1.0;
+                bgm.volume = vol;
+                console.log('[GameWindow] BGM volume set to:', vol);
+            }
+        };
+
+        /**
+         * 获取当前 BGM 状态
+         * @returns {string} JSON 字符串，包含 src、paused、volume、currentTime 等信息
+         *   C# 调用示例: var result = await ExecuteScriptAsync("getBgmStatus()")
+         */
+        window.getBgmStatus = function() {
+            const bgm = document.getElementById('bgm-player');
+            if (!bgm) return JSON.stringify({ error: 'player not found' });
+            return JSON.stringify({
+                src: bgm.src || '',
+                paused: bgm.paused,
+                volume: bgm.volume,
+                currentTime: bgm.currentTime,
+                duration: bgm.duration || 0
+            });
+        };
+
+        /**
+         * 获取BGM配置列表（供C#构建UI）
+         * @returns {string} JSON字符串，包含BGM配置键值对
+         *   C# 调用示例: var result = await ExecuteScriptAsync("getBgmList()")
+         */
+        window.getBgmList = function() {
+            return JSON.stringify(BGM_CONFIG_SUB);
+        };
+
+        // ============================================================
+        //  立绘控制（供C#调用）
+        // ============================================================
+
+        /**
+         * 更新立绘显示
+         * @param {string} charsStr - 立绘指令，如 "[角色A 中 正面 服装1 表情101]"
+         *   C# 调用示例: ExecuteScriptAsync("setCharPreview('[角色A 中 正面 服装1 表情101]')")
+         */
+        window.setCharPreview = function(charsStr) {
+            try {
+                _currentCharsStr = charsStr || '';
+                consoleState.chars = charsStr || '';
+                console.log('[GameWindow] setCharPreview called:', charsStr);
+
+                // 先清除所有现有立绘
+                if (typeof gameEngine.removeAllChars === 'function') {
+                    gameEngine.removeAllChars();
+                }
+
+                if (!charsStr || charsStr.trim() === '') {
+                    console.log('[GameWindow] Empty chars, cleared only');
+                    return;
+                }
+
+                // 调用引擎的立绘渲染器
+                gameEngine.renderChars(charsStr);
+                console.log('[GameWindow] renderChars done');
+            } catch (err) {
+                console.error('[GameWindow] setCharPreview error:', err);
+            }
+        };
+
+        /**
+         * 清除所有立绘
+         *   C# 调用示例: ExecuteScriptAsync("clearAllChars()")
+         */
+        window.clearAllChars = function() {
+            try {
+                _currentCharsStr = '';
+                consoleState.chars = '';
+                if (typeof gameEngine.removeAllChars === 'function') {
+                    gameEngine.removeAllChars();
+                }
+                console.log('[GameWindow] All characters cleared');
+            } catch (err) {
+                console.error('[GameWindow] clearAllChars error:', err);
+            }
+        };
+
+        /**
+         * 获取当前立绘指令
+         * @returns {string} - 当前的 chars 指令字符串
+         *   C# 调用示例: var result = await ExecuteScriptAsync("getCurrentChars()")
+         */
+        window.getCurrentChars = function() {
+            return _currentCharsStr;
+        };
+
+        // ============================================================
+        //  状态输出（供C#获取）
+        // ============================================================
+
+        /**
+         * 获取当前状态输出（供C#复制或保存）
+         * @returns {string} JSON字符串
+         * 输出格式：
+         * {
+         *   "chars": "...",    // 只有输入了才显示
+         *   "background": "...", // 只有输入了才显示
+         *   "bgm": "..."       // 只有输入了才显示
+         * }
+         *   C# 调用示例: var result = await ExecuteScriptAsync("getOutputJson()")
+         */
+        window.getOutputJson = function() {
+            const output = {};
+            
+            // 始终输出text字段（即使为空），方便粘贴使用
+            output.text = "";
+            
+            // 如果用户输入了立绘，才显示chars
+            if (consoleState.chars.trim()) {
+                output.chars = consoleState.chars.trim();
+            }
+            
+            // 如果用户输入了背景，才显示background
+            if (consoleState.background) {
+                output.background = consoleState.background;
+            }
+            
+            // 如果用户输入了BGM，才显示bgm
+            if (consoleState.bgm) {
+                output.bgm = consoleState.bgm;
+            }
+            
+            // 序列化后在末尾添加逗号，方便直接粘贴使用
+            return JSON.stringify(output, null, 2) + ",";
+        };
+
+        /**
+         * 设置控制台状态（从C#接收数据）
+         * @param {string} jsonStr - JSON字符串
+         *   C# 调用示例: ExecuteScriptAsync("setConsoleState('{\"chars\":\"[角色A]\"}')")
+         */
+        window.setConsoleState = function(jsonStr) {
+            try {
+                const state = JSON.parse(jsonStr);
+                
+                if (state.chars !== undefined) {
+                    consoleState.chars = state.chars;
+                }
+                
+                if (state.background !== undefined) {
+                    consoleState.background = state.background;
+                }
+                
+                if (state.bgm !== undefined) {
+                    consoleState.bgm = state.bgm;
+                }
+                
+                console.log('[GameWindow] Console state set:', state);
+            } catch (err) {
+                console.error('[GameWindow] setConsoleState error:', err);
+            }
+        };
+
+        /**
+         * 获取控制台状态（供C#获取）
+         * @returns {string} JSON字符串
+         *   C# 调用示例: var result = await ExecuteScriptAsync("getConsoleState()")
+         */
+        window.getConsoleState = function() {
+            return JSON.stringify(consoleState, null, 2);
+        };
+
+        // ============================================================
+        //  选项控制
+        // ============================================================
+
+        /**
+         * 清除所有选项按钮
+         *   C# 调用示例: ExecuteScriptAsync("clearOptions()")
+         */
+        window.clearOptions = function() {
+            const container = document.getElementById('options-container');
+            if (container) {
+                container.innerHTML = '';
+                container.style.display = 'none';
+                console.log('[GameWindow] Options cleared');
+            }
+        };
+
+        // ============================================================
+        //  综合场景设置
+        // ============================================================
+
+        /**
+         * 综合设置整个可视化窗口的状态
+         * @param {Object} params - 配置参数对象（JSON 可序列化）
+         *   C# 调用示例:
+         *   var json = JsonConvert.SerializeObject(new {
+         *       background = new { image = "../assets/bg/bg_001.jpg", visible = true },
+         *       bgm = new { src = "../assets/bgm/bgm1.ogg", volume = 0.8, play = true },
+         *       chars = "[角色A 中 正面 服装1 表情101]"
+         *   });
+         *   ExecuteScriptAsync("applySceneConfig(" + json + ")");
+         */
+        window.applySceneConfig = function(params) {
+            try {
+                if (typeof params === 'string') {
+                    params = JSON.parse(params);
+                }
+                if (!params) return;
+
+                // 背景
+                if (params.background) {
+                    if (params.background.image) {
+                        window.setBackgroundImage(params.background.image);
+                    }
+                    if (typeof params.background.visible === 'boolean') {
+                        params.background.visible ? window.showBackground() : window.hideBackground();
+                    }
+                }
+
+                // BGM
+                if (params.bgm) {
+                    if (params.bgm.src) {
+                        window.setBgm(params.bgm.src, params.bgm.volume);
+                    }
+                    if (params.bgm.play === false) {
+                        window.stopBgm();
+                    }
+                    if (typeof params.bgm.volume === 'number') {
+                        window.setBgmVolume(params.bgm.volume);
+                    }
+                }
+
+                // 立绘
+                if (params.chars !== undefined) {
+                    window.setCharPreview(params.chars);
+                }
+
+                console.log('[GameWindow] Scene config applied');
+            } catch (err) {
+                console.error('[GameWindow] applySceneConfig error:', err);
+            }
+        };
+
+        /**
+         * 获取当前窗口完整状态（供 C# 调试/查询）
+         * @returns {string} JSON 字符串
+         */
+        window.getWindowState = function() {
+            const state = {
+                currentChars: _currentCharsStr,
+                bgmStatus: JSON.parse(window.getBgmStatus()),
+                consoleState: consoleState
+            };
+            const bg = document.getElementById('background-container');
+            if (bg) {
+                state.backgroundImage = bg.style.backgroundImage || '';
+                state.backgroundVisible = bg.style.display !== 'none';
+            }
+            return JSON.stringify(state);
+        };
+
+        console.log('[GameWindow] All C# APIs registered on window object');
+    </script>
+</body>
+</html>

@@ -1,0 +1,139 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>场景模板</title>
+    
+    <link rel="stylesheet" href="../style.css">
+    <!-- 引入资源集中配置文件 -->
+    <script src="../bgm_config.js"></script>
+    <script src="../cg_config.js"></script>
+    <script src="../bg_config.js"></script>
+    <script src="../illustration.js"></script>
+    <script src="../modules/progress_api.js"></script>
+</head>
+<body>
+    <!-- 背景容器 -->
+    <div id="background-container"></div>
+    
+    <!-- 角色立绘容器 -->
+    <div id="character-container"></div>
+    
+    <!-- 文本框区域 -->
+    <div id="text-box-container">
+                <div id="name-box">
+<span>[姓名]</span>
+        </div>
+        <div id="text-box">[文本]</div>
+    </div>
+    
+    <!-- 选项容器 -->
+    <div id="options-container"></div>
+    
+    <!-- 全屏文本模式 -->
+    <div id="novel-mode-container">
+        <div id="novel-text-box">[全屏文本]</div>
+    </div>
+    
+    <!-- 音频播放器 -->
+    <audio id="bgm-player" loop></audio>
+    <audio id="se-player"></audio>
+    <audio id="voice-player"></audio>
+    
+    <!-- 视频播放器 -->
+    <div id="video-player" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:100; background-color:black;">
+        <video id="main-video" style="width:100%; height:100%; object-fit:contain;">
+            您的浏览器不支持视频播放。
+        </video>
+    </div>
+    
+    <!-- 上下文菜单遮罩层 -->
+    <div id="context-menu-backdrop" class="context-menu-backdrop"></div>
+    
+    <!-- 上下文菜单 -->
+    <div id="context-menu" class="context-menu">
+        <ul>
+            <li onclick="QuickSaveManager.quickSave()">保存存档 (F5)</li>
+            <li onclick="QuickSaveManager.openArchivePage()">存档页面</li>
+            <li onclick="gameEngine.saveStateSnapshot(); window.location.href='../saves.html'">进度管理</li>
+            <li onclick="window.location.href='../html/flowchart.html'">剧本流程图</li>
+            <li onclick="window.location.href='../index.html'">返回标题页面</li>
+        </ul>        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255, 215, 0, 0.3); color: rgba(255, 215, 0, 0.6); font-size: 12px; line-height: 1.8; text-align: center;">
+            <div>F1 - 调试面板</div>
+            <div>F5 - 快速保存</div>
+            <div>Ctrl - 快进模式</div>
+            <div>+ / ↑ 增加音量 | - / ↓ 减少音量</div>
+        </div>
+    </div>
+    
+    <!-- 引擎脚本 -->
+    <script src="../system.js"></script>
+    <script src="../engine.js"></script>
+    <script>
+        // 场景数据
+        const sceneData = {
+            background: BG_CONFIG_SUB,  // 使用背景图片集中配置（子目录路径）
+            bgm: BGM_CONFIG_SUB,        // 使用 BGM 集中配置（子目录路径）
+            
+            // 音频资源零配置管理（推荐）
+            // 无需在此定义映射，直接使用文件名即可
+            // 引擎会自动从 assets/audio/ 目录下查找对应文件
+            audio: {},
+            
+            // 视频资源零配置管理（推荐）
+            // 无需在此定义映射，直接使用文件名即可
+            // 引擎会自动从 assets/video/ 目录下查找对应文件
+            videos: {},
+            story: [
+                // 示例对白（可根据需要变更或删除）
+                { 
+                    text: "这是第一句对白。", 
+                    speaker: "角色名",   // 说话人姓名（可选）
+                    background: "bg_示例",     // 背景图 ID（可选）
+                    bgm: "bgm_示例",           // BGM ID（可选）
+                    audio: "audio_示例",       // 音频文件名（可选，零配置）
+                    se: "se_示例",             // SE 文件名（可选，零配置）
+                    chars: "[中 char_示例]",   // 立绘指令（可选）
+                    command: "[指令]",         // 引擎指令（可选）
+                    action: null               // 动作对象（可选）
+                },
+                /*这是直接跳转下一个页面
+                { 
+                    text: "", 
+                    command: "[msgoff]",
+                    action: {
+                        type: "nextScene",
+                        target: "../index.html"
+                    }
+                }
+                    */
+                   /*这是选项跳转
+                { 
+                    text: "", 
+                    command: "[msgoff]",
+                    action: {
+                        type: "choice",
+                        choices: [
+                            { text: "前往场景1", target: "scene1.html" },
+                            { text: "返回主菜单", target: "../index.html" }
+                        ]
+                    }
+                }
+                    */
+            ]
+        };
+        
+        // 初始化游戏
+        document.addEventListener('DOMContentLoaded', () => {
+            // 检查URL中是否包含startLine参数
+            const urlParams = new URLSearchParams(window.location.search);
+            const startLine = parseInt(urlParams.get('startLine')) || 0;
+            
+            // 使用起始行号初始化引擎
+            gameEngine.init(sceneData, startLine);
+        });
+        
+    </script>
+</body>
+</html>

@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新旧立绘系统综合测试</title>
+    
+    <link rel="stylesheet" href="../style.css">
+    <script src="../bg_config.js"></script>
+    <script src="../cg_config.js"></script>
+    <script src="../bgm_config.js"></script>
+    <script src="../illustration.js"></script>
+</head>
+<body>
+    <div id="background-container"></div>
+    <div id="character-container"></div>
+    <div id="text-box-container">
+        <div id="name-box"><span>[姓名]</span></div>
+        <div id="text-box">[文本]</div>
+    </div>
+    <div id="options-container"></div>
+    <div id="novel-mode-container">
+        <div id="novel-text-box">[全屏文本]</div>
+    </div>
+    <audio id="bgm-player" loop>
+    <audio id="se-player">
+    <audio id="voice-player">
+    <div id="video-player" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:100; background-color:black;">
+        <video id="main-video" style="width:100%; height:100%; object-fit:contain;" controls>
+            您的浏览器不支持视频播放。
+        </video>
+    </div>
+    <div id="context-menu-backdrop" class="context-menu-backdrop"></div>
+    <div id="context-menu" class="context-menu">
+        <ul>
+            <li onclick="QuickSaveManager.quickSave()">保存存档 (F5)</li>
+            <li onclick="QuickSaveManager.openArchivePage()">存档页面</li>
+            <li onclick="gameEngine.saveStateSnapshot(); window.location.href='../saves.html'">进度管理</li>
+            <li onclick="window.location.href='../html/flowchart.html'">剧本流程图</li>
+            <li onclick="window.location.href='../index.html'">返回标题页面</li>
+        </ul>
+        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255, 215, 0, 0.3); color: rgba(255, 215, 0, 0.6); font-size: 12px; line-height: 1.8; text-align: center;">
+            <div>F1 - 调试面板</div>
+            <div>F5 - 快速保存</div>
+            <div>Ctrl - 快进模式</div>
+            <div>+ / ↑ 增加音量 | - / ↓ 减少音量</div>
+        </div>
+    </div>
+    <script src="../system.js"></script>
+    <script src="../engine.js"></script>
+    <script>
+        const sceneData = {
+            background: BG_CONFIG_SUB,
+            bgm: BGM_CONFIG_SUB,
+            audio: {},
+            story: [
+                // ========== 测试开始 ==========
+                {
+                    text: "【新旧立绘系统综合测试 - 上线前最终测试】\n\n本次测试覆盖：\n1. 所有方向指令（左左、左、左右、中、右左、右、右右）\n2. 角色A与角色B独立立绘组区分测试\n3. 旧系统资源测试（lh0-lh19）\n4. 冲突指令测试\n5. 新立绘屏蔽功能测试\n6. 多层级叠加显示测试",
+                    speaker: "系统",
+                    background: "bg1",
+                    bgm:"bgm1",
+                    chars: null
+                },
+                {
+                    text:"【旋转测试1】右旋转30度",
+                    speaker: "系统",
+                    chars:"[角色B z:30 正面 服装1 表情101]",
+                },
+                {
+                    text:"【旋转测试2】左旋转30度",
+                    speaker: "系统",
+                    chars:"[角色B z:-30 正面 服装1 表情101]",
+                },
+                {
+                    text:"【旋转测试3】回正",
+                    speaker: "系统",
+                    chars:"[角色B z:0 正面 服装1 表情101]",
+                },
+                {
+                    text:"",
+                    chars:"[消失 角色B]",
+                },
+
+                // ========== 一、旧系统基础测试 ==========
+                {
+                    text: "【第一部分：旧系统基础测试】\n测试简单资源ID立绘显示",
+                    speaker: "系统",
+                    chars: null
+                },
+                {
+                    text: "【旧-1】测试基础显示 - [角色C 左 lh1]",
+                    speaker: "系统",
+                    chars: "[角色C 左 lh1]"
+                },
+                {
+                    text: "【旧-2】测试位置移动 - [角色C 中 lh1]",
+                    speaker: "系统",
+                    chars: "[角色C 中 lh1]"
+                },
+                {
+                    text: "【旧-3】测试位置移动 - [角色C 右 lh1]",
+                    speaker: "系统",
+                    chars: "[角色C 右 lh1]"
+                },
+                {
+                    text: "【旧-4】测试垂直偏移 - [角色C 中 上 lh1]",
+                    speaker: "系统",
+                    chars: "[角色C 中 上 lh1]"
+                },
+                {
+                    text: "【旧-5】测试垂直偏移 - [角色C 中 下 lh1]",
+                    speaker: "系统",
+                    chars: "[角色C 中 下 lh1]"
+                },
+                {
+                    text: "【旧-6】测试层级 - [角色C 中 前 lh1]",
+                    speaker: "系统",
+                    chars: "[角色C 中 前 lh1]"
+                },
+                {
+                    text: "【旧-7】测试动作 - [角色C 中 shake lh1]",
+                    speaker: "系统",
+                    chars: "[角色C 中 shake lh1]"
+                },
+                {
+                    text: "【旧-8】测试动作 - [角色C 中 nod lh1]",
+                    speaker: "系统",
+                    chars: "[角色C 中 nod lh1]"
+                },
+                {
+                    text: "【旧-9】测试动作 - [角色C 中 retreat lh1]",
+                    speaker: "系统",
+                    chars: "[角色C 中 retreat lh1]"
+                },
+                {
+                    text: "【旧-10】测试动作 - [角色C 中 forward lh1]",
+                    speaker: "系统",
+                    chars: "[角色C 中 forward lh1]"
+                },
+                {
+                    text: "【旧-11】测试缩放 - [角色C 中 10% lh1]",
+                    speaker: "系统",
+                    chars: "[角色C 中 10% lh1]"
+                },
+                {
+                    text: "【旧-12】清除立绘 - [消失 all]",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 二、方向指令全面测试（枚举法）==========
+                {
+                    text: "【第二部分：方向指令全面测试】\n使用枚举法测试所有方向组合（平滑过渡）",
+                    speaker: "系统",
+                    chars: null
+                },
+                {
+                    text: "【方向-1】左左 - [角色A 左左 正面 服装1 表情101]",
+                    speaker: "系统",
+                    chars: "[角色A 左左 正面 服装1 表情101]"
+                },
+                {
+                    text: "【方向-2】左 - [角色A 左 正面 服装1 表情102]",
+                    speaker: "系统",
+                    chars: "[角色A 左 正面 服装1 表情102]"
+                },
+                {
+                    text: "【方向-3】左右 - [角色A 左右 正面 服装1 表情103]",
+                    speaker: "系统",
+                    chars: "[角色A 左右 正面 服装1 表情103]"
+                },
+                {
+                    text: "【方向-4】中 - [角色A 中 正面 服装1 表情104]",
+                    speaker: "系统",
+                    chars: "[角色A 中 正面 服装1 表情104]"
+                },
+                {
+                    text: "【方向-5】右左 - [角色A 右左 正面 服装1 表情105]",
+                    speaker: "系统",
+                    chars: "[角色A 右左 正面 服装1 表情105]"
+                },
+                {
+                    text: "【方向-6】右 - [角色A 右 正面 服装1 表情106]",
+                    speaker: "系统",
+                    chars: "[角色A 右 正面 服装1 表情106]"
+                },
+                {
+                    text: "【方向-7】右右 - [角色A 右右 正面 服装1 表情107]",
+                    speaker: "系统",
+                    chars: "[角色A 右右 正面 服装1 表情107]"
+                },
+                {
+                    text: "【方向-8】清除立绘",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 三、角色A立绘组完整测试（平滑过渡）==========
+                {
+                    text: "【第三部分：角色A立绘组完整测试】\n测试角色A的所有方位和服装组合（平滑过渡）",
+                    speaker: "系统",
+                    chars: null
+                },
+                {
+                    text: "【角色A-1】正面 + 服装1 - [角色A 中 正面 服装1 表情101]",
+                    speaker: "系统",
+                    chars: "[角色A 中 正面 服装1 表情101]"
+                },
+                {
+                    text: "【角色A-2】正面 + 服装2 - 切换服装",
+                    speaker: "系统",
+                    chars: "[角色A 中 正面 服装2 表情102]"
+                },
+                {
+                    text: "【角色A-3】正面 + 服装3 - 切换服装",
+                    speaker: "系统",
+                    chars: "[角色A 中 正面 服装3 表情103]"
+                },
+                {
+                    text: "【角色A-4】正面 + 服装4 - 切换服装",
+                    speaker: "系统",
+                    chars: "[角色A 中 正面 服装4 表情104]"
+                },
+                {
+                    text: "【角色A-5】侧面 + 服装1 - 切换方位和服装",
+                    speaker: "系统",
+                    chars: "[角色A 中 侧面 服装1 表情105]"
+                },
+                {
+                    text: "【角色A-6】侧面 + 服装2 - 切换服装",
+                    speaker: "系统",
+                    chars: "[角色A 中 侧面 服装2 表情106]"
+                },
+                {
+                    text: "【角色A-7】侧面 + 服装3 - 切换服装",
+                    speaker: "系统",
+                    chars: "[角色A 中 侧面 服装3 表情107]"
+                },
+                {
+                    text: "【角色A-8】侧面 + 服装4 - 切换服装",
+                    speaker: "系统",
+                    chars: "[角色A 中 侧面 服装4 表情108]"
+                },
+                {
+                    text: "【角色A-9】侧面 + 服装5 - 切换服装",
+                    speaker: "系统",
+                    chars: "[角色A 中 侧面 服装5 表情109]"
+                },
+                {
+                    text: "【角色A-10】左侧面 + 服装1 - 切换方位",
+                    speaker: "系统",
+                    chars: "[角色A 中 左侧面 服装1 表情110]"
+                },
+                {
+                    text: "【角色A-11】表情切换 - 正面服装1表情111",
+                    speaker: "系统",
+                    chars: "[角色A 中 正面 服装1 表情111]"
+                },
+                {
+                    text: "【角色A-12】表情切换 - 正面服装1表情112",
+                    speaker: "系统",
+                    chars: "[角色A 中 正面 服装1 表情112]"
+                },
+                {
+                    text: "【角色A-13】清除立绘",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 四、角色B立绘组完整测试（平滑过渡）==========
+                {
+                    text: "【第四部分：角色B立绘组完整测试】\n测试角色B的所有方位和服装组合（平滑过渡）",
+                    speaker: "系统",
+                    chars: null
+                },
+                {
+                    text: "【角色B-1】正面 + 服装1 - [角色B 中 正面 服装1 表情101]",
+                    speaker: "系统",
+                    chars: "[角色B 中 正面 服装1 表情101]"
+                },
+                {
+                    text: "【角色B-2】正面表情切换 - 表情102",
+                    speaker: "系统",
+                    chars: "[角色B 中 正面 服装1 表情102]"
+                },
+                {
+                    text: "【角色B-3】正面表情切换 - 表情103",
+                    speaker: "系统",
+                    chars: "[角色B 中 正面 服装1 表情103]"
+                },
+                {
+                    text: "【角色B-4】正面表情切换 - 表情104",
+                    speaker: "系统",
+                    chars: "[角色B 中 正面 服装1 表情104]"
+                },
+                {
+                    text: "【角色B-5】正面表情切换 - 表情105",
+                    speaker: "系统",
+                    chars: "[角色B 中 正面 服装1 表情105]"
+                },
+                {
+                    text: "【角色B-6】正面表情切换 - 表情106",
+                    speaker: "系统",
+                    chars: "[角色B 中 正面 服装1 表情106]"
+                },
+                {
+                    text: "【角色B-7】正面表情切换 - 表情107",
+                    speaker: "系统",
+                    chars: "[角色B 中 正面 服装1 表情107]"
+                },
+                {
+                    text: "【角色B-8】侧面 + 服装1 - 切换方位",
+                    speaker: "系统",
+                    chars: "[角色B 中 侧面 服装1 表情101]"
+                },
+                {
+                    text: "【角色B-9】侧面表情切换 - 表情102",
+                    speaker: "系统",
+                    chars: "[角色B 中 侧面 服装1 表情102]"
+                },
+                {
+                    text: "【角色B-10】侧面表情切换 - 表情103",
+                    speaker: "系统",
+                    chars: "[角色B 中 侧面 服装1 表情103]"
+                },
+                {
+                    text: "【角色B-11】侧面表情切换 - 表情104",
+                    speaker: "系统",
+                    chars: "[角色B 中 侧面 服装1 表情104]"
+                },
+                {
+                    text: "【角色B-12】侧面表情切换 - 表情105",
+                    speaker: "系统",
+                    chars: "[角色B 中 侧面 服装1 表情105]"
+                },
+                {
+                    text: "【角色B-13】侧面表情切换 - 表情106",
+                    speaker: "系统",
+                    chars: "[角色B 中 侧面 服装1 表情106]"
+                },
+                {
+                    text: "【角色B-14】侧面表情切换 - 表情107",
+                    speaker: "系统",
+                    chars: "[角色B 中 侧面 服装1 表情107]"
+                },
+                {
+                    text: "【角色B-15】侧面表情切换 - 表情108",
+                    speaker: "系统",
+                    chars: "[角色B 中 侧面 服装1 表情108]"
+                },
+                {
+                    text: "【角色B-16】清除立绘",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 五、新旧系统混合测试（不重叠）==========
+                {
+                    text: "【第五部分：新旧系统混合测试】\n确保新旧系统立绘不重叠显示",
+                    speaker: "系统",
+                    chars: null
+                },
+                {
+                    text: "【混合-1】新系统角色A(左) + 旧系统角色C(右)",
+                    speaker: "系统",
+                    chars: "[角色A 左 正面 服装1 表情101],[角色C 右 lh1]"
+                },
+                {
+                    text: "【混合-2】新系统角色B(左) + 旧系统角色C(右)",
+                    speaker: "系统",
+                    chars: "[角色B 左 正面 服装1 表情101]"
+                },
+                {
+                    text: "【混合-3】新系统角色A(右) + 新系统角色B(左)",
+                    speaker: "系统",
+                    chars: "[角色A 右 正面 服装1 表情102]"
+                },
+                {
+                    text: "【混合-4】三个立绘同时显示 - 角色A(左)、角色B(中)、角色C(右)",
+                    speaker: "系统",
+                    chars: "[角色A 左 正面 服装1 表情103],[角色B 中 正面 服装1 表情103],[角色C 右 lh2]"
+                },
+                {
+                    text: "【混合-5】清除立绘",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 六、层级测试（重叠效果）==========
+                {
+                    text: "【第六部分：层级测试】\n测试层级指令产生的重叠效果（2新1旧，不同位置）",
+                    speaker: "系统",
+                    chars: null
+                },
+                {
+                    text: "【层级-1】三人展示层级 - 角色B(左/后层) + 角色A(左右/中层) + lh10(中/前层)",
+                    speaker: "系统",
+                    chars: "[角色B 左 后 正面 服装1 表情101],[角色A 左右 正面 服装1 表情101],[中 前 lh10]"
+                },
+                {
+                    text: "【层级-2】交换层级 - 角色B(左/前层) + 角色A(左右/后层) + lh10(中/中层)",
+                    speaker: "系统",
+                    chars: "[角色B 左 前 正面 服装1 表情102],[角色A 左右 后 正面 服装1 表情102],[中 lh10]"
+                },
+                {
+                    text: "【层级-3】清除立绘",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 七、垂直偏移测试（平滑过渡）==========
+                {
+                    text: "【第七部分：垂直偏移测试】\n测试所有垂直位置指令（平滑过渡）",
+                    speaker: "系统",
+                    chars: null
+                },
+                {
+                    text: "【垂直-1】默认位置 - [角色A 中 正面 服装1 表情101]",
+                    speaker: "系统",
+                    chars: "[角色A 中 正面 服装1 表情101]"
+                },
+                {
+                    text: "【垂直-2】向上偏移 - [角色A 中 上]",
+                    speaker: "系统",
+                    chars: "[角色A 中 上 正面 服装1 表情101]"
+                },
+                {
+                    text: "【垂直-3】中上偏移",
+                    speaker: "系统",
+                    chars: "[角色A 中 中上 正面 服装1 表情101]"
+                },
+                {
+                    text: "【垂直-4】上上偏移",
+                    speaker: "系统",
+                    chars: "[角色A 中 上上 正面 服装1 表情101]"
+                },
+                {
+                    text: "【垂直-5】向下偏移",
+                    speaker: "系统",
+                    chars: "[角色A 中 下 正面 服装1 表情101]"
+                },
+                {
+                    text: "【垂直-6】中下偏移",
+                    speaker: "系统",
+                    chars: "[角色A 中 中下 正面 服装1 表情101]"
+                },
+                {
+                    text: "【垂直-7】下下偏移",
+                    speaker: "系统",
+                    chars: "[角色A 中 下下 正面 服装1 表情101]"
+                },
+                {
+                    text: "【垂直-8】回归默认 - [角色A 中 平]",
+                    speaker: "系统",
+                    chars: "[角色A 中 平 正面 服装1 表情101]"
+                },
+                {
+                    text: "【垂直-9】清除立绘",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 八、动作指令测试（平滑过渡）==========
+                {
+                    text: "【第八部分：动作指令测试】\n测试所有动作效果（平滑过渡）",
+                    speaker: "系统",
+                    chars: null
+                },
+                {
+                    text: "【动作-1】发抖 - [角色A 中 发抖]",
+                    speaker: "系统",
+                    chars: "[角色A 中 发抖 正面 服装1 表情101]"
+                },
+                {
+                    text: "【动作-2】点头 - [角色A 中 点头]",
+                    speaker: "系统",
+                    chars: "[角色A 中 点头 正面 服装1 表情102]"
+                },
+                {
+                    text: "【动作-3】左倒 - [角色A 中 左倒]",
+                    speaker: "系统",
+                    chars: "[角色A 中 左倒 正面 服装1 表情103]"
+                },
+                {
+                    text: "【动作-4】右倒 - [角色A 中 右倒]",
+                    speaker: "系统",
+                    chars: "[角色A 中 右倒 正面 服装1 表情104]"
+                },
+                {
+                    text: "【动作-5】站立恢复 - [角色A 中 站立]",
+                    speaker: "系统",
+                    chars: "[角色A 中 站立 正面 服装1 表情105]"
+                },
+                {
+                    text: "【动作-6】持续发抖 - [角色A 中 持续发抖]",
+                    speaker: "系统",
+                    chars: "[角色A 中 持续发抖 正面 服装1 表情106]"
+                },
+                {
+                    text: "【动作-7】结束发抖 - [角色A 中 结束发抖]",
+                    speaker: "系统",
+                    chars: "[角色A 中 结束发抖 正面 服装1 表情107]"
+                },
+                {
+                    text: "【动作-8】得意 - [角色A 中 得意]",
+                    speaker: "系统",
+                    chars: "[角色A 中 得意 正面 服装1 表情108]"
+                },
+                {
+                    text: "【动作-9】持续得意 - [角色A 中 持续得意]",
+                    speaker: "系统",
+                    chars: "[角色A 中 持续得意 正面 服装1 表情109]"
+                },
+                {
+                    text: "【动作-10】结束得意 - [角色A 中 结束得意]",
+                    speaker: "系统",
+                    chars: "[角色A 中 结束得意 正面 服装1 表情110]"
+                },
+                {
+                    text: "【动作-11】清除立绘",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 九、亮度控制测试（平滑过渡）==========
+                {
+                    text: "【第九部分：亮度控制测试】\n测试明暗控制效果（平滑过渡）",
+                    speaker: "系统",
+                    chars: null
+                },
+                {
+                    text: "【亮度-1】默认亮度 - [角色A 中 正面 服装1 表情101]",
+                    speaker: "系统",
+                    chars: "[角色A 中 正面 服装1 表情101]"
+                },
+                {
+                    text: "【亮度-2】变暗 - [角色A 中 暗]",
+                    speaker: "系统",
+                    chars: "[角色A 中 暗 正面 服装1 表情101]"
+                },
+                {
+                    text: "【亮度-3】恢复明亮 - [角色A 中 明]",
+                    speaker: "系统",
+                    chars: "[角色A 中 明 正面 服装1 表情101]"
+                },
+                {
+                    text: "【亮度-4】清除立绘",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 十、渐变效果测试 ==========
+                {
+                    text: "【第十部分：渐变效果测试】\n测试各种渐变入淡出效果",
+                    speaker: "系统",
+                    chars: null
+                },
+                {
+                    text: "【渐变-1】显示立绘",
+                    speaker: "系统",
+                    chars: "[角色A 中 正面 服装1 表情101]"
+                },
+                {
+                    text: "【渐变-2】渐出 - [渐出 角色A]",
+                    speaker: "系统",
+                    chars: "[渐出 角色A]"
+                },
+                {
+                    text: "【渐变-3】左渐入 - [角色A 左渐入]",
+                    speaker: "系统",
+                    chars: "[角色A 左渐入 正面 服装1 表情102]"
+                },
+                {
+                    text: "【渐变-4】渐出 - [渐出 角色A]",
+                    speaker: "系统",
+                    chars: "[渐出 角色A]"
+                },
+                {
+                    text: "【渐变-5】右渐入 - [角色A 右渐入]",
+                    speaker: "系统",
+                    chars: "[角色A 右渐入 正面 服装1 表情103]"
+                },
+                {
+                    text: "【渐变-6】渐出 - [渐出 角色A]",
+                    speaker: "系统",
+                    chars: "[渐出 角色A]"
+                },
+                {
+                    text: "【渐变-7】左渐出 - [角色A 中 左渐出]",
+                    speaker: "系统",
+                    chars: "[角色A 中 左渐出 正面 服装1 表情104]"
+                },
+                {
+                    text: "【渐变-8】右渐入 - [角色A 右渐入]",
+                    speaker: "系统",
+                    chars: "[角色A 右渐入 正面 服装1 表情105]"
+                },
+                {
+                    text: "【渐变-9】渐出 - [渐出 角色A]",
+                    speaker: "系统",
+                    chars: "[渐出 角色A]"
+                },
+                {
+                    text: "【渐变-10】清除立绘",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 十一、冲突指令测试 ==========
+                {
+                    text: "【第十一部分：冲突指令测试】\n测试互斥指令的优先级处理",
+                    speaker: "系统",
+                    chars: null
+                },
+                {
+                    text: "【冲突-1】位置冲突 - [角色A 左 右 正面 服装1 表情101]（左和右互斥）",
+                    speaker: "系统",
+                    chars: "[角色A 左 右 正面 服装1 表情101]"
+                },
+                {
+                    text: "【冲突-2】垂直冲突 - [角色A 中 上 下 正面 服装1 表情102]（上和下互斥）",
+                    speaker: "系统",
+                    chars: "[角色A 中 上 下 正面 服装1 表情102]"
+                },
+                {
+                    text: "【冲突-3】层级冲突 - [角色A 中 前 后 正面 服装1 表情103]（前和后互斥）",
+                    speaker: "系统",
+                    chars: "[角色A 中 前 后 正面 服装1 表情103]"
+                },
+                {
+                    text: "【冲突-4】动作冲突 - [角色A 中 发抖 点头 正面 服装1 表情104]（发抖和点头互斥）",
+                    speaker: "系统",
+                    chars: "[角色A 中 发抖 点头 正面 服装1 表情104]"
+                },
+                {
+                    text: "【冲突-5】清除立绘",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 十二、新立绘屏蔽功能测试 ==========
+                {
+                    text: "【第十二部分：新立绘屏蔽功能测试】\n测试新版立绘应屏蔽的指令",
+                    speaker: "系统",
+                    chars: null
+                },
+                {
+                    text: "【屏蔽-1】百分比缩放屏蔽 - [角色A 中 20% 正面 服装1 表情101]（新系统应屏蔽%）",
+                    speaker: "系统",
+                    chars: "[角色A 中 20% 正面 服装1 表情101]"
+                },
+                {
+                    text: "【屏蔽-2】后退动作屏蔽 - [角色A 中 后退 正面 服装1 表情102]",
+                    speaker: "系统",
+                    chars: "[角色A 中 后退 正面 服装1 表情102]"
+                },
+                {
+                    text: "【屏蔽-3】前进动作屏蔽 - [角色A 中 前进 正面 服装1 表情103]",
+                    speaker: "系统",
+                    chars: "[角色A 中 前进 正面 服装1 表情103]"
+                },
+                {
+                    text: "【屏蔽-4】清除立绘",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 十三、连续动作测试 ==========
+                {
+                    text: "【第十三部分：连续动作测试】\n测试新系统的连续动作序列",
+                    speaker: "系统",
+                    chars: null
+                },
+                {
+                    text: "【连续-1】位置连续变化 - [角色A 左 正面 服装1 表情101, 中 正面 服装1 表情105, 右 正面 服装1 表情110]",
+                    speaker: "系统",
+                    chars: "[角色A 左 正面 服装1 表情101, 中 正面 服装1 表情105, 右 正面 服装1 表情110]"
+                },
+                {
+                    text: "【连续-2】表情连续变化 - [角色A 中 正面 服装1 表情101, 中 正面 服装1 表情102, 中 正面 服装1 表情103, 中 正面 服装1 表情104]",
+                    speaker: "系统",
+                    chars: "[角色A 中 正面 服装1 表情101, 中 正面 服装1 表情102, 中 正面 服装1 表情103, 中 正面 服装1 表情104]"
+                },
+                {
+                    text: "【连续-3】清除立绘",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 十四、旧系统资源全面测试（平滑过渡）==========
+                {
+                    text: "【第十四部分：旧系统资源全面测试】\n测试所有旧系统立绘资源（平滑过渡）",
+                    speaker: "系统",
+                    chars: null
+                },
+                {
+                    text: "【旧资源-1】lh0 - [角色A 中 lh0]",
+                    speaker: "系统",
+                    chars: "[角色A 中 lh0]"
+                },
+                {
+                    text: "【旧资源-2】lh1 - [角色A 中 lh1]",
+                    speaker: "系统",
+                    chars: "[角色A 中 lh1]"
+                },
+                {
+                    text: "【旧资源-3】lh2 - [角色A 中 lh2]",
+                    speaker: "系统",
+                    chars: "[角色A 中 lh2]"
+                },
+                {
+                    text: "【旧资源-4】lh3 - [角色A 中 lh3]",
+                    speaker: "系统",
+                    chars: "[角色A 中 lh3]"
+                },
+                {
+                    text: "【旧资源-5】lh4 - [角色A 中 lh4]",
+                    speaker: "系统",
+                    chars: "[角色A 中 lh4]"
+                },
+                {
+                    text: "【旧资源-6】lh5 - [角色A 中 lh5]",
+                    speaker: "系统",
+                    chars: "[角色A 中 lh5]"
+                },
+                {
+                    text: "【旧资源-7】lh6 - [角色A 中 lh6]",
+                    speaker: "系统",
+                    chars: "[角色A 中 lh6]"
+                },
+                {
+                    text: "【旧资源-8】lh7 - [角色A 中 lh7]",
+                    speaker: "系统",
+                    chars: "[角色A 中 lh7]"
+                },
+                {
+                    text: "【旧资源-9】lh8 - [角色A 中 lh8]",
+                    speaker: "系统",
+                    chars: "[角色A 中 lh8]"
+                },
+                {
+                    text: "【旧资源-10】lh9 - [角色A 中 lh9]",
+                    speaker: "系统",
+                    chars: "[角色A 中 lh9]"
+                },
+                {
+                    text: "【旧资源-11】lh10 - [角色A 中 lh10]",
+                    speaker: "系统",
+                    chars: "[角色A 中 lh10]"
+                },
+                {
+                    text: "【旧资源-12】lh11 - [角色A 中 lh11]",
+                    speaker: "系统",
+                    chars: "[角色A 中 lh11]"
+                },
+                {
+                    text: "【旧资源-13】lh12 - [角色A 中 lh12]",
+                    speaker: "系统",
+                    chars: "[角色A 中 lh12]"
+                },
+                {
+                    text: "【旧资源-14】lh13 - [角色A 中 lh13]",
+                    speaker: "系统",
+                    chars: "[角色A 中 lh13]"
+                },
+                {
+                    text: "【旧资源-15】lh14 - [角色A 中 lh14]",
+                    speaker: "系统",
+                    chars: "[角色A 中 lh14]"
+                },
+                {
+                    text: "【旧资源-16】lh15 - [角色A 中 lh15]",
+                    speaker: "系统",
+                    chars: "[角色A 中 lh15]"
+                },
+                {
+                    text: "【旧资源-17】lh16 - [角色A 中 lh16]",
+                    speaker: "系统",
+                    chars: "[角色A 中 lh16]"
+                },
+                {
+                    text: "【旧资源-18】lh17 - [角色A 中 lh17]",
+                    speaker: "系统",
+                    chars: "[角色A 中 lh17]"
+                },
+                {
+                    text: "【旧资源-19】lh18 - [角色A 中 lh18]",
+                    speaker: "系统",
+                    chars: "[角色A 中 lh18]"
+                },
+                {
+                    text: "【旧资源-20】lh19 - [角色A 中 lh19]",
+                    speaker: "系统",
+                    chars: "[角色A 中 lh19]"
+                },
+                {
+                    text: "【旧资源-21】清除立绘",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 十五、角色A与角色B独立立绘组区分测试 ==========
+                {
+                    text: "【第十五部分：独立立绘组区分测试】\n验证角色A与角色B作为独立立绘组正确区分显示和独立消失",
+                    speaker: "系统",
+                    chars: null
+                },
+                {
+                    text: "【独立-1】显示角色A - [角色A 中 正面 服装1 表情101]",
+                    speaker: "系统",
+                    chars: "[角色A 中 正面 服装1 表情101]"
+                },
+                {
+                    text: "【独立-2】单独消失角色A（验证角色B未被影响）",
+                    speaker: "系统",
+                    chars: "[消失 角色A]"
+                },
+                {
+                    text: "【独立-3】显示角色B - [角色B 中 正面 服装1 表情101]",
+                    speaker: "系统",
+                    chars: "[角色B 中 正面 服装1 表情101]"
+                },
+                {
+                    text: "【独立-4】同时显示角色A和角色B（角色A在左，角色B在右）",
+                    speaker: "系统",
+                    chars: "[角色A 左 正面 服装1 表情102],[角色B 右 正面 服装1 表情102]"
+                },
+                {
+                    text: "【独立-5】单独消失角色A（角色B应保留）",
+                    speaker: "系统",
+                    chars: "[消失 角色A]"
+                },
+                {
+                    text: "【独立-6】重新显示角色A",
+                    speaker: "系统",
+                    chars: "[角色A 左 正面 服装1 表情103]"
+                },
+                {
+                    text: "【独立-7】单独消失角色B（角色A应保留）",
+                    speaker: "系统",
+                    chars: "[消失 角色B]"
+                },
+                {
+                    text: "【独立-8】两个角色都消失",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 十六、复杂指令组合测试 ==========
+                {
+                    text: "【第十六部分：复杂指令组合测试】\n测试多个指令同时使用的复杂组合",
+                    speaker: "系统",
+                    chars: null
+                },
+                {
+                    text: "【复杂-1】方向+层级+动作 - [角色A 左 前 发抖 正面 服装1 表情101]",
+                    speaker: "系统",
+                    chars: "[角色A 左 前 发抖 正面 服装1 表情101]"
+                },
+                {
+                    text: "【复杂-2】方向+垂直+层级 - [角色B 右 上 后 正面 服装1 表情102]",
+                    speaker: "系统",
+                    chars: "[角色B 右 上 后 正面 服装1 表情102]"
+                },
+                {
+                    text: "【复杂-3】方向+垂直+层级+动作 - [角色A 中 上 前 左倒 正面 服装1 表情103]",
+                    speaker: "系统",
+                    chars: "[角色A 中 上 前 左倒 正面 服装1 表情103]"
+                },
+                {
+                    text: "【复杂-4】三个角色复杂组合 - 角色A(左前)、角色B(中后)、角色C(右)",
+                    speaker: "系统",
+                    chars: "[角色A 左 前 正面 服装1 表情104],[角色B 中 后 正面 服装1 表情104],[角色C 右 lh3]"
+                },
+                {
+                    text: "【复杂-5】清除立绘",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 十七、方位差异测试 ==========
+                {
+                    text: "【第十七部分：方位差异测试】\n测试同一角色不同方位的区分显示",
+                    speaker: "系统",
+                    chars: null
+                },
+                {
+                    text: "【角色标识符冲突测试-1】应该只显示第一个角色",
+                    speaker: "系统",
+                    chars: "[角色A 左 正面 服装1 表情101],[角色A 右 侧面 服装1 表情105]"
+                },
+                {
+                    text: "【角色标识符冲突测试-2】应该只显示第一个角色",
+                    speaker: "系统",
+                    chars: "[角色B 左 正面 服装1 表情101],[角色B 右 侧面 服装1 表情101]"
+                },
+                {
+                    text: "【方位-3】清除立绘",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 十八、快速切换测试 ==========
+                {
+                    text: "【第十八部分：快速切换测试】\n测试快速连续切换不同角色/状态",
+                    speaker: "系统",
+                    chars: null
+                },
+                {
+                    text: "【切换-1】快速切换角色A表情 - 101→102→103→104→105",
+                    speaker: "系统",
+                    chars: "[角色A 中 正面 服装1 表情101, 中 正面 服装1 表情102, 中 正面 服装1 表情103, 中 正面 服装1 表情104, 中 正面 服装1 表情105]"
+                },
+                {
+                    text: "【切换-2】快速切换角色 - 角色A→角色B→角色A→角色B",
+                    speaker: "系统",
+                    chars: "[角色A 中 正面 服装1 表情106]"
+                },
+                {
+                    text: "【切换-2a】切换到角色B",
+                    speaker: "系统",
+                    chars: "[消失 角色A],[角色B 中 正面 服装1 表情101]"
+                },
+                {
+                    text: "【切换-2b】切换到角色A",
+                    speaker: "系统",
+                    chars: "[消失 角色B],[角色A 中 正面 服装1 表情107]"
+                },
+                {
+                    text: "【切换-2c】切换到角色B",
+                    speaker: "系统",
+                    chars: "[消失 角色A],[角色B 中 正面 服装1 表情102]"
+                },
+                {
+                    text: "【切换-3】快速切换位置 - 左→中→右→中→左",
+                    speaker: "系统",
+                    chars: "[角色A 左 正面 服装1 表情108, 中 正面 服装1 表情109, 右 正面 服装1 表情110, 中 正面 服装1 表情111, 左 正面 服装1 表情112]"
+                },
+                {
+                    text: "【切换-4】清除立绘",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 十九、渐变+动作组合测试 ==========
+                {
+                    text: "【第十九部分：渐变+动作组合测试】\n测试渐变效果与动作指令的组合",
+                    speaker: "系统",
+                    chars: null
+                },
+                {
+                    text: "【渐变动作-1】显示立绘并左渐入+发抖",
+                    speaker: "系统",
+                    chars: "[角色A 中 正面 服装1 表情101]"
+                },
+                {
+                    text: "【渐变动作-2】渐出",
+                    speaker: "系统",
+                    chars: "[渐出 角色A]"
+                },
+                {
+                    text: "【渐变动作-3】左渐入+发抖 - [角色A 左渐入 发抖]",
+                    speaker: "系统",
+                    chars: "[角色A 左渐入 发抖 正面 服装1 表情102]"
+                },
+                {
+                    text: "【渐变动作-4】渐出",
+                    speaker: "系统",
+                    chars: "[渐出 角色A]"
+                },
+                {
+                    text: "【渐变动作-5】右渐入+点头 - [角色A 右渐入 点头]",
+                    speaker: "系统",
+                    chars: "[角色A 右渐入 点头 正面 服装1 表情103]"
+                },
+                {
+                    text: "【渐变动作-6】渐出后新角色渐入",
+                    speaker: "系统",
+                    chars: "[渐出 角色A],[角色B 左渐入 正面 服装1 表情104]"
+                },
+                {
+                    text: "【渐变动作-7】清除立绘",
+                    speaker: "系统",
+                    chars: "[消失 all]"
+                },
+
+                // ========== 测试完成 ==========
+                {
+                    text: "【测试完成】",
+                    speaker: "系统",
+                    chars: null
+                }
+            ]
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const startLine = parseInt(urlParams.get('startLine')) || 0;
+            gameEngine.init(sceneData, startLine);
+        });
+    </script>
+</body>
+</html>
