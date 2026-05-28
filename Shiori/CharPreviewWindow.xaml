@@ -1,0 +1,50 @@
+<Window x:Class="ShioriCSharp.CharPreviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Title="立绘预览"
+        Width="854" Height="480"
+        MinWidth="480" MinHeight="270"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        WindowStyle="SingleBorderWindow"
+        Background="#000000"
+        SizeChanged="OnWindowSizeChanged">
+    <DockPanel>
+        <!-- 顶部：配置信息行 + 打开控制面板按钮 -->
+        <Border DockPanel.Dock="Top" Background="#1a1a1a" Padding="10,6" BorderBrush="#2a2a2a" BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <!-- 左：配置标签 -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Name="txtCharName" Foreground="#ffffff" FontSize="13" FontWeight="Bold" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="|" Foreground="#444" FontSize="13" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                    <TextBlock Name="txtOrientation" Foreground="#aaffaa" FontSize="12" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                    <TextBlock Name="txtDress" Foreground="#ffaaaa" FontSize="12" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                    <TextBlock Name="txtDiff" Foreground="#ffffaa" FontSize="12" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                    <TextBlock Name="txtFace" Foreground="#aaaaff" FontSize="12" VerticalAlignment="Center"/>
+                </StackPanel>
+                <!-- 中：指令文本 -->
+                <TextBlock Grid.Column="1" Name="txtCommand" Foreground="#00ccff" FontFamily="Consolas" FontSize="12"
+                           TextWrapping="Wrap" TextAlignment="Right" VerticalAlignment="Center" Margin="8,0,8,0"/>
+                <!-- 右：打开控制面板按钮 -->
+                <Button Grid.Column="2" Name="btnOpenControl" Content="打开控制面板" Width="100" Height="26"
+                        Click="OnOpenControlClick" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <!-- 复制指令按钮 -->
+                <Button Grid.Column="3" Name="btnCopyCommand" Content="复制指令" Width="80" Height="26"
+                        Click="OnCopyCommandClick" VerticalAlignment="Center" Margin="0,0,5,0"/>
+            </Grid>
+        </Border>
+
+        <!-- 主区域：内嵌浏览器（复用 engine.js 立绘渲染，0坐标偏差）
+             黑色背景用于在 WebView2 隐藏时保持视觉连续性 -->
+        <Grid Background="#000000">
+            <wv2:WebView2 Name="charWebView" />
+        </Grid>
+    </DockPanel>
+</Window>
