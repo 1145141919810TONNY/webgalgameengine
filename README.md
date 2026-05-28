@@ -25,6 +25,12 @@
 
 ![img](https://github.com/1145141919810TONNY/webgalgameengine/blob/main/img/5.png)
 
+可视化窗口示例：
+
+![img](https://github.com/1145141919810TONNY/webgalgameengine/blob/main/img/6.png)
+
+![img](https://github.com/1145141919810TONNY/webgalgameengine/blob/main/img/7.png)
+
 # Shiori 命名缘起
 
 “Shiori”（栞），在日语中意为“书签”。
@@ -42,6 +48,18 @@
 ## 快捷键
 - esc：打开游戏上下文菜单
 - ctrl：快进剧情
+
+# 版本更新内容 （2026/5/28）
+
+## 引擎核心 V2.1.0 更新内容
+- 高级立绘系统上线，现在可以通过设定来配置全身立绘差分和脸部差分了，语法详情请见[illustrationnew.md](illustrationnew.md)
+  >  无需担心，高级立绘系统和原有的基本立绘系统互相兼容和共存，可混合使用。高级立绘系统相比基本的立绘系统会有一些屏蔽项。
+
+- 让y轴回归默认值，现在可以使用`平`或`middle`/`flat`来表示y轴居中了。
+
+## 启动器 V1.2.2 更新内容
+- 高级立绘系统可视化窗口上线，可以在可视化窗口的控制台中动态输入配置好的差分以预览立绘效果。
+  > 此外，在此窗口中你还可以设置bgm、背景图片，一键复制完整的json数组(具体情况请参考可视化控制面板描述)
 
 # V2.0.7-1（补丁）（2026/5/22）
 - 替换了`video.html`中错误上传的文件版本
