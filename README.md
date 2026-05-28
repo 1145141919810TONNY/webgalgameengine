@@ -2,7 +2,7 @@
 
 这是一个基于HTML/JS的视觉小说引擎，具有类似Kirikiri的功能。
 
-在scenes文件夹中，scenes0.html是一个空白模板。
+在scenes文件夹中，scenes0.html是一个空白模板，在scenes文件夹中，charsnew.html是一个包含新旧立绘的新版测试文件
 
 如果要使用本模板，请根据license.txt中的指引进行修改本项目
 
