@@ -4,6 +4,8 @@
 
 在scenes文件夹中，scenes0.html是一个空白模板，在scenes文件夹中，charsnew.html是一个包含新旧立绘的新版测试文件
 
+高级版立绘系统更推荐想认真做，做大型游戏的用户使用，优点是可以大量节省美术资源，缺点是配置难度较大/基础立绘系统更推荐做着玩的，做小型游戏的用户使用，优点是配置简单易上手
+
 如果要使用本模板，请根据license.txt中的指引进行修改本项目
 
 本引擎的教学网页：[https://1145141919810tonny.github.io/Shioriteaching/](https://1145141919810tonny.github.io/Shioriteaching/)
