@@ -49,6 +49,14 @@
 
 愿 Shiori 伴随每一位创作者，在视觉小说的篇章中，留下独一无二的标记。
 
+如果你想让编译出来的exe不依靠任何依赖(包括运行时)，那么你可以进行如下的设置:
+```xml
+<PropertyGroup>
+  <SelfContained>true</SelfContained>
+  <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+</PropertyGroup>
+```
+
 ## 快捷键
 - esc：打开游戏上下文菜单
 - ctrl：快进剧情
