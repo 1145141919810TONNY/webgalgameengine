@@ -209,10 +209,18 @@ namespace ShioriCSharp
 
         private void OnCopyCommandClick(object sender, RoutedEventArgs e)
         {
-            if (!string.IsNullOrWhiteSpace(_currentCommand))
+            try
             {
-                Clipboard.SetText(_currentCommand);
-                MessageBox.Show("指令已复制:\n" + _currentCommand, "复制成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                if (!string.IsNullOrWhiteSpace(_currentCommand))
+                {
+                    Clipboard.SetText(_currentCommand);
+                    MessageBox.Show("指令已复制:\n" + _currentCommand, "复制成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CharPreview] ERROR 复制指令失败: {ex.Message}");
+                MessageBox.Show("复制失败: " + ex.Message, "复制失败", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
