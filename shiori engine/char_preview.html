@@ -508,8 +508,8 @@
 
         /**
          * 更新立绘显示
-         * @param {string} charsStr - 立绘指令，如 "[角色A 中 正面 服装1 表情101]"
-         *   C# 调用示例: ExecuteScriptAsync("setCharPreview('[角色A 中 正面 服装1 表情101]')")
+         * @param {string} charsStr - 立绘指令，如 "[美柚 中 正面 服装1 表情101]"
+         *   C# 调用示例: ExecuteScriptAsync("setCharPreview('[美柚 中 正面 服装1 表情101]')")
          */
         window.setCharPreview = function(charsStr) {
             try {
@@ -517,9 +517,18 @@
                 consoleState.chars = charsStr || '';
                 console.log('[GameWindow] setCharPreview called:', charsStr);
 
-                // 先清除所有现有立绘
-                if (typeof gameEngine.removeAllChars === 'function') {
-                    gameEngine.removeAllChars();
+                // 清空立绘容器中的所有元素（确保切换人物时旧立绘被完全移除）
+                const charContainer = document.getElementById('character-container');
+                if (charContainer) {
+                    charContainer.innerHTML = '';
+                }
+
+                // 重置引擎的立绘状态
+                if (typeof gameEngine !== 'undefined') {
+                    gameEngine.state.activeChars = {};
+                    gameEngine.state.charNameMap = {};
+                    gameEngine.state.shakingChars = {};
+                    gameEngine.state.charActionQueues = {};
                 }
 
                 if (!charsStr || charsStr.trim() === '') {
@@ -543,9 +552,21 @@
             try {
                 _currentCharsStr = '';
                 consoleState.chars = '';
-                if (typeof gameEngine.removeAllChars === 'function') {
-                    gameEngine.removeAllChars();
+
+                // 清空立绘容器中的所有元素
+                const charContainer = document.getElementById('character-container');
+                if (charContainer) {
+                    charContainer.innerHTML = '';
                 }
+
+                // 重置引擎的立绘状态
+                if (typeof gameEngine !== 'undefined') {
+                    gameEngine.state.activeChars = {};
+                    gameEngine.state.charNameMap = {};
+                    gameEngine.state.shakingChars = {};
+                    gameEngine.state.charActionQueues = {};
+                }
+
                 console.log('[GameWindow] All characters cleared');
             } catch (err) {
                 console.error('[GameWindow] clearAllChars error:', err);
@@ -604,7 +625,7 @@
         /**
          * 设置控制台状态（从C#接收数据）
          * @param {string} jsonStr - JSON字符串
-         *   C# 调用示例: ExecuteScriptAsync("setConsoleState('{\"chars\":\"[角色A]\"}')")
+         *   C# 调用示例: ExecuteScriptAsync("setConsoleState('{\"chars\":\"[美柚]\"}')")
          */
         window.setConsoleState = function(jsonStr) {
             try {
@@ -665,7 +686,7 @@
          *   var json = JsonConvert.SerializeObject(new {
          *       background = new { image = "../assets/bg/bg_001.jpg", visible = true },
          *       bgm = new { src = "../assets/bgm/bgm1.ogg", volume = 0.8, play = true },
-         *       chars = "[角色A 中 正面 服装1 表情101]"
+         *       chars = "[美柚 中 正面 服装1 表情101]"
          *   });
          *   ExecuteScriptAsync("applySceneConfig(" + json + ")");
          */
