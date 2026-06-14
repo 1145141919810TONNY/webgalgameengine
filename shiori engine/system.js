@@ -640,10 +640,563 @@ const systemModule = {
             this.checkMaximizedState();
             console.log('[Fullscreen] Exited fullscreen mode');
         }
+    },
+    
+    // ========================================
+    // Galgame UI 菜单功能
+    // ========================================
+    
+    // 快进状态存储键名
+    FAST_FORWARD_STORAGE_KEY: 'galgame_fast_forward',
+    
+    // UI菜单DOM元素
+    uiMenu: null,
+    skipBtn: null,
+    
+    // 日志相关
+    logData: [],  // 存储已显示的对话数据
+    logOverlay: null,
+    logContent: null,
+    
+    /**
+     * 检测当前页面是否为场景文件（位于 scenes/ 目录下）
+     * @returns {boolean}
+     */
+    isSceneFile: function() {
+        const pathname = window.location.pathname;
+        // 检测路径是否包含 '/scenes/' 
+        return pathname.includes('/scenes/') || pathname.includes('\\scenes\\');
+    },
+    
+    /**
+     * 创建Galgame UI菜单
+     */
+    createGalgameUiMenu: function() {
+        // 如果已经创建过，直接返回
+        if (document.getElementById('galgame-ui-menu')) {
+            return;
+        }
+        
+        // 创建菜单容器
+        const menu = document.createElement('div');
+        menu.id = 'galgame-ui-menu';
+        
+        // 创建按钮容器
+        const buttons = document.createElement('div');
+        buttons.id = 'galgame-ui-buttons';
+        
+        // 创建SKIP/1按钮（普通快进）
+        const skip1Btn = document.createElement('button');
+        skip1Btn.id = 'ui-skip1';
+        skip1Btn.className = 'galgame-ui-btn';
+        skip1Btn.textContent = 'SKIP/1';
+        skip1Btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // 向engine发送消息，切换SKIP/1模式
+            if (typeof gameEngine !== 'undefined') {
+                gameEngine.toggleSkipMode(1);
+            }
+        });
+        
+        // 创建SKIP/2按钮（选项处停止的快进）
+        const skip2Btn = document.createElement('button');
+        skip2Btn.id = 'ui-skip2';
+        skip2Btn.className = 'galgame-ui-btn';
+        skip2Btn.textContent = 'SKIP/2';
+        skip2Btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // 向engine发送消息，切换SKIP/2模式
+            if (typeof gameEngine !== 'undefined') {
+                gameEngine.toggleSkipMode(2);
+            }
+        });
+        
+        // 创建SAVE按钮（带二级菜单）
+        const saveMenu = document.createElement('div');
+        saveMenu.id = 'ui-save-menu';
+        saveMenu.style.position = 'relative';
+        
+        const saveBtn = document.createElement('button');
+        saveBtn.id = 'ui-save';
+        saveBtn.className = 'galgame-ui-btn';
+        saveBtn.textContent = 'SAVE';
+        saveBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.openArchive();
+        });
+        
+        // 创建二级菜单
+        const dropdown = document.createElement('div');
+        dropdown.className = 'galgame-ui-dropdown';
+        
+        // SCENES按钮
+        const scenesBtn = document.createElement('button');
+        scenesBtn.className = 'galgame-ui-btn';
+        scenesBtn.textContent = 'SCENES';
+        scenesBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.location.href = '../html/saves.html';
+        });
+        
+        // MAP按钮
+        const mapBtn = document.createElement('button');
+        mapBtn.className = 'galgame-ui-btn';
+        mapBtn.textContent = 'MAP';
+        mapBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.location.href = '../html/flowchart.html';
+        });
+        
+        // STORY按钮
+        const storyBtn = document.createElement('button');
+        storyBtn.className = 'galgame-ui-btn';
+        storyBtn.textContent = 'STORY';
+        storyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.location.href = '../html/story.html';
+        });
+        
+        // 组装二级菜单
+        dropdown.appendChild(scenesBtn);
+        dropdown.appendChild(mapBtn);
+        dropdown.appendChild(storyBtn);
+        
+        // 组装SAVE菜单
+        saveMenu.appendChild(saveBtn);
+        saveMenu.appendChild(dropdown);
+        
+        // 修复菜单消失逻辑：使用JavaScript实现智能显示/隐藏
+        let hideTimeout = null;
+        
+        // 鼠标进入SAVE菜单区域（包括二级菜单）
+        const showMenu = () => {
+            if (hideTimeout) {
+                clearTimeout(hideTimeout);
+                hideTimeout = null;
+            }
+            dropdown.classList.add('show');
+        };
+        
+        // 鼠标离开时延迟隐藏
+        const hideMenu = () => {
+            hideTimeout = setTimeout(() => {
+                dropdown.classList.remove('show');
+                hideTimeout = null;
+            }, 150); // 150ms延迟，给用户足够时间移动鼠标
+        };
+        
+        // SAVE按钮进入
+        saveBtn.addEventListener('mouseenter', showMenu);
+        // SAVE按钮离开（延迟隐藏）
+        saveBtn.addEventListener('mouseleave', hideMenu);
+        
+        // 二级菜单进入（取消隐藏）
+        dropdown.addEventListener('mouseenter', showMenu);
+        // 二级菜单离开
+        dropdown.addEventListener('mouseleave', hideMenu);
+        
+        // 创建OPTION按钮
+        const optionBtn = document.createElement('button');
+        optionBtn.id = 'ui-option';
+        optionBtn.className = 'galgame-ui-btn';
+        optionBtn.textContent = 'OPTION';
+        optionBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.openOptions();
+        });
+        
+        // 创建LOG按钮
+        const logBtn = document.createElement('button');
+        logBtn.id = 'ui-log';
+        logBtn.className = 'galgame-ui-btn';
+        logBtn.textContent = 'LOG';
+        logBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.openLog();
+        });
+        
+        // 创建HELP按钮
+        const helpBtn = document.createElement('button');
+        helpBtn.id = 'ui-help';
+        helpBtn.className = 'galgame-ui-btn';
+        helpBtn.textContent = 'HELP';
+        helpBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // 向C#发送消息，显示原生帮助窗口
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage({ action: 'showHelp' });
+            }
+        });
+        
+        // 创建BACK按钮
+        const backBtn = document.createElement('button');
+        backBtn.id = 'ui-back';
+        backBtn.className = 'galgame-ui-btn';
+        backBtn.textContent = 'BACK';
+        backBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // 向C#发送消息，返回主菜单（会弹出确认）
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage({ action: 'goHome' });
+            }
+        });
+        
+        // 创建QUIT按钮
+        const quitBtn = document.createElement('button');
+        quitBtn.id = 'ui-quit';
+        quitBtn.className = 'galgame-ui-btn';
+        quitBtn.textContent = 'QUIT';
+        quitBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // 向C#发送消息，退出游戏（会弹出确认）
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage({ action: 'quit' });
+            }
+        });
+        
+        // 组装DOM结构
+        buttons.appendChild(skip1Btn);
+        buttons.appendChild(skip2Btn);
+        buttons.appendChild(saveMenu);
+        buttons.appendChild(optionBtn);
+        buttons.appendChild(logBtn);
+        buttons.appendChild(helpBtn);
+        buttons.appendChild(backBtn);
+        buttons.appendChild(quitBtn);
+        menu.appendChild(buttons);
+        document.body.appendChild(menu);
+        
+        // 保存引用
+        this.uiMenu = menu;
+        this.skip1Btn = skip1Btn;
+        this.skip2Btn = skip2Btn;
+        
+        // 绑定点击非UI区域停止快进的事件
+        this.bindUiClickHandler();
+        
+        console.log('[Galgame UI] Menu created');
+    },
+    
+    /**
+     * 绑定点击处理：点击非UI区域时停止快进
+     */
+    bindUiClickHandler: function() {
+        document.addEventListener('click', (e) => {
+            // 检查点击目标是否在UI菜单内
+            const isUiElement = e.target.closest('#galgame-ui-menu') || 
+                               e.target.closest('#options-container') ||
+                               e.target.closest('.context-menu');
+            
+            // 如果不在UI区域内且快进状态激活，停止快进
+            if (!isUiElement && this.isFastForwardActive()) {
+                this.stopFastForward();
+            }
+        });
+    },
+    
+    /**
+     * 切换快进状态
+     */
+    toggleFastForward: function() {
+        if (this.isFastForwardActive()) {
+            this.stopFastForward();
+        } else {
+            this.startFastForward();
+        }
+    },
+    
+    /**
+     * 启动快进
+     */
+    startFastForward: function() {
+        if (typeof gameEngine !== 'undefined') {
+            gameEngine.startFastForward();
+        }
+        
+        // 更新按钮状态
+        if (this.skipBtn) {
+            this.skipBtn.classList.add('skip-active');
+        }
+        
+        // 保存到sessionStorage（跨页面持久化）
+        sessionStorage.setItem(this.FAST_FORWARD_STORAGE_KEY, 'true');
+        
+        console.log('[Galgame UI] Fast forward started');
+    },
+    
+    /**
+     * 停止快进
+     */
+    stopFastForward: function() {
+        if (typeof gameEngine !== 'undefined') {
+            gameEngine.stopFastForward();
+        }
+        
+        // 更新按钮状态
+        if (this.skipBtn) {
+            this.skipBtn.classList.remove('skip-active');
+        }
+        
+        // 从sessionStorage移除
+        sessionStorage.removeItem(this.FAST_FORWARD_STORAGE_KEY);
+        
+        console.log('[Galgame UI] Fast forward stopped');
+    },
+    
+    /**
+     * 检查快进是否激活
+     * @returns {boolean}
+     */
+    isFastForwardActive: function() {
+        if (typeof gameEngine !== 'undefined' && gameEngine.state) {
+            return gameEngine.state.fastForwardActive;
+        }
+        return false;
+    },
+    
+    /**
+     * 恢复快进状态（页面加载时调用）
+     */
+    restoreFastForwardState: function() {
+        const savedState = sessionStorage.getItem(this.FAST_FORWARD_STORAGE_KEY);
+        if (savedState === 'true') {
+            // 延迟启动，确保引擎已初始化
+            setTimeout(() => {
+                this.startFastForward();
+            }, 500);
+        }
+    },
+    
+    /**
+     * 打开存档页面
+     */
+    openArchive: function() {
+        // 在打开存档页面之前，先保存当前游戏状态快照
+        // 这样存档页面才能获取到最新的预览文本
+        if (typeof gameEngine !== 'undefined' && gameEngine.saveStateSnapshot) {
+            gameEngine.saveStateSnapshot();
+        }
+        
+        // 构建存档页面路径
+        const currentPath = window.location.pathname;
+        // 找到shiori engine目录
+        let basePath = currentPath;
+        if (basePath.includes('/scenes/')) {
+            basePath = basePath.substring(0, basePath.indexOf('/scenes/'));
+        } else if (basePath.includes('\\scenes\\')) {
+            basePath = basePath.substring(0, basePath.indexOf('\\scenes\\'));
+        }
+        
+        // 导航到存档页面
+        window.location.href = basePath + '/html/archive.html';
+    },
+    
+    /**
+     * 打开选项菜单（上下文菜单）
+     */
+    openOptions: function() {
+        if (typeof gameEngine !== 'undefined') {
+            gameEngine.toggleContextMenu();
+        }
+    },
+    
+    /**
+     * 更新SKIP按钮状态（由engine.js调用）
+     */
+    updateSkipButton: function(mode) {
+        // mode: 0=无快进，1=SKIP/1，2=SKIP/2
+        
+        // 更新SKIP/1按钮
+        if (this.skip1Btn) {
+            if (mode === 1) {
+                this.skip1Btn.classList.add('skip-active');
+            } else {
+                this.skip1Btn.classList.remove('skip-active');
+            }
+        }
+        
+        // 更新SKIP/2按钮
+        if (this.skip2Btn) {
+            if (mode === 2) {
+                this.skip2Btn.classList.add('skip-active');
+            } else {
+                this.skip2Btn.classList.remove('skip-active');
+            }
+        }
+    },
+    
+    // ========================================
+    // 日志功能
+    // ========================================
+    
+    /**
+     * 添加日志条目
+     * @param {Object} data - 对话数据，包含 speaker 和 text 属性
+     */
+    addLogEntry: function(data) {
+        if (!data || (!data.speaker && !data.text)) {
+            return;
+        }
+        
+        // 处理文本，替换HTML实体并解析换行符
+        let processedText = '';
+        if (data.text) {
+            // 移除HTML标签，保留文本内容
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = data.text;
+            processedText = tempDiv.textContent || tempDiv.innerText || '';
+        }
+        
+        this.logData.push({
+            speaker: data.speaker || null,
+            text: processedText
+        });
+    },
+    
+    /**
+     * 创建日志遮罩层
+     */
+    createLogOverlay: function() {
+        if (document.getElementById('log-overlay')) {
+            return;
+        }
+        
+        // 创建遮罩层
+        const overlay = document.createElement('div');
+        overlay.id = 'log-overlay';
+        
+        // 创建内容区域
+        const content = document.createElement('div');
+        content.id = 'log-content';
+        
+        // 创建底部控制栏
+        const bottomBar = document.createElement('div');
+        bottomBar.id = 'log-bottom-bar';
+        
+        // 创建返回按钮
+        const backBtn = document.createElement('button');
+        backBtn.id = 'log-back-btn';
+        backBtn.textContent = 'BACK';
+        backBtn.addEventListener('click', () => {
+            this.closeLog();
+        });
+        
+        // 组装DOM
+        bottomBar.appendChild(backBtn);
+        overlay.appendChild(content);
+        overlay.appendChild(bottomBar);
+        document.body.appendChild(overlay);
+        
+        // 保存引用
+        this.logOverlay = overlay;
+        this.logContent = content;
+        
+        console.log('[Galgame UI] Log overlay created');
+    },
+    
+    /**
+     * 打开日志
+     */
+    openLog: function() {
+        // 确保遮罩层已创建
+        this.createLogOverlay();
+        
+        // 更新日志内容
+        this.updateLogContent();
+        
+        // 显示遮罩层
+        this.logOverlay.style.display = 'flex';
+        
+        // 自动滚动到底部
+        setTimeout(() => {
+            this.logContent.scrollTop = this.logContent.scrollHeight;
+        }, 100);
+        
+        console.log('[Galgame UI] Log opened');
+    },
+    
+    /**
+     * 关闭日志
+     */
+    closeLog: function() {
+        if (this.logOverlay) {
+            this.logOverlay.style.display = 'none';
+        }
+        console.log('[Galgame UI] Log closed');
+    },
+    
+    /**
+     * 更新日志内容显示
+     */
+    updateLogContent: function() {
+        if (!this.logContent) {
+            return;
+        }
+        
+        let html = '';
+        
+        this.logData.forEach((entry, index) => {
+            // 如果没有文本内容，跳过
+            if (!entry.text || entry.text.trim() === '') {
+                return;
+            }
+            
+            // 如果有说话人
+            if (entry.speaker && entry.speaker.trim() !== '') {
+                // 不是第一条且上一条有说话人，添加空行
+                if (index > 0 && this.logData[index - 1].speaker) {
+                    html += '<br>';
+                }
+                html += `<div class="log-speaker">【${entry.speaker}】</div>`;
+                html += `<div class="log-text">${entry.text}</div>`;
+            } else {
+                // 没有说话人，直接显示文本
+                // 不是第一条，添加空行
+                if (index > 0) {
+                    html += '<br>';
+                }
+                html += `<div class="log-text-no-speaker">${entry.text}</div>`;
+            }
+        });
+        
+        this.logContent.innerHTML = html;
+    },
+    
+    /**
+     * 清空日志（切换场景时调用）
+     */
+    clearLog: function() {
+        this.logData = [];
     }
 };
 
 // DOM 加载完成后自动初始化
 document.addEventListener('DOMContentLoaded', function() {
     systemModule.init();
+    
+    // 如果是场景文件，创建UI菜单
+    if (systemModule.isSceneFile()) {
+        systemModule.createGalgameUiMenu();
+        systemModule.restoreFastForwardState();
+    }
 });
+
+// 鼠标滚轮快捷键：向上滚动打开日志
+document.addEventListener('wheel', function(e) {
+    // 只在场景文件中生效
+    if (!systemModule.isSceneFile()) {
+        return;
+    }
+    
+    // 只在非日志遮罩层中生效
+    const logOverlay = document.getElementById('log-overlay');
+    if (logOverlay && logOverlay.style.display === 'flex') {
+        return;
+    }
+    
+    // 向上滚动打开日志
+    if (e.deltaY < 0) {
+        e.preventDefault();
+        systemModule.openLog();
+    }
+}, { passive: false });
