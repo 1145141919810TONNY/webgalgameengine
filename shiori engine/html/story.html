@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>小剧场 - 场景鉴赏</title>
-    
+    <link rel="icon" type="image/png" href="../icon/icon-32.png">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -324,6 +324,7 @@
     <div class="container">
         <div class="actions">
             <button onclick="location.href='../index.html'" class="back">返回主菜单(esc)</button>
+            <button id="return-current-btn" onclick="handleReturnCurrent()" style="display: none;">返回当前游玩</button>
         </div>
         
         <h1 id="page-title">小故事</h1>
@@ -339,8 +340,8 @@
     <script>
         // 预定义的所有场景列表
         const ALL_SCENES = [
-            { id: 'story1', name: '故事1' },
-            // 根据需要添加更多场景
+            { id: 'story1', name: '小故事1' },
+            //根据需求增减
         ];
         
         // 渲染所有场景卡片
@@ -366,9 +367,50 @@
             window.location.href = '../scenes/' + sceneFileName;
         }
         
+        // 检查是否从剧情页面进入
+        function checkFromScene() {
+            try {
+                const snapshotStr = sessionStorage.getItem('gameStateSnapshot');
+                if (snapshotStr) {
+                    const snapshot = JSON.parse(snapshotStr);
+                    if (snapshot.pagePath && snapshot.pagePath.includes('/scenes/')) {
+                        // 显示返回当前游玩按钮
+                        const returnBtn = document.getElementById('return-current-btn');
+                        if (returnBtn) {
+                            returnBtn.style.display = 'inline-block';
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('[Story] Failed to check scene state:', e);
+            }
+        }
+        
+        // 返回当前游玩页面
+        function handleReturnCurrent() {
+            try {
+                const snapshotStr = sessionStorage.getItem('gameStateSnapshot');
+                if (!snapshotStr) {
+                    alert('没有找到当前游玩状态');
+                    return;
+                }
+                
+                const snapshot = JSON.parse(snapshotStr);
+                
+                // 在URL中添加行号参数
+                const url = new URL(snapshot.pageUrl, window.location.origin);
+                url.searchParams.set('startLine', snapshot.currentLine);
+                window.location.href = url.toString();
+            } catch (e) {
+                console.error('[Story] Failed to return:', e);
+                alert('返回失败');
+            }
+        }
+        
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
             renderAllScenes();
+            checkFromScene();
         });
         
         // ESC键返回主菜单
