@@ -1,6 +1,6 @@
 /**
  * 版权所有：bilibili月が綺麗ですね_
- * SPDX-License-Identifier: LicenseRef
+ * SPDX-License-Identifier: LicenseRef-Shiori-Engine
  * 作者：bilibili月が綺麗ですね_
  * Shiori Engine - Open Source Visual Novel Engine
  * 
