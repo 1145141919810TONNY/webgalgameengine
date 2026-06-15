@@ -1,4 +1,12 @@
 /**
+ * 版权所有：bilibili月が綺麗ですね_
+ * SSPDX-License-Identifier: LicenseRef-Shiori-Engine
+ * 作者：bilibili月が綺麗ですね_
+ * Shiori Engine - Open Source Visual Novel Engine
+ * 
+ * 本引擎采用宽松开源协议，允许用户根据项目需求自由修改、定制和发布衍生作品。
+ * 使用时请保留上述版权声明，具体授权条款详见 license.txt 文件。
+ * 
  * BGM 配置文件
  * 集中管理所有背景音乐资源路径
  */
