@@ -1038,6 +1038,47 @@ const systemModule = {
     // ========================================
     
     /**
+     * 处理注音标签（Ruby/Furigana）
+     * 将 [汉字,拼音] 格式的注音标签转换为 <ruby>汉字<rt>拼音</rt></ruby>
+     * @param {string} text - 原始文本
+     * @returns {string} - 处理后的文本
+     */
+    processRubyText: function(text) {
+        if (!text) return text;
+        
+        // 正则表达式匹配 [文本,读音] 格式
+        // 支持拼音中包含空格的情况，例如：[复杂词,fu za ci]
+        // 使用贪婪匹配确保正确捕获内容
+        const rubyRegex = /\[([^\[,\s]+)\s*,\s*([^\]]+)\]/g;
+        
+        return text.replace(rubyRegex, (match, baseText, rubyText) => {
+            // 去除首尾空格
+            const cleanBase = baseText.trim();
+            const cleanRuby = rubyText.trim();
+            
+            // 返回标准的 ruby HTML 结构
+            return `<ruby>${cleanBase}<rt>${cleanRuby}</rt></ruby>`;
+        });
+    },
+    
+    /**
+     * 处理换行符
+     * 将各种格式的换行符转换为 <br> 标签
+     * @param {string} text - 原始文本
+     * @returns {string} - 处理后的文本
+     */
+    processLineBreaks: function(text) {
+        if (!text) return text;
+        
+        // 支持多种换行标记格式
+        return text
+            .replace(/\[br\]/gi, '<br>')      // [br] 标签
+            .replace(/\\n/g, '<br>')         // \n 转义字符
+            .replace(/<br\s*\/?>/gi, '<br>') // HTML <br> 标签（标准化）
+            .replace(/\n/g, '<br>');          // 普通换行符
+    },
+    
+    /**
      * 添加日志条目
      * @param {Object} data - 对话数据，包含 speaker 和 text 属性
      */
@@ -1046,13 +1087,16 @@ const systemModule = {
             return;
         }
         
-        // 处理文本，替换HTML实体并解析换行符
         let processedText = '';
         if (data.text) {
-            // 移除HTML标签，保留文本内容
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = data.text;
-            processedText = tempDiv.textContent || tempDiv.innerText || '';
+            // 移除 [s] 标签（用于分段显示的标记，不打印在日志中）
+            let textWithoutSegments = data.text.replace(/\[s\]/gi, '');
+            
+            // 处理注音标签，将 [汉字,拼音] 转换为 <ruby> 结构
+            let textWithRuby = this.processRubyText(textWithoutSegments);
+            
+            // 处理换行符，将各种格式的换行符转换为 <br> 标签
+            processedText = this.processLineBreaks(textWithRuby);
         }
         
         this.logData.push({
