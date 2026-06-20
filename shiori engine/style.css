@@ -199,6 +199,18 @@ body {
     line-height: 1.2;
 }
 
+/* 日志面板的注音样式 */
+#log-content ruby {
+    ruby-position: over;
+    -webkit-ruby-position: over;
+}
+
+#log-content rt {
+    font-size: 0.5em; /* 注音文字大小为主体文字的 50% */
+    line-height: 1.2;
+    color: #FFD700; /* 日志注音颜色与说话人颜色一致 */
+}
+
 /* 全屏小说模式容器 */
 #novel-mode-container {
     position: fixed;
