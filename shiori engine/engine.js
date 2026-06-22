@@ -11,6 +11,13 @@
  * 提供视觉小说的核心渲染、剧情推进、资源管理等功能
  */
 
+/**
+ * 引擎核心版本号 —— Shiori Manager 通过此常量识别引擎版本。
+ * 格式：V主版本.次版本.修订号  （与 GameScanner 中的正则 ENGINE_VERSION\s*=\s*["'] 匹配）
+ * 请勿删除或重命名此变量，否则管理器将无法正确识别引擎版本。
+ */
+const ENGINE_VERSION = "V2.1.2";
+
 const gameEngine = {
     state: {
         // 当前场景索引
