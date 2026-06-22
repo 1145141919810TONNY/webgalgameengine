@@ -16,7 +16,7 @@
  * 格式：V主版本.次版本.修订号  （与 GameScanner 中的正则 ENGINE_VERSION\s*=\s*["'] 匹配）
  * 请勿删除或重命名此变量，否则管理器将无法正确识别引擎版本。
  */
-const ENGINE_VERSION = "V2.1.2";
+const ENGINE_VERSION = "V2.1.3";
 
 const gameEngine = {
     state: {
@@ -307,6 +307,34 @@ const gameEngine = {
                 console.log('[State Restore] Restored povActive:', snapshot.povActive);
             }
             
+            // 恢复SKIP快进状态
+            if (snapshot.skipMode !== undefined) {
+                this.state.skipMode = snapshot.skipMode;
+                console.log('[State Restore] Restored skipMode:', snapshot.skipMode);
+            }
+            
+            // 恢复AUTO自动推进状态
+            if (typeof systemModule !== 'undefined') {
+                if (snapshot.autoModeEnabled !== undefined) {
+                    systemModule.autoModeEnabled = snapshot.autoModeEnabled;
+                    console.log('[State Restore] Restored autoModeEnabled:', snapshot.autoModeEnabled);
+                }
+                if (snapshot.autoDelaySeconds !== undefined) {
+                    systemModule.autoDelaySeconds = snapshot.autoDelaySeconds;
+                    console.log('[State Restore] Restored autoDelaySeconds:', snapshot.autoDelaySeconds);
+                }
+                if (snapshot.autoShowCountdown !== undefined) {
+                    systemModule.autoShowCountdown = snapshot.autoShowCountdown;
+                    console.log('[State Restore] Restored autoShowCountdown:', snapshot.autoShowCountdown);
+                }
+                
+                // 如果AUTO模式被恢复，更新UI按钮状态
+                if (snapshot.autoModeEnabled) {
+                    systemModule.updateAutoButton();
+                    console.log('[State Restore] Updated AUTO button state');
+                }
+            }
+            
             // 恢复点击锁定状态
             if (snapshot.isClickLocked !== undefined) {
                 this.state.isClickLocked = snapshot.isClickLocked;
@@ -410,6 +438,48 @@ const gameEngine = {
             }, 150);
         }
         
+        // ============================================
+        // 无论路径是否匹配，都恢复AUTO和SKIP状态（全局设置）
+        // ============================================
+        if (snapshot) {
+            // 恢复SKIP快进状态
+            if (snapshot.skipMode !== undefined) {
+                this.state.skipMode = snapshot.skipMode;
+                console.log('[State Restore] Restored skipMode:', snapshot.skipMode);
+                
+                // 如果 skipMode > 0，启动快进
+                if (this.state.skipMode > 0 && !this.state.fastForwardActive) {
+                    console.log('[State Restore] Starting fast forward after state restore, mode:', this.state.skipMode);
+                    // 延迟一点启动，确保 displayLine 完成初始化
+                    setTimeout(() => {
+                        this.startFastForward(this.state.skipMode);
+                    }, 100);
+                }
+            }
+            
+            // 恢复AUTO自动推进状态
+            if (typeof systemModule !== 'undefined') {
+                if (snapshot.autoModeEnabled !== undefined) {
+                    systemModule.autoModeEnabled = snapshot.autoModeEnabled;
+                    console.log('[State Restore] Restored autoModeEnabled:', snapshot.autoModeEnabled);
+                }
+                if (snapshot.autoDelaySeconds !== undefined) {
+                    systemModule.autoDelaySeconds = snapshot.autoDelaySeconds;
+                    console.log('[State Restore] Restored autoDelaySeconds:', snapshot.autoDelaySeconds);
+                }
+                if (snapshot.autoShowCountdown !== undefined) {
+                    systemModule.autoShowCountdown = snapshot.autoShowCountdown;
+                    console.log('[State Restore] Restored autoShowCountdown:', snapshot.autoShowCountdown);
+                }
+                
+                // 如果AUTO或SKIP模式被恢复，更新UI按钮状态
+                if (snapshot.autoModeEnabled || snapshot.skipMode) {
+                    systemModule.updateAllButtons();
+                    console.log('[State Restore] Updated UI buttons for AUTO/SKIP state');
+                }
+            }
+        }
+        
         // 显示指定行的对话
         this.displayLine(this.state.currentLine);
         // 请求音频播放权限（处理浏览器自动播放策略）
@@ -448,26 +518,26 @@ const gameEngine = {
         try {
             this.elements.bgmPlayer.volume = 0;
             this.elements.bgmPlayer.play().then(() => {
-                // 使用系统模块保存的音量值
+                // 使用系统模块保存的音量值（主音量 * BGM通道音量）
                 if (typeof systemModule !== 'undefined') {
-                    this.elements.bgmPlayer.volume = systemModule.currentVolume;
+                    this.elements.bgmPlayer.volume = systemModule.currentVolume * systemModule.bgmVolume;
                 } else {
                     this.elements.bgmPlayer.volume = 1;
                 }
                 console.log("音频上下文已解锁");
             }).catch(() => {
-                // 使用系统模块保存的音量值
+                // 使用系统模块保存的音量值（主音量 * BGM通道音量）
                 if (typeof systemModule !== 'undefined') {
-                    this.elements.bgmPlayer.volume = systemModule.currentVolume;
+                    this.elements.bgmPlayer.volume = systemModule.currentVolume * systemModule.bgmVolume;
                 } else {
                     this.elements.bgmPlayer.volume = 1;
                 }
             });
         } catch (e) {
             console.log("尝试解锁音频上下文时出错:", e);
-            // 使用系统模块保存的音量值
+            // 使用系统模块保存的音量值（主音量 * BGM通道音量）
             if (typeof systemModule !== 'undefined') {
-                this.elements.bgmPlayer.volume = systemModule.currentVolume;
+                this.elements.bgmPlayer.volume = systemModule.currentVolume * systemModule.bgmVolume;
             } else {
                 this.elements.bgmPlayer.volume = 1;
             }
@@ -725,6 +795,35 @@ const gameEngine = {
                 this.toggleContextMenu();
             });
         }
+        
+        // 右键菜单项点击拦截（捕获阶段）- 导航到系统页面前停止 SKIP/AUTO
+        // 场景 HTML 中的 context-menu 有 onclick="window.location.href=..." 等直接跳转，
+        // 这些跳转不经过 goToScene，需要在捕获阶段提前拦截
+        if (this.elements.contextMenu) {
+            this.elements.contextMenu.addEventListener('click', (e) => {
+                var li = e.target.closest('li');
+                if (!li) return;
+                var onclickAttr = li.getAttribute('onclick') || '';
+                // 检测是否为导航类操作（window.location.href 或 openArchivePage）
+                if (onclickAttr.indexOf('window.location.href') !== -1 ||
+                    onclickAttr.indexOf('openArchivePage') !== -1) {
+                    if (typeof systemModule !== 'undefined' && systemModule.stopAllAutoSkipModes) {
+                        systemModule.stopAllAutoSkipModes();
+                    }
+                }
+            }, true); // true = 捕获阶段，在 inline onclick 之前执行
+        }
+        
+        // 页面可见性变化事件 - C# 窗口打开时停止 SKIP/AUTO
+        // WebView2 中，当 C# 原生窗口（设置、帮助等）打开时页面会变为 hidden
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                if (typeof systemModule !== 'undefined' && systemModule.stopAllAutoSkipModes) {
+                    systemModule.stopAllAutoSkipModes();
+                    console.log('[State] Stopped SKIP/AUTO on page hide (C# window opened)');
+                }
+            }
+        });
     },
     
     /**
@@ -827,7 +926,8 @@ const gameEngine = {
             if (typeof systemModule !== 'undefined' && systemModule.addLogEntry) {
                 systemModule.addLogEntry({
                     speaker: line.speaker,
-                    text: line.text
+                    text: line.text,
+                    audio: line.audio // 传递音频数据
                 });
             }
 
@@ -2202,7 +2302,10 @@ const gameEngine = {
             this.state.currentSegment = 0;
             this.state.waitingForSegmentClick = false;
             this.state.audioSegments = null;      
-            this.state.currentAudioSegment = 0;   
+            this.state.currentAudioSegment = 0;
+            // 所有分段显示完毕，自动推进到下一行
+            // 非AUTO模式下也避免用户需要多余的"空点击"
+            this.nextLine();
         }
     },
     
@@ -2308,6 +2411,11 @@ const gameEngine = {
                 this.state.typingActive = false;
                 this.state.typingTimerId = null;
                 this.state.textFullyDisplayed = true;
+                
+                // 通知systemModule打字机完成
+                if (typeof systemModule !== 'undefined' && systemModule.onTypingComplete) {
+                    systemModule.onTypingComplete();
+                }
             }
         };
             
@@ -2370,6 +2478,19 @@ const gameEngine = {
         
         // 如果选项菜单激活，不处理
         if (this.state.choicesActive) return; 
+        
+        // 如果AUTO模式开启，检查是否是AUTO触发的点击
+        const isAutoClick = typeof systemModule !== 'undefined' && systemModule.autoClickTriggered;
+        
+        // 如果是用户手动点击（不是AUTO触发的），关闭AUTO模式
+        if (typeof systemModule !== 'undefined' && systemModule.autoModeEnabled && !isAutoClick) {
+            systemModule.toggleAutoMode();
+        }
+        
+        // 重置AUTO点击标志位
+        if (typeof systemModule !== 'undefined') {
+            systemModule.autoClickTriggered = false;
+        }
         
         // 中断所有正在进行的 [wait time] 序列
         this.interruptAllWaitSequences();
@@ -2492,6 +2613,11 @@ const gameEngine = {
             systemModule.updateSkipButton(0);
         }
         
+        // 清除sessionStorage中的快进状态key，防止页面重新加载时恢复快进
+        if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.removeItem('galgame_fast_forward');
+        }
+        
         console.log("停止快进");
     },
     
@@ -2500,19 +2626,30 @@ const gameEngine = {
      * @param {number} mode - 1=SKIP/1（普通快进），2=SKIP/2（选项处停止）
      */
     toggleSkipMode: function(mode) {
+        console.log(`[SKIP] toggleSkipMode called, mode: ${mode}, current skipMode: ${this.state.skipMode}`);
+        
         // 如果当前是同一种模式，则关闭
         if (this.state.skipMode === mode) {
+            console.log(`[SKIP] Same mode clicked, stopping. mode: ${mode}`);
             this.stopFastForward();
             return;
         }
         
         // 如果当前有其他快进模式，先停止
         if (this.state.fastForwardActive) {
+            console.log('[SKIP] Different mode clicked, stopping current fast forward first');
             this.stopFastForward();
+        }
+        
+        // 如果要开启SKIP模式，先关闭AUTO模式（互斥）
+        if (mode > 0 && typeof systemModule !== 'undefined' && systemModule.autoModeEnabled) {
+            console.log('[SKIP] AUTO mode active, disabling it first');
+            systemModule.toggleAutoMode();
         }
         
         // 设置新的快进模式
         this.state.skipMode = mode;
+        console.log(`[SKIP] Starting fast forward with mode: ${mode === 2 ? 'SKIP/2' : 'SKIP/1'}`);
         this.startFastForward(mode);
     },
     
@@ -2521,10 +2658,31 @@ const gameEngine = {
      * @param {string} sceneUrl - 目标场景的URL
      */
     goToScene: function(sceneUrl) {
+        // 判断目标是否为系统页面（非游戏场景页面）
+        // 系统页面包括：主菜单 ../index.html 、html/ 目录下的存档/流程图/剧情页面等
+        var isSystemPage = false;
+        if (sceneUrl) {
+            // 主菜单 ../index.html 或任何非 scenes/ 目录下的 index.html
+            if (/\/index\.html$/i.test(sceneUrl) || /\\index\.html$/i.test(sceneUrl)) {
+                isSystemPage = true;
+            }
+            // html/ 目录下的系统页面
+            else if (sceneUrl.indexOf('/html/') !== -1 || sceneUrl.indexOf('\\html\\') !== -1) {
+                isSystemPage = true;
+            }
+        }
+        
+        if (isSystemPage && typeof systemModule !== 'undefined' && systemModule.stopAllAutoSkipModes) {
+            // 导航到系统页面前，停止所有SKIP/AUTO模式，防止新页面恢复状态
+            systemModule.stopAllAutoSkipModes();
+        }
+        
         // 停止所有音频
         this.stopAllAudioWithBGM();
         // 清除POV状态
         this.clearPovState();
+        // 保存当前游戏状态快照（用于恢复AUTO、SKIP等状态）
+        this.saveStateSnapshot();
         // 跳转页面
         window.location.href = sceneUrl;
     },
@@ -2693,6 +2851,11 @@ const gameEngine = {
                 this.elements.bgmPlayer.src = audioPath;
                 this.elements.bgmPlayer.loop = true;
                 
+                // 应用正确的音量（主音量 * BGM通道音量）
+                if (typeof systemModule !== 'undefined') {
+                    this.elements.bgmPlayer.volume = systemModule.currentVolume * systemModule.bgmVolume;
+                }
+                
                 const playPromise = this.elements.bgmPlayer.play();
                 if (playPromise !== undefined) {
                     playPromise.catch(error => {
@@ -2701,9 +2864,9 @@ const gameEngine = {
                         // 尝试解锁音频上下文
                         this.elements.bgmPlayer.volume = 0;
                         this.elements.bgmPlayer.play().then(() => {
-                            // 使用系统模块保存的音量值
+                            // 使用系统模块保存的音量值（主音量 * BGM通道音量）
                             if (typeof systemModule !== 'undefined') {
-                                this.elements.bgmPlayer.volume = systemModule.currentVolume;
+                                this.elements.bgmPlayer.volume = systemModule.currentVolume * systemModule.bgmVolume;
                             } else {
                                 this.elements.bgmPlayer.volume = 1;
                             }
@@ -2714,8 +2877,11 @@ const gameEngine = {
                     });
                 }
             } else {
-                // 如果是同一个BGM，确保循环播放
+                // 如果是同一个BGM，确保循环播放并应用正确的音量
                 this.elements.bgmPlayer.loop = true;
+                if (typeof systemModule !== 'undefined') {
+                    this.elements.bgmPlayer.volume = systemModule.currentVolume * systemModule.bgmVolume;
+                }
             }
         } else {
             // 非BGM音频（语音/音效）处理
@@ -2723,21 +2889,37 @@ const gameEngine = {
             this.elements.sePlayer.pause();
             this.elements.voicePlayer.loop = false;
             this.elements.voicePlayer.src = audioPath;
+            
+            // 应用正确的音量（主音量 * Voice通道音量）
+            if (typeof systemModule !== 'undefined') {
+                this.elements.voicePlayer.volume = systemModule.currentVolume * systemModule.voiceVolume;
+            }
+            
             const playPromise = this.elements.voicePlayer.play();
             if (playPromise !== undefined) {
-                playPromise.catch(error => {
+                playPromise.then(() => {
+                    // 音频播放成功后，通知systemModule检查AUTO条件
+                    if (typeof systemModule !== 'undefined' && systemModule.checkAutoConditions) {
+                        systemModule.checkAutoConditions();
+                    }
+                }).catch(error => {
                     console.log("音频播放失败，请注意浏览器自动播放策略限制:", error);
                     
                     // 尝试解锁音频上下文
                     this.elements.voicePlayer.volume = 0;
                     this.elements.voicePlayer.play().then(() => {
-                        // 使用系统模块保存的音量值
+                        // 使用系统模块保存的音量值（主音量 * Voice通道音量）
                         if (typeof systemModule !== 'undefined') {
-                            this.elements.voicePlayer.volume = systemModule.currentVolume;
+                            this.elements.voicePlayer.volume = systemModule.currentVolume * systemModule.voiceVolume;
                         } else {
                             this.elements.voicePlayer.volume = 1;
                         }
                         this.elements.voicePlayer.currentTime = 0;
+                        
+                        // 音频播放成功后，通知systemModule检查AUTO条件
+                        if (typeof systemModule !== 'undefined' && systemModule.checkAutoConditions) {
+                            systemModule.checkAutoConditions();
+                        }
                     }).catch(err => {
                         console.log("即使尝试解锁后语音仍无法播放:", err);
                     });
@@ -2768,6 +2950,12 @@ const gameEngine = {
         // 加载并播放新音效
         this.elements.sePlayer.loop = false;
         this.elements.sePlayer.src = sePath;
+        
+        // 应用正确的音量（主音量 * SE通道音量）
+        if (typeof systemModule !== 'undefined') {
+            this.elements.sePlayer.volume = systemModule.currentVolume * systemModule.seVolume;
+        }
+        
         const playPromise = this.elements.sePlayer.play();
         
         if (playPromise !== undefined) {
@@ -2777,9 +2965,9 @@ const gameEngine = {
                 // 尝试解锁音频上下文
                 this.elements.sePlayer.volume = 0;
                 this.elements.sePlayer.play().then(() => {
-                    // 使用系统模块保存的音量值
+                    // 使用系统模块保存的音量值（主音量 * SE通道音量）
                     if (typeof systemModule !== 'undefined') {
-                        this.elements.sePlayer.volume = systemModule.currentVolume;
+                        this.elements.sePlayer.volume = systemModule.currentVolume * systemModule.seVolume;
                     } else {
                         this.elements.sePlayer.volume = 1;
                     }
@@ -2979,9 +3167,9 @@ const gameEngine = {
         if (!bgmPlayer.src || bgmPlayer.paused) {
             bgmPlayer.src = audioPath;
             bgmPlayer.loop = true;
-            // 使用系统模块保存的音量值
+            // 使用系统模块保存的音量值（主音量 * BGM通道音量）
             if (typeof systemModule !== 'undefined') {
-                bgmPlayer.volume = systemModule.currentVolume;
+                bgmPlayer.volume = systemModule.currentVolume * systemModule.bgmVolume;
             } else {
                 bgmPlayer.volume = 1;
             }
@@ -3013,9 +3201,9 @@ const gameEngine = {
                 // 加载并播放新BGM
                 bgmPlayer.src = audioPath;
                 bgmPlayer.loop = true;
-                // 使用系统模块保存的音量值
+                // 使用系统模块保存的音量值（主音量 * BGM通道音量）
                 if (typeof systemModule !== 'undefined') {
-                    bgmPlayer.volume = systemModule.currentVolume;
+                    bgmPlayer.volume = systemModule.currentVolume * systemModule.bgmVolume;
                 } else {
                     bgmPlayer.volume = 1;
                 }
@@ -3053,7 +3241,7 @@ const gameEngine = {
         if (!bgmPlayer.src || bgmPlayer.paused) {
             bgmPlayer.src = audioPath;
             bgmPlayer.loop = true;
-            bgmPlayer.volume = typeof systemModule !== 'undefined' ? systemModule.currentVolume : 1;
+            bgmPlayer.volume = typeof systemModule !== 'undefined' ? systemModule.currentVolume * systemModule.bgmVolume : 1;
             bgmPlayer.play().catch(error => console.log("BGM播放失败:", error));
             if (onComplete) onComplete();
             return;
@@ -3075,7 +3263,7 @@ const gameEngine = {
                 bgmPlayer.currentTime = 0;
                 bgmPlayer.src = audioPath;
                 bgmPlayer.loop = true;
-                bgmPlayer.volume = typeof systemModule !== 'undefined' ? systemModule.currentVolume : 1;
+                bgmPlayer.volume = typeof systemModule !== 'undefined' ? systemModule.currentVolume * systemModule.bgmVolume : 1;
                 bgmPlayer.play().catch(error => console.log("新BGM播放失败:", error));
                 if (onComplete) onComplete();
             }
@@ -3346,8 +3534,8 @@ const gameEngine = {
             return;
         }
         
-        // 获取目标音量（系统配置的音量）
-        const targetVolume = typeof systemModule !== 'undefined' ? systemModule.currentVolume : 1;
+        // 获取目标音量（主音量 * BGM通道音量）
+        const targetVolume = typeof systemModule !== 'undefined' ? systemModule.currentVolume * systemModule.bgmVolume : 1;
         
         console.log('[BGM] 开始淡入播放，时长:', fadeDuration, 'ms，目标音量:', targetVolume);
         
@@ -3508,8 +3696,32 @@ const gameEngine = {
                 return;
             }
             
+            // 立即停止当前正在播放的语音
+            this.elements.voicePlayer.pause();
+            this.elements.voicePlayer.currentTime = 0;
+            
+            // 播放当前音频
             this.playAudio(seg.value);
-            processNext();
+            
+            // 设置音频结束或点击跳过的处理
+            const handleCompletion = () => {
+                // 移除事件监听器以防止重复触发
+                this.elements.voicePlayer.removeEventListener('ended', handleCompletion);
+                processNext();
+            };
+            
+            // 设置监听，音频结束后自动播放下一个
+            this.elements.voicePlayer.addEventListener('ended', handleCompletion);
+            
+            // 设置跳过功能：点击时立即停止当前音频并播放下一个
+            this.state.waitSequences.audio = {
+                skip: () => {
+                    this.elements.voicePlayer.removeEventListener('ended', handleCompletion);
+                    this.elements.voicePlayer.pause();
+                    this.elements.voicePlayer.currentTime = 0;
+                    processNext();
+                }
+            };
         };
         
         this.state.waitSequences.audio = { skip: processNext };
@@ -5008,6 +5220,10 @@ const gameEngine = {
         
         this.clearPovState();
         
+        // 清除状态快照（返回主菜单时不需要恢复AUTO/SKIP状态）
+        sessionStorage.removeItem('gameStateSnapshot');
+        console.log('[State] Cleared state snapshot before returning to menu');
+        
         // 延迟跳转以确保音频停止
         setTimeout(() => {
             this.stopAllAudioWithBGM();
@@ -5194,6 +5410,11 @@ const gameEngine = {
             // SKIP快进状态
             skipMode: this.state.skipMode,
             fastForwardActive: this.state.fastForwardActive,
+            
+            // AUTO自动推进状态
+            autoModeEnabled: (typeof systemModule !== 'undefined') ? systemModule.autoModeEnabled : false,
+            autoDelaySeconds: (typeof systemModule !== 'undefined') ? systemModule.autoDelaySeconds : 3,
+            autoShowCountdown: (typeof systemModule !== 'undefined') ? systemModule.autoShowCountdown : true,
             
             // 持久化状态(由systemModule维护)
             lastActiveBgm: (typeof systemModule !== 'undefined') ? systemModule.lastActiveBgm : null,
@@ -7914,6 +8135,10 @@ const QuickSaveManager = {
      * 打开存档管理页面
      */
     openArchivePage: function() {
+        // 停止所有自动/快进模式，防止新页面恢复状态
+        if (typeof systemModule !== 'undefined' && systemModule.stopAllAutoSkipModes) {
+            systemModule.stopAllAutoSkipModes();
+        }
         window.location.href = '../html/archive.html';
     },
     
