@@ -1,3 +1,16 @@
+/**
+ * 版权所有：bilibili月が綺麗ですね_
+ * SPDX-License-Identifier: LicenseRef-Shiori-Engine
+ * 作者：bilibili月が綺麗ですね_
+ * Shiori Engine - Open Source Visual Novel Engine
+ * 
+ * 本引擎采用宽松开源协议，允许用户根据项目需求自由修改、定制和发布衍生作品。
+ * 使用时请保留上述版权声明，具体授权条款详见 license.txt 文件。
+ * 
+ * Shiori 启动器 — 视频桥接服务
+ * 基于 OpenCV 实现 WebView2 与视频帧数据的采集与传递
+ */
+
 using System;
 using System.IO;
 using System.Text.Json;
