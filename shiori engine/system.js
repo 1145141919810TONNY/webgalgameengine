@@ -12,8 +12,12 @@
  */
 
 const systemModule = {
-    // 当前音量值 (0.0 - 1.0)
+    // 当前音量值 (0.0 - 1.0) - 主音量
     currentVolume: 1.0,
+    // 各通道音量 (0.0 - 1.0)
+    bgmVolume: 1.0,
+    seVolume: 1.0,
+    voiceVolume: 1.0,
     // 音量提示框DOM元素
     volumeOverlay: null,
     // 音量提示框隐藏定时器
@@ -26,10 +30,36 @@ const systemModule = {
     lastActiveBgm: null,      // 最后激活的 BGM ID
     lastActiveBg: null,       // 最后激活的背景图片 ID
     lastActiveChars: null,    // 最后激活的立绘指令字符串
+    // 系统设置窗口相关
+    systemSettingsOverlay: null,
+    systemSettingsVisible: false,
+    // 音频测试相关
+    testAudioPlayers: {},     // 存储测试音频播放器 { type: audioElement }
+    // 音频暂停状态（打开系统设置时暂停）
+    audioPausedState: null,   // { bgmPaused: bool, bgmCurrentTime: number }
     // 音量存储键名
     VOLUME_STORAGE_KEY: 'galgame_volume',
+    BGM_VOLUME_STORAGE_KEY: 'galgame_bgm_volume',
+    SE_VOLUME_STORAGE_KEY: 'galgame_se_volume',
+    VOICE_VOLUME_STORAGE_KEY: 'galgame_voice_volume',
     // 调试模式存储键名
     DEBUG_MODE_STORAGE_KEY: 'galgame_debug_mode',
+    // 人物音频进度条相关
+    voiceProgressBar: null,       // 进度条元素
+    voiceProgressContainer: null, // 进度条容器
+    voiceProgressUpdateTimer: null, // 进度更新定时器
+    // AUTO模式相关
+    autoModeEnabled: false,       // AUTO模式是否开启
+    autoDelaySeconds: 3,          // AUTO延迟时间（秒），默认3秒
+    autoShowCountdown: true,      // 是否显示倒计时
+    autoCountdownTimer: null,     // 倒计时定时器
+    autoCountdownElement: null,   // 倒计时显示元素
+    autoCountdownRemaining: 0,    // 剩余倒计时秒数
+    autoWaitForAudio: false,      // 是否正在等待音频播放完成
+    autoWaitForTyping: false,     // 是否正在等待打字机完成
+    // AUTO设置存储键名
+    AUTO_DELAY_KEY: 'galgame_auto_delay',
+    AUTO_SHOW_COUNTDOWN_KEY: 'galgame_auto_show_countdown',
     
     /**
      * 初始化系统模块
@@ -37,6 +67,8 @@ const systemModule = {
     init: function() {
         this.loadVolume();  // 从 localStorage 加载音量设置
         this.loadDebugMode();  // 从 localStorage 加载调试模式状态
+        this.loadAutoSettings();  // 从 localStorage 加载 AUTO 设置
+        console.log('[AUTO] init called, autoDelaySeconds:', this.autoDelaySeconds);
         this.createVolumeOverlay();
         this.createDebugPanel();
         this.bindVolumeControls();
@@ -55,51 +87,127 @@ const systemModule = {
         // 延迟应用音量到所有音频元素，确保引擎已初始化
         setTimeout(() => {
             this.applyVolumeToAllAudio();
-            console.log('[System] Applied saved volume to all audio elements:', Math.round(this.currentVolume * 100) + '%');
+            this.applyBgmVolume();
+            this.applySeVolume();
+            this.applyVoiceVolume();
+            console.log('[System] Applied saved volume to all audio elements:');
+            console.log('  Main:', Math.round(this.currentVolume * 100) + '%');
+            console.log('  BGM:', Math.round(this.bgmVolume * 100) + '%');
+            console.log('  SE:', Math.round(this.seVolume * 100) + '%');
+            console.log('  Voice:', Math.round(this.voiceVolume * 100) + '%');
         }, 100);
         
         // 检测初始全屏状态
         this.updateFullscreenClass();
+        
+        // 初始化人物音频进度条
+        this.createVoiceProgressBar();
+        this.bindVoicePlayerEvents();
         
         console.log("系统模块已初始化，当前音量:", Math.round(this.currentVolume * 100) + "%");
         console.log("调试模式状态:", this.debugVisible ? "开启" : "关闭");
     },
     
     /**
-     * 从 localStorage 加载音量设置
+     * 从 localStorage 加载所有音量设置
      */
     loadVolume: function() {
         try {
+            // 加载主音量
             const savedVolume = localStorage.getItem(this.VOLUME_STORAGE_KEY);
             if (savedVolume !== null) {
                 const volume = parseFloat(savedVolume);
-                // 验证音量值的有效性
                 if (!isNaN(volume) && volume >= 0.0 && volume <= 1.0) {
                     this.currentVolume = volume;
-                    console.log('[Volume] Loaded from localStorage:', Math.round(volume * 100) + '%');
-                    return;
+                    console.log('[Volume] Main volume loaded:', Math.round(volume * 100) + '%');
+                }
+            }
+            
+            // 加载BGM音量
+            const savedBgmVolume = localStorage.getItem(this.BGM_VOLUME_STORAGE_KEY);
+            if (savedBgmVolume !== null) {
+                const volume = parseFloat(savedBgmVolume);
+                if (!isNaN(volume) && volume >= 0.0 && volume <= 1.0) {
+                    this.bgmVolume = volume;
+                    console.log('[Volume] BGM volume loaded:', Math.round(volume * 100) + '%');
+                }
+            }
+            
+            // 加载SE音量
+            const savedSeVolume = localStorage.getItem(this.SE_VOLUME_STORAGE_KEY);
+            if (savedSeVolume !== null) {
+                const volume = parseFloat(savedSeVolume);
+                if (!isNaN(volume) && volume >= 0.0 && volume <= 1.0) {
+                    this.seVolume = volume;
+                    console.log('[Volume] SE volume loaded:', Math.round(volume * 100) + '%');
+                }
+            }
+            
+            // 加载Voice音量
+            const savedVoiceVolume = localStorage.getItem(this.VOICE_VOLUME_STORAGE_KEY);
+            if (savedVoiceVolume !== null) {
+                const volume = parseFloat(savedVoiceVolume);
+                if (!isNaN(volume) && volume >= 0.0 && volume <= 1.0) {
+                    this.voiceVolume = volume;
+                    console.log('[Volume] Voice volume loaded:', Math.round(volume * 100) + '%');
                 }
             }
         } catch (e) {
-            console.warn('[Volume] Failed to load volume from localStorage:', e);
+            console.warn('[Volume] Failed to load volumes from localStorage:', e);
         }
-        // 如果没有保存的音量或加载失败，使用默认值 1.0
-        this.currentVolume = 1.0;
-        console.log('[Volume] Using default volume: 100%');
     },
     
     /**
-     * 保存音量设置到 localStorage
+     * 保存主音量设置到 localStorage
      */
     saveVolume: function() {
         try {
             localStorage.setItem(this.VOLUME_STORAGE_KEY, this.currentVolume.toString());
-            console.log('[Volume] Saved to localStorage:', Math.round(this.currentVolume * 100) + '%');
+            console.log('[Volume] Main volume saved:', Math.round(this.currentVolume * 100) + '%');
             
             // 通知 C# 启动器：音量设置已更新
             this.notifyStorageOperation('UPDATE', this.VOLUME_STORAGE_KEY, 'localStorage');
         } catch (e) {
             console.warn('[Volume] Failed to save volume to localStorage:', e);
+        }
+    },
+    
+    /**
+     * 保存BGM音量设置到 localStorage
+     */
+    saveBgmVolume: function() {
+        try {
+            localStorage.setItem(this.BGM_VOLUME_STORAGE_KEY, this.bgmVolume.toString());
+            console.log('[Volume] BGM volume saved:', Math.round(this.bgmVolume * 100) + '%');
+            this.notifyStorageOperation('UPDATE', this.BGM_VOLUME_STORAGE_KEY, 'localStorage');
+        } catch (e) {
+            console.warn('[Volume] Failed to save BGM volume:', e);
+        }
+    },
+    
+    /**
+     * 保存SE音量设置到 localStorage
+     */
+    saveSeVolume: function() {
+        try {
+            localStorage.setItem(this.SE_VOLUME_STORAGE_KEY, this.seVolume.toString());
+            console.log('[Volume] SE volume saved:', Math.round(this.seVolume * 100) + '%');
+            this.notifyStorageOperation('UPDATE', this.SE_VOLUME_STORAGE_KEY, 'localStorage');
+        } catch (e) {
+            console.warn('[Volume] Failed to save SE volume:', e);
+        }
+    },
+    
+    /**
+     * 保存Voice音量设置到 localStorage
+     */
+    saveVoiceVolume: function() {
+        try {
+            localStorage.setItem(this.VOICE_VOLUME_STORAGE_KEY, this.voiceVolume.toString());
+            console.log('[Volume] Voice volume saved:', Math.round(this.voiceVolume * 100) + '%');
+            this.notifyStorageOperation('UPDATE', this.VOICE_VOLUME_STORAGE_KEY, 'localStorage');
+        } catch (e) {
+            console.warn('[Volume] Failed to save Voice volume:', e);
         }
     },
     
@@ -273,25 +381,73 @@ const systemModule = {
      * 将音量应用到所有音频元素
      */
     applyVolumeToAllAudio: function() {
-        // 应用音量到 BGM 播放器
+        // 应用音量到 BGM 播放器（主音量 * BGM通道音量）
         if (gameEngine.elements.bgmPlayer) {
-            gameEngine.elements.bgmPlayer.volume = this.currentVolume;
+            gameEngine.elements.bgmPlayer.volume = this.currentVolume * this.bgmVolume;
         }
         
-        // 应用音量到音效播放器
+        // 应用音量到音效播放器（主音量 * SE通道音量）
         if (gameEngine.elements.sePlayer) {
-            gameEngine.elements.sePlayer.volume = this.currentVolume;
+            gameEngine.elements.sePlayer.volume = this.currentVolume * this.seVolume;
         }
         
-        // 应用音量到语音播放器
+        // 应用音量到语音播放器（主音量 * Voice通道音量）
         if (gameEngine.elements.voicePlayer) {
-            gameEngine.elements.voicePlayer.volume = this.currentVolume;
+            gameEngine.elements.voicePlayer.volume = this.currentVolume * this.voiceVolume;
         }
         
         // 应用音量到页面上所有的 audio 元素（包括动态创建的）
+        // 根据元素的 ID 或类名判断类型应用对应的通道音量
         const allAudioElements = document.querySelectorAll('audio');
         allAudioElements.forEach(audio => {
-            audio.volume = this.currentVolume;
+            let volume = this.currentVolume;
+            if (audio.id && audio.id.includes('bgm')) {
+                volume *= this.bgmVolume;
+            } else if (audio.id && (audio.id.includes('se') || audio.id.includes('sound'))) {
+                volume *= this.seVolume;
+            } else if (audio.id && audio.id.includes('voice')) {
+                volume *= this.voiceVolume;
+            }
+            audio.volume = volume;
+        });
+    },
+    
+    /**
+     * 单独更新BGM音量
+     */
+    applyBgmVolume: function() {
+        if (gameEngine.elements.bgmPlayer) {
+            gameEngine.elements.bgmPlayer.volume = this.currentVolume * this.bgmVolume;
+        }
+        const bgmElements = document.querySelectorAll('audio[id*="bgm"], audio.bgm');
+        bgmElements.forEach(audio => {
+            audio.volume = this.currentVolume * this.bgmVolume;
+        });
+    },
+    
+    /**
+     * 单独更新SE音量
+     */
+    applySeVolume: function() {
+        if (gameEngine.elements.sePlayer) {
+            gameEngine.elements.sePlayer.volume = this.currentVolume * this.seVolume;
+        }
+        const seElements = document.querySelectorAll('audio[id*="se"], audio[id*="sound"], audio.se');
+        seElements.forEach(audio => {
+            audio.volume = this.currentVolume * this.seVolume;
+        });
+    },
+    
+    /**
+     * 单独更新Voice音量
+     */
+    applyVoiceVolume: function() {
+        if (gameEngine.elements.voicePlayer) {
+            gameEngine.elements.voicePlayer.volume = this.currentVolume * this.voiceVolume;
+        }
+        const voiceElements = document.querySelectorAll('audio[id*="voice"], audio.voice');
+        voiceElements.forEach(audio => {
+            audio.volume = this.currentVolume * this.voiceVolume;
         });
     },
     
@@ -651,6 +807,175 @@ const systemModule = {
     },
     
     // ========================================
+    // 人物音频进度条功能
+    // ========================================
+    
+    /**
+     * 创建人物音频进度条
+     * 在 name-box 右边显示，只在有音频时显示
+     */
+    createVoiceProgressBar: function() {
+        // 查找 name-box 元素
+        const nameBox = document.getElementById('name-box');
+        if (!nameBox) {
+            console.log('[VoiceProgress] name-box not found');
+            return;
+        }
+        
+        // 创建一个水平容器来包裹 name-box 和进度条
+        const nameProgressRow = document.createElement('div');
+        nameProgressRow.id = 'name-progress-row';
+        nameProgressRow.style.display = 'flex';
+        nameProgressRow.style.flexDirection = 'row';
+        nameProgressRow.style.alignItems = 'center';
+        nameProgressRow.style.alignSelf = 'flex-start';
+        nameProgressRow.style.marginBottom = '5px';
+        
+        // 创建进度条容器
+        this.voiceProgressContainer = document.createElement('div');
+        this.voiceProgressContainer.id = 'voice-progress-container';
+        this.voiceProgressContainer.style.display = 'none'; // 默认隐藏
+        
+        // 创建进度条
+        this.voiceProgressBar = document.createElement('div');
+        this.voiceProgressBar.id = 'voice-progress-bar';
+        
+        // 创建进度条填充部分
+        const progressFill = document.createElement('div');
+        progressFill.id = 'voice-progress-fill';
+        
+        this.voiceProgressBar.appendChild(progressFill);
+        this.voiceProgressContainer.appendChild(this.voiceProgressBar);
+        
+        // 将 name-box 移动到新容器中
+        const parent = nameBox.parentNode;
+        parent.insertBefore(nameProgressRow, nameBox);
+        nameProgressRow.appendChild(nameBox);
+        nameProgressRow.appendChild(this.voiceProgressContainer);
+        
+        console.log('[VoiceProgress] Progress bar created');
+    },
+    
+    /**
+     * 绑定 voice-player 的播放事件
+     */
+    bindVoicePlayerEvents: function() {
+        const voicePlayer = document.getElementById('voice-player');
+        if (!voicePlayer) {
+            console.log('[VoiceProgress] voice-player not found');
+            return;
+        }
+        
+        // 播放开始时显示进度条
+        voicePlayer.addEventListener('play', () => {
+            this.showVoiceProgress();
+            this.startVoiceProgressUpdate();
+            console.log('[VoiceProgress] Audio started, showing progress bar');
+        });
+        
+        // 播放结束时隐藏进度条
+        voicePlayer.addEventListener('ended', () => {
+            this.hideVoiceProgress();
+            this.stopVoiceProgressUpdate();
+            console.log('[VoiceProgress] Audio ended, hiding progress bar');
+        });
+        
+        // 播放暂停时也隐藏进度条
+        voicePlayer.addEventListener('pause', () => {
+            // 如果是自然结束（ended事件已触发），不处理
+            if (voicePlayer.currentTime >= voicePlayer.duration - 0.1) {
+                return;
+            }
+            // 暂停时也隐藏进度条
+            this.hideVoiceProgress();
+            this.stopVoiceProgressUpdate();
+            console.log('[VoiceProgress] Audio paused, hiding progress bar');
+        });
+        
+        // 加载新音频时重置进度条
+        voicePlayer.addEventListener('loadstart', () => {
+            this.resetVoiceProgress();
+            console.log('[VoiceProgress] New audio loading, resetting progress');
+        });
+        
+        console.log('[VoiceProgress] Voice player events bound');
+    },
+    
+    /**
+     * 显示人物音频进度条
+     */
+    showVoiceProgress: function() {
+        if (this.voiceProgressContainer) {
+            this.voiceProgressContainer.style.display = 'flex';
+        }
+    },
+    
+    /**
+     * 隐藏人物音频进度条
+     */
+    hideVoiceProgress: function() {
+        if (this.voiceProgressContainer) {
+            this.voiceProgressContainer.style.display = 'none';
+        }
+    },
+    
+    /**
+     * 重置进度条
+     */
+    resetVoiceProgress: function() {
+        if (this.voiceProgressBar) {
+            const fill = this.voiceProgressBar.querySelector('#voice-progress-fill');
+            if (fill) {
+                fill.style.width = '0%';
+            }
+        }
+    },
+    
+    /**
+     * 开始更新进度条
+     */
+    startVoiceProgressUpdate: function() {
+        // 先停止之前的定时器
+        this.stopVoiceProgressUpdate();
+        
+        // 每100ms更新一次进度
+        this.voiceProgressUpdateTimer = setInterval(() => {
+            this.updateVoiceProgress();
+        }, 100);
+    },
+    
+    /**
+     * 停止更新进度条
+     */
+    stopVoiceProgressUpdate: function() {
+        if (this.voiceProgressUpdateTimer) {
+            clearInterval(this.voiceProgressUpdateTimer);
+            this.voiceProgressUpdateTimer = null;
+        }
+    },
+    
+    /**
+     * 更新进度条位置
+     */
+    updateVoiceProgress: function() {
+        const voicePlayer = document.getElementById('voice-player');
+        if (!voicePlayer || !voicePlayer.duration) {
+            return;
+        }
+        
+        const currentTime = voicePlayer.currentTime;
+        const duration = voicePlayer.duration;
+        const progress = (currentTime / duration) * 100;
+        
+        if (this.voiceProgressBar) {
+            const fill = this.voiceProgressBar.querySelector('#voice-progress-fill');
+            if (fill) {
+                fill.style.width = progress + '%';
+            }
+        }
+    },
+    
+    // ========================================
     // Galgame UI 菜单功能
     // ========================================
     
@@ -719,6 +1044,16 @@ const systemModule = {
             }
         });
         
+        // 创建AUTO按钮（自动推进剧情）
+        const autoBtn = document.createElement('button');
+        autoBtn.id = 'ui-auto';
+        autoBtn.className = 'galgame-ui-btn';
+        autoBtn.textContent = 'AUTO';
+        autoBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleAutoMode();
+        });
+        
         // 创建SAVE按钮（带二级菜单）
         const saveMenu = document.createElement('div');
         saveMenu.id = 'ui-save-menu';
@@ -743,6 +1078,8 @@ const systemModule = {
         scenesBtn.textContent = 'SCENES';
         scenesBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            // 停止所有自动/快进模式并清除状态快照
+            this.stopAllAutoSkipModes();
             window.location.href = '../html/saves.html';
         });
         
@@ -752,6 +1089,8 @@ const systemModule = {
         mapBtn.textContent = 'MAP';
         mapBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            // 停止所有自动/快进模式并清除状态快照
+            this.stopAllAutoSkipModes();
             window.location.href = '../html/flowchart.html';
         });
         
@@ -761,6 +1100,8 @@ const systemModule = {
         storyBtn.textContent = 'STORY';
         storyBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            // 停止所有自动/快进模式并清除状态快照
+            this.stopAllAutoSkipModes();
             window.location.href = '../html/story.html';
         });
         
@@ -813,6 +1154,16 @@ const systemModule = {
             this.openOptions();
         });
         
+        // 创建SYSTEM按钮（放在option和log之间）
+        const systemBtn = document.createElement('button');
+        systemBtn.id = 'ui-system';
+        systemBtn.className = 'galgame-ui-btn';
+        systemBtn.textContent = 'SYSTEM';
+        systemBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.showSystemSettings();
+        });
+        
         // 创建LOG按钮
         const logBtn = document.createElement('button');
         logBtn.id = 'ui-log';
@@ -830,6 +1181,8 @@ const systemModule = {
         helpBtn.textContent = 'HELP';
         helpBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            // 停止所有自动/快进模式
+            this.stopAllAutoSkipModes();
             // 向C#发送消息，显示原生帮助窗口
             if (window.chrome && window.chrome.webview) {
                 window.chrome.webview.postMessage({ action: 'showHelp' });
@@ -843,6 +1196,8 @@ const systemModule = {
         backBtn.textContent = 'BACK';
         backBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            // 停止所有自动/快进模式
+            this.stopAllAutoSkipModes();
             // 向C#发送消息，返回主菜单（会弹出确认）
             if (window.chrome && window.chrome.webview) {
                 window.chrome.webview.postMessage({ action: 'goHome' });
@@ -856,6 +1211,8 @@ const systemModule = {
         quitBtn.textContent = 'QUIT';
         quitBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            // 停止所有自动/快进模式
+            this.stopAllAutoSkipModes();
             // 向C#发送消息，退出游戏（会弹出确认）
             if (window.chrome && window.chrome.webview) {
                 window.chrome.webview.postMessage({ action: 'quit' });
@@ -865,8 +1222,10 @@ const systemModule = {
         // 组装DOM结构
         buttons.appendChild(skip1Btn);
         buttons.appendChild(skip2Btn);
+        buttons.appendChild(autoBtn);
         buttons.appendChild(saveMenu);
         buttons.appendChild(optionBtn);
+        buttons.appendChild(systemBtn);
         buttons.appendChild(logBtn);
         buttons.appendChild(helpBtn);
         buttons.appendChild(backBtn);
@@ -979,6 +1338,9 @@ const systemModule = {
      * 打开存档页面
      */
     openArchive: function() {
+        // 停止所有自动/快进模式（不需要在新页面继续）
+        this.stopAllAutoSkipModes();
+        
         // 在打开存档页面之前，先保存当前游戏状态快照
         // 这样存档页面才能获取到最新的预览文本
         if (typeof gameEngine !== 'undefined' && gameEngine.saveStateSnapshot) {
@@ -1099,9 +1461,17 @@ const systemModule = {
             processedText = this.processLineBreaks(textWithRuby);
         }
         
+        // 保存音频数据（支持 [a] 标签分隔多个音频）
+        let audioSegments = null;
+        if (data.audio && typeof data.audio === 'string' && data.audio !== 'stop') {
+            // 解析 [a] 标签分隔的音频序列
+            audioSegments = data.audio.split('[a]').map(s => s.trim()).filter(s => s.length > 0);
+        }
+        
         this.logData.push({
             speaker: data.speaker || null,
-            text: processedText
+            text: processedText,
+            audio: audioSegments // 保存音频分段
         });
     },
     
@@ -1195,23 +1565,109 @@ const systemModule = {
             
             // 如果有说话人
             if (entry.speaker && entry.speaker.trim() !== '') {
-                // 不是第一条且上一条有说话人，添加空行
-                if (index > 0 && this.logData[index - 1].speaker) {
-                    html += '<br>';
-                }
                 html += `<div class="log-speaker">【${entry.speaker}】</div>`;
-                html += `<div class="log-text">${entry.text}</div>`;
+                html += this.createLogTextWithAudioButtons(entry.text, entry.audio);
             } else {
                 // 没有说话人，直接显示文本
-                // 不是第一条，添加空行
-                if (index > 0) {
-                    html += '<br>';
-                }
                 html += `<div class="log-text-no-speaker">${entry.text}</div>`;
             }
         });
         
         this.logContent.innerHTML = html;
+        
+        // 绑定播放按钮事件
+        this.bindLogAudioButtons();
+    },
+    
+    /**
+     * 创建带音频播放按钮的日志文本
+     * @param {string} text - 文本内容
+     * @param {Array|null} audioSegments - 音频分段数组
+     * @returns {string} HTML字符串
+     */
+    createLogTextWithAudioButtons: function(text, audioSegments) {
+        // 如果没有音频，直接返回带容器的文本
+        if (!audioSegments || audioSegments.length === 0) {
+            return `
+                <div class="log-text-container">
+                    <div class="log-text">${text}</div>
+                </div>
+            `;
+        }
+        
+        // 创建播放按钮
+        let buttonsHtml = '';
+        audioSegments.forEach((audioPath, segmentIndex) => {
+            const audioId = `log-audio-${Date.now()}-${segmentIndex}`;
+            buttonsHtml += `
+                <button class="log-audio-btn" data-audio="${encodeURIComponent(audioPath)}" data-index="${segmentIndex}">
+                    ▶
+                </button>
+            `;
+        });
+        
+        return `
+            <div class="log-text-container">
+                <div class="log-audio-buttons">${buttonsHtml}</div>
+                <div class="log-text">${text}</div>
+            </div>
+        `;
+    },
+    
+    /**
+     * 绑定日志中音频播放按钮的事件
+     */
+    bindLogAudioButtons: function() {
+        const buttons = document.querySelectorAll('.log-audio-btn');
+        buttons.forEach(btn => {
+            btn.removeEventListener('click', this.handleLogAudioButtonClick);
+            btn.addEventListener('click', (e) => {
+                this.handleLogAudioButtonClick(e);
+            });
+        });
+    },
+    
+    /**
+     * 处理日志音频播放按钮点击
+     * @param {Event} e - 点击事件
+     */
+    handleLogAudioButtonClick: function(e) {
+        const btn = e.target;
+        const audioPath = decodeURIComponent(btn.getAttribute('data-audio'));
+        
+        if (!audioPath) {
+            return;
+        }
+        
+        // 构建完整的音频路径
+        // 如果路径已经包含扩展名，则直接使用
+        let fullAudioPath = audioPath;
+        if (!audioPath.includes('.')) {
+            // 如果没有扩展名，添加 .ogg 扩展名
+            // 使用绝对路径，从根目录开始
+            fullAudioPath = `/assets/audio/${audioPath}.ogg`;
+        } else if (!audioPath.startsWith('assets/') && !audioPath.startsWith('/')) {
+            // 如果有扩展名但没有路径前缀，添加 /assets/audio/ 绝对路径前缀
+            fullAudioPath = `/assets/audio/${audioPath}`;
+        } else if (audioPath.startsWith('assets/') && !audioPath.startsWith('/')) {
+            // 如果以 assets/ 开头但不是绝对路径，添加 / 前缀
+            fullAudioPath = `/${audioPath}`;
+        }
+        
+        console.log('[Log Audio] Playing:', fullAudioPath);
+        
+        // 暂停当前播放的语音
+        const voicePlayer = document.getElementById('voice-player');
+        if (voicePlayer) {
+            voicePlayer.pause();
+            voicePlayer.currentTime = 0;
+        }
+        
+        // 播放新音频
+        voicePlayer.src = fullAudioPath;
+        voicePlayer.play().catch(error => {
+            console.log("日志音频播放失败:", error);
+        });
     },
     
     /**
@@ -1219,6 +1675,651 @@ const systemModule = {
      */
     clearLog: function() {
         this.logData = [];
+    },
+    
+    // ========================================
+    // 系统设置功能（通过 C# 窗口实现）
+    // ========================================
+    
+    /**
+     * 显示系统设置窗口（调用 C# 原生窗口）
+     */
+    showSystemSettings: function() {
+        // 停止所有自动/快进模式并清除状态快照（打开设置窗口时不需要继续）
+        this.stopAllAutoSkipModes();
+        
+        // 向 C# 发送消息，显示系统设置窗口
+        if (window.chrome && window.chrome.webview) {
+            // 发送当前音量设置给 C#，以便窗口显示当前值
+            const volumeData = {
+                main: Math.round(this.currentVolume * 100),
+                bgm: Math.round(this.bgmVolume * 100),
+                se: Math.round(this.seVolume * 100),
+                voice: Math.round(this.voiceVolume * 100)
+            };
+            
+            window.chrome.webview.postMessage({ 
+                action: 'showSystemSettings',
+                data: volumeData
+            });
+            
+            console.log('[System Settings] Requested C# window');
+        }
+    },
+    
+    /**
+     * 暂停所有音频（用于打开设置窗口时）- 已禁用，不再截断主界面音频
+     */
+    pauseAllAudioForSettings: function() {
+        // 空函数 - 不再暂停任何音频
+        console.log('[System Settings] Audio pause disabled');
+    },
+    
+    /**
+     * 从 C# 接收音量设置更新
+     * @param {Object} volumeData - 包含各通道音量的对象
+     */
+    updateVolumeFromSettings: function(volumeData) {
+        if (volumeData.main !== undefined) {
+            this.currentVolume = Math.max(0, Math.min(1, volumeData.main / 100));
+            this.saveVolume();
+        }
+        if (volumeData.bgm !== undefined) {
+            this.bgmVolume = Math.max(0, Math.min(1, volumeData.bgm / 100));
+            this.saveBgmVolume();
+        }
+        if (volumeData.se !== undefined) {
+            this.seVolume = Math.max(0, Math.min(1, volumeData.se / 100));
+            this.saveSeVolume();
+        }
+        if (volumeData.voice !== undefined) {
+            this.voiceVolume = Math.max(0, Math.min(1, volumeData.voice / 100));
+            this.saveVoiceVolume();
+        }
+        
+        // 应用新的音量设置
+        this.applyVolumeToAllAudio();
+        
+        console.log('[System Settings] Volume updated from C#:', volumeData);
+    },
+    
+    /**
+     * 系统设置窗口关闭时的回调
+     */
+    onSystemSettingsClosed: function() {
+        // 不再恢复音频（因为不再暂停）
+        console.log('[System Settings] Window closed');
+        console.log('[AUTO] Current delay after settings closed:', this.autoDelaySeconds + 's');
+        console.log('[AUTO] Current showCountdown after settings closed:', this.autoShowCountdown);
+    },
+    
+    /**
+     * 获取当前所有音量设置（供 C# 调用）
+     * @returns {Object}
+     */
+    getVolumeSettings: function() {
+        return {
+            main: Math.round(this.currentVolume * 100),
+            bgm: Math.round(this.bgmVolume * 100),
+            se: Math.round(this.seVolume * 100),
+            voice: Math.round(this.voiceVolume * 100)
+        };
+    },
+    
+    /**
+     * 设置单个音量通道（供 C# 调用）
+     * @param {string} channel - 通道名称: 'main', 'bgm', 'se', 'voice'
+     * @param {number} value - 音量值 (0-100)
+     */
+    setVolumeChannel: function(channel, value) {
+        const volume = Math.max(0, Math.min(1, value / 100));
+        
+        switch (channel) {
+            case 'main':
+                this.currentVolume = volume;
+                this.applyVolumeToAllAudio();
+                this.saveVolume();
+                break;
+            case 'bgm':
+                this.bgmVolume = volume;
+                this.applyBgmVolume();
+                this.saveBgmVolume();
+                break;
+            case 'se':
+                this.seVolume = volume;
+                this.applySeVolume();
+                this.saveSeVolume();
+                break;
+            case 'voice':
+                this.voiceVolume = volume;
+                this.applyVoiceVolume();
+                this.saveVoiceVolume();
+                break;
+        }
+        
+        console.log(`[System Settings] ${channel} volume set to ${value}%`);
+    },
+    
+    /**
+     * 播放测试音频（供 C# 调用）
+     * @param {string} type - 音频类型: 'bgm', 'se', 'voice'
+     * @param {boolean} play - true 播放, false 停止
+     */
+    playTestAudio: function(type, play) {
+        console.log(`[Test Audio] Request: type=${type}, play=${play}`);
+        
+        if (play) {
+            // 如果已经在播放，先停止
+            if (this.testAudioPlayers[type]) {
+                this.testAudioPlayers[type].pause();
+                this.testAudioPlayers[type].src = '';
+                delete this.testAudioPlayers[type];
+            }
+            
+            // 创建新的测试音频播放器
+            const audio = new Audio();
+            audio.loop = true;
+            audio.preload = 'auto';
+            audio.crossOrigin = 'anonymous';
+            
+            // 根据类型设置音频源（使用项目中已有的资源）
+            const audioPaths = {
+                bgm: 'assets/bgm/bgm1.ogg',
+                se: 'assets/audio/YN100001.ogg',
+                voice: 'assets/audio/YN100002.ogg'
+            };
+            
+            const relativePath = audioPaths[type] || 'assets/bgm/bgm1.ogg';
+            
+            // 尝试多种路径格式
+            const basePath = window.location.pathname;
+            const dirPath = basePath.substring(0, basePath.lastIndexOf('/'));
+            const fullPath = dirPath + '/' + relativePath;
+            
+            console.log(`[Test Audio] Trying path: ${fullPath}`);
+            
+            audio.src = fullPath;
+            
+            // 根据类型设置音量（转换为 0-1 范围）
+            let volume = this.currentVolume / 100;
+            switch (type) {
+                case 'bgm':
+                    volume *= this.bgmVolume / 100;
+                    break;
+                case 'se':
+                    volume *= this.seVolume / 100;
+                    break;
+                case 'voice':
+                    volume *= this.voiceVolume / 100;
+                    break;
+            }
+            audio.volume = Math.max(0, Math.min(1, volume));
+            console.log(`[Test Audio] Volume set to: ${audio.volume}`);
+            
+            // 监听加载完成事件
+            audio.addEventListener('loadedmetadata', () => {
+                console.log(`[Test Audio] Loaded metadata for ${type}, duration: ${audio.duration}s`);
+            });
+            
+            audio.addEventListener('canplaythrough', () => {
+                console.log(`[Test Audio] Can play through for ${type}`);
+            });
+            
+            audio.addEventListener('error', (err) => {
+                console.error('[Test Audio] Error loading:', audio.src, err);
+                console.error('[Test Audio] Error code:', err.target?.error?.code);
+                
+                // 尝试直接使用相对路径
+                console.log(`[Test Audio] Retrying with relative path: ${relativePath}`);
+                audio.src = relativePath;
+                
+                audio.play().then(() => {
+                    this.testAudioPlayers[type] = audio;
+                    console.log(`[Test Audio] ${type} started with fallback path`);
+                }).catch(e => {
+                    console.error('[Test Audio] Fallback also failed:', e);
+                });
+            });
+            
+            // 尝试播放
+            const playAudio = () => {
+                audio.play().then(() => {
+                    this.testAudioPlayers[type] = audio;
+                    console.log(`[Test Audio] ${type} started successfully`);
+                }).catch((err) => {
+                    console.warn('[Test Audio] First play attempt failed:', err.message);
+                    
+                    // 尝试其他路径格式
+                    const altPaths = [
+                        '/' + relativePath,
+                        './' + relativePath,
+                        '../shiori engine/' + relativePath
+                    ];
+                    
+                    let retryIndex = 0;
+                    const tryNextPath = () => {
+                        if (retryIndex >= altPaths.length) {
+                            console.error('[Test Audio] All paths failed');
+                            return;
+                        }
+                        
+                        const altPath = altPaths[retryIndex++];
+                        console.log(`[Test Audio] Trying alternative path: ${altPath}`);
+                        audio.src = altPath;
+                        
+                        audio.play().then(() => {
+                            this.testAudioPlayers[type] = audio;
+                            console.log(`[Test Audio] ${type} started with path: ${altPath}`);
+                        }).catch(e => {
+                            console.warn(`[Test Audio] Path ${altPath} failed:`, e.message);
+                            tryNextPath();
+                        });
+                    };
+                    
+                    tryNextPath();
+                });
+            };
+            
+            // 检查是否需要用户交互
+            playAudio();
+            
+        } else {
+            // 停止播放
+            if (this.testAudioPlayers[type]) {
+                this.testAudioPlayers[type].pause();
+                this.testAudioPlayers[type].src = '';
+                delete this.testAudioPlayers[type];
+                console.log(`[Test Audio] ${type} stopped`);
+            }
+        }
+    },
+    
+    /**
+     * 停止所有测试音频（供 C# 调用）
+     */
+    stopAllTestAudio: function() {
+        Object.keys(this.testAudioPlayers).forEach(type => {
+            if (this.testAudioPlayers[type]) {
+                this.testAudioPlayers[type].pause();
+                this.testAudioPlayers[type].src = '';
+                delete this.testAudioPlayers[type];
+            }
+        });
+        console.log('[Test Audio] All stopped');
+    },
+    
+    // ========================================
+    // AUTO模式功能
+    // ========================================
+    
+    /**
+     * 加载 AUTO 设置
+     */
+    loadAutoSettings: function() {
+        try {
+            console.log('[AUTO] loadAutoSettings called');
+            console.log('[AUTO] Current delay before loading:', this.autoDelaySeconds + 's');
+            
+            // 加载延迟时间
+            const savedDelay = localStorage.getItem(this.AUTO_DELAY_KEY);
+            console.log('[AUTO] Saved delay from localStorage:', savedDelay);
+            
+            if (savedDelay !== null) {
+                const delay = parseFloat(savedDelay);
+                if (!isNaN(delay) && delay >= 0.5 && delay <= 10) {
+                    this.autoDelaySeconds = delay;
+                    console.log('[AUTO] Delay loaded:', delay + 's');
+                } else {
+                    console.log('[AUTO] Invalid delay value:', savedDelay);
+                }
+            } else {
+                console.log('[AUTO] No saved delay found');
+            }
+            
+            // 加载是否显示倒计时
+            const savedShowCountdown = localStorage.getItem(this.AUTO_SHOW_COUNTDOWN_KEY);
+            console.log('[AUTO] Saved showCountdown from localStorage:', savedShowCountdown);
+            
+            if (savedShowCountdown !== null) {
+                this.autoShowCountdown = savedShowCountdown === 'true';
+                console.log('[AUTO] Show countdown:', this.autoShowCountdown);
+            }
+            
+            console.log('[AUTO] Final delay after loading:', this.autoDelaySeconds + 's');
+        } catch (e) {
+            console.warn('[AUTO] Failed to load settings:', e);
+        }
+    },
+    
+    /**
+     * 保存 AUTO 设置
+     */
+    saveAutoSettings: function() {
+        try {
+            console.log('[AUTO] Saving settings...');
+            console.log('[AUTO] Current delay to save:', this.autoDelaySeconds + 's');
+            console.log('[AUTO] Current showCountdown to save:', this.autoShowCountdown);
+            
+            localStorage.setItem(this.AUTO_DELAY_KEY, this.autoDelaySeconds.toString());
+            localStorage.setItem(this.AUTO_SHOW_COUNTDOWN_KEY, this.autoShowCountdown.toString());
+            
+            console.log('[AUTO] Settings saved:', this.autoDelaySeconds + 's, showCountdown:' + this.autoShowCountdown);
+            
+            // 验证保存是否成功
+            const savedDelay = localStorage.getItem(this.AUTO_DELAY_KEY);
+            const savedCountdown = localStorage.getItem(this.AUTO_SHOW_COUNTDOWN_KEY);
+            console.log('[AUTO] Verified - Saved delay:', savedDelay);
+            console.log('[AUTO] Verified - Saved showCountdown:', savedCountdown);
+        } catch (e) {
+            console.warn('[AUTO] Failed to save settings:', e);
+        }
+    },
+    
+    /**
+     * 切换 AUTO 模式
+     */
+    toggleAutoMode: function() {
+        this.autoModeEnabled = !this.autoModeEnabled;
+        
+        // 更新按钮状态
+        const autoBtn = document.getElementById('ui-auto');
+        if (autoBtn) {
+            if (this.autoModeEnabled) {
+                autoBtn.classList.add('active');
+                console.log('[AUTO] AUTO mode enabled');
+            } else {
+                autoBtn.classList.remove('active');
+                this.stopAutoCountdown();
+                console.log('[AUTO] AUTO mode disabled');
+            }
+        }
+        
+        // 如果开启了AUTO模式，先关闭SKIP模式（互斥）
+        if (this.autoModeEnabled && typeof gameEngine !== 'undefined') {
+            gameEngine.toggleSkipMode(0); // 停止SKIP
+        }
+        
+        // 如果关闭了AUTO模式，停止倒计时
+        if (!this.autoModeEnabled) {
+            this.stopAutoCountdown();
+            return;
+        }
+        
+        // 如果刚开启AUTO模式，检查当前是否可以立即触发倒计时
+        if (this.autoModeEnabled) {
+            // 检查打字机是否已经完成
+            const typingComplete = typeof gameEngine !== 'undefined' && 
+                                  gameEngine.state && 
+                                  gameEngine.state.textFullyDisplayed && 
+                                  !gameEngine.state.typingActive;
+            
+            if (typingComplete) {
+                // 打字机已完成，检查音频状态并可能触发倒计时
+                this.checkAutoConditions();
+            }
+        }
+    },
+    
+    /**
+     * 更新 AUTO 按钮状态（供外部调用）
+     */
+    updateAutoButton: function(enabled) {
+        this.autoModeEnabled = enabled;
+        const autoBtn = document.getElementById('ui-auto');
+        if (autoBtn) {
+            if (enabled) {
+                autoBtn.classList.add('active');
+            } else {
+                autoBtn.classList.remove('active');
+            }
+        }
+    },
+    
+    /**
+     * 更新所有按钮状态（SKIP和AUTO）
+     * 用于从快照恢复状态后更新UI
+     */
+    updateAllButtons: function() {
+        // 更新SKIP按钮
+        if (typeof gameEngine !== 'undefined') {
+            this.updateSkipButton(gameEngine.state.skipMode);
+        }
+        
+        // 更新AUTO按钮
+        this.updateAutoButton(this.autoModeEnabled);
+    },
+    
+    /**
+     * 停止所有自动/快进模式
+     * 用于导航到非游戏页面（HTML文件）或打开C#窗口时
+     * 确保SKIP和AUTO状态不会在新页面/窗口中继续运行
+     */
+    stopAllAutoSkipModes: function() {
+        // 停止SKIP快进模式（使用system层方法，确保sessionStorage也被清理）
+        if (this.isFastForwardActive()) {
+            this.stopFastForward();
+            console.log('[State] Stopped SKIP mode before navigation');
+        }
+        
+        // 停止AUTO自动模式
+        if (this.autoModeEnabled) {
+            this.toggleAutoMode();
+            console.log('[State] Stopped AUTO mode before navigation');
+        }
+        
+        // 清除状态快照，防止新页面从sessionStorage恢复旧的SKIP/AUTO状态
+        sessionStorage.removeItem('gameStateSnapshot');
+        console.log('[State] Cleared game state snapshot for navigation');
+    },
+    
+    /**
+     * 开始 AUTO 倒计时（当打字机完成且音频播放完成时调用）
+     * @param {boolean} hasAudio - 是否有人物音频
+     */
+    startAutoCountdown: function(hasAudio) {
+        // 如果AUTO模式未开启，直接返回
+        if (!this.autoModeEnabled) {
+            return;
+        }
+        
+        // 停止之前的倒计时
+        this.stopAutoCountdown();
+        
+        this.autoCountdownRemaining = this.autoDelaySeconds;
+        
+        // 如果需要显示倒计时，创建或更新倒计时元素
+        if (this.autoShowCountdown) {
+            this.createAutoCountdownElement();
+            this.updateAutoCountdownDisplay();
+        }
+        
+        // 设置倒计时定时器（每100ms更新一次，实现0.1秒精度）
+        this.autoCountdownTimer = setInterval(() => {
+            this.autoCountdownRemaining -= 0.1;
+            
+            if (this.autoShowCountdown) {
+                this.updateAutoCountdownDisplay();
+            }
+            
+            if (this.autoCountdownRemaining <= 0) {
+                this.handleAutoClick();
+            }
+        }, 100);
+        
+        console.log('[AUTO] Countdown started:', this.autoDelaySeconds + 's, hasAudio:' + hasAudio);
+    },
+    
+    /**
+     * 停止 AUTO 倒计时
+     */
+    stopAutoCountdown: function() {
+        if (this.autoCountdownTimer) {
+            clearInterval(this.autoCountdownTimer);
+            this.autoCountdownTimer = null;
+        }
+        
+        // 隐藏倒计时显示
+        if (this.autoCountdownElement) {
+            this.autoCountdownElement.style.display = 'none';
+        }
+        
+        this.autoCountdownRemaining = 0;
+    },
+    
+    /**
+     * 更新倒计时显示
+     */
+    updateAutoCountdownDisplay: function() {
+        if (this.autoCountdownElement) {
+            // 显示0.1秒精度，不带单位
+            this.autoCountdownElement.textContent = Math.max(0, this.autoCountdownRemaining).toFixed(1);
+            this.autoCountdownElement.style.display = 'block';
+        }
+    },
+    
+    /**
+     * 创建倒计时显示元素
+     */
+    createAutoCountdownElement: function() {
+        if (this.autoCountdownElement) {
+            return;
+        }
+        
+        // 创建倒计时元素
+        this.autoCountdownElement = document.createElement('div');
+        this.autoCountdownElement.id = 'auto-countdown';
+        this.autoCountdownElement.className = 'auto-countdown';
+        
+        // 找到name-progress-row容器（包含姓名和voice进度条），将倒计时添加到最后
+        const nameProgressRow = document.getElementById('name-progress-row');
+        if (nameProgressRow) {
+            nameProgressRow.appendChild(this.autoCountdownElement);
+        } else {
+            // 如果找不到容器，添加到body
+            document.body.appendChild(this.autoCountdownElement);
+        }
+        
+        console.log('[AUTO] Countdown element created');
+    },
+    
+    /**
+     * 执行自动点击（推进剧情）
+     */
+    handleAutoClick: function() {
+        // 停止倒计时
+        this.stopAutoCountdown();
+        
+        // 如果AUTO模式已关闭，不执行点击
+        if (!this.autoModeEnabled) {
+            return;
+        }
+        
+        // 设置标志位，表示这次点击是AUTO触发的
+        this.autoClickTriggered = true;
+        
+        // 模拟点击屏幕推进剧情
+        const clickEvent = new MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            view: window
+        });
+        
+        // 找到合适的元素触发点击
+        const textWindow = document.getElementById('text-window');
+        if (textWindow) {
+            textWindow.dispatchEvent(clickEvent);
+        } else {
+            document.body.dispatchEvent(clickEvent);
+        }
+        
+        console.log('[AUTO] Auto click executed');
+    },
+    
+    /**
+     * 打字机完成回调（供engine调用）
+     */
+    onTypingComplete: function() {
+        // 如果AUTO模式未开启，直接返回
+        if (!this.autoModeEnabled) {
+            return;
+        }
+        
+        this.checkAutoConditions();
+    },
+    
+    /**
+     * 检查AUTO触发条件
+     */
+    checkAutoConditions: function() {
+        // 检查是否需要等待音频
+        const voicePlayer = document.getElementById('voice-player');
+        const hasAudio = voicePlayer && voicePlayer.src && !voicePlayer.paused && !voicePlayer.ended;
+        
+        if (hasAudio && voicePlayer.duration > 0) {
+            // 有人物音频，等待音频播放完成
+            const checkAudioComplete = () => {
+                if (voicePlayer.ended || voicePlayer.paused) {
+                    voicePlayer.removeEventListener('timeupdate', checkAudioComplete);
+                    voicePlayer.removeEventListener('ended', checkAudioComplete);
+                    this.startAutoCountdown(true);
+                } else if (voicePlayer.currentTime >= voicePlayer.duration - 0.1) {
+                    // 音频接近结束
+                    voicePlayer.removeEventListener('timeupdate', checkAudioComplete);
+                    voicePlayer.removeEventListener('ended', checkAudioComplete);
+                    this.startAutoCountdown(true);
+                }
+            };
+            
+            voicePlayer.addEventListener('timeupdate', checkAudioComplete);
+            voicePlayer.addEventListener('ended', checkAudioComplete);
+        } else {
+            // 没有音频，直接开始倒计时
+            this.startAutoCountdown(false);
+        }
+    },
+    
+    /**
+     * 更新 AUTO 设置（从 C# 接收）
+     * @param {Object} settings - 包含 delay 和 showCountdown 的对象
+     */
+    updateAutoSettings: function(settings) {
+        // 记录当前值用于对比
+        const oldDelay = this.autoDelaySeconds;
+        const oldShowCountdown = this.autoShowCountdown;
+        
+        if (settings.delay !== undefined) {
+            const delay = parseFloat(settings.delay);
+            if (!isNaN(delay) && delay >= 0.5 && delay <= 10) {
+                this.autoDelaySeconds = delay;
+                console.log('[AUTO] Delay updated from C#:', delay + 's');
+            }
+        }
+        
+        if (settings.showCountdown !== undefined) {
+            this.autoShowCountdown = settings.showCountdown;
+            console.log('[AUTO] Show countdown updated from C#:', this.autoShowCountdown);
+        }
+        
+        // 只有当值真的改变了才保存
+        if (oldDelay !== this.autoDelaySeconds || oldShowCountdown !== this.autoShowCountdown) {
+            console.log('[AUTO] Settings changed, saving...');
+            this.saveAutoSettings();
+        } else {
+            console.log('[AUTO] Settings unchanged, not saving');
+        }
+    },
+    
+    /**
+     * 获取 AUTO 设置（供 C# 调用）
+     * @returns {Object}
+     */
+    getAutoSettings: function() {
+        const settings = {
+            delay: this.autoDelaySeconds,
+            showCountdown: this.autoShowCountdown
+        };
+        console.log('[AUTO] getAutoSettings called, returning:', settings);
+        return settings;
     }
 };
 
