@@ -1,9 +1,23 @@
+/**
+ * 版权所有：bilibili月が綺麗ですね_
+ * SPDX-License-Identifier: LicenseRef-Shiori-Engine
+ * 作者：bilibili月が綺麗ですね_
+ * Shiori Engine - Open Source Visual Novel Engine
+ * 
+ * 本引擎采用宽松开源协议，允许用户根据项目需求自由修改、定制和发布衍生作品。
+ * 使用时请保留上述版权声明，具体授权条款详见 license.txt 文件。
+ * 
+ * Shiori 启动器 — 主窗口交互逻辑
+ * 处理游戏启动、窗口管理、菜单系统及 WebView2 集成等核心功能
+ */
+
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using Microsoft.Web.WebView2.Core;
 
 namespace ShioriCSharp
@@ -156,6 +170,19 @@ namespace ShioriCSharp
 
             MainMenu.Items.Add(viewMenu);
 
+            // 设置菜单
+            var settingsMenu = new MenuItem { Header = "设置(_S)" };
+
+            var systemSettingsAction = new MenuItem { Header = "系统设置" };
+            systemSettingsAction.Click += (s, e) =>
+            {
+                // 调用 JavaScript 打开系统设置
+                _ = webView.CoreWebView2.ExecuteScriptAsync("systemModule.showSystemSettings()");
+            };
+            settingsMenu.Items.Add(systemSettingsAction);
+
+            MainMenu.Items.Add(settingsMenu);
+
             // 帮助菜单
             var helpMenu = new MenuItem { Header = "帮助(_H)" };
 
@@ -172,6 +199,10 @@ namespace ShioriCSharp
             helpMenu.Items.Add(wakudemoAction);
 
             helpMenu.Items.Add(new Separator());
+
+            var managerAction = new MenuItem { Header = "Shiori Game Manager 下载" };
+            managerAction.Click += (s, e) => Process.Start(new ProcessStartInfo("https://github.com/1145141919810TONNY/Shiori-manager/releases/latest") { UseShellExecute = true });
+            helpMenu.Items.Add(managerAction);
 
             var archiveHelpAction = new MenuItem { Header = "存档相关问题" };
             archiveHelpAction.Click += ShowArchiveHelp;
@@ -445,7 +476,7 @@ namespace ShioriCSharp
         private void ShowAbout(object sender, RoutedEventArgs e)
         {
             MessageBox.Show(
-                $"Shiori Engine Launcher\nVersion: 1.2.4\n\nShiori Engine Copyright (c) 2026 bilibili 月が綺麗ですね_",
+                $"Shiori Engine Launcher\nVersion: 1.2.5\n\nShiori Engine Copyright (c) 2026 bilibili 月が綺麗ですね_",
                 "关于",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information
@@ -711,6 +742,14 @@ namespace ShioriCSharp
                                     }
                                 });
                                 break;
+                            case "showSystemSettings":
+                                // 显示系统设置窗口
+                                var volumeData = root.GetProperty("data").ToString();
+                                Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    ShowSystemSettingsWindow(volumeData);
+                                });
+                                break;
                             case "quit":
                                 // 退出游戏（先确认）
                                 Application.Current.Dispatcher.Invoke(() =>
@@ -953,6 +992,433 @@ namespace ShioriCSharp
             }), System.Windows.Threading.DispatcherPriority.Render);
         }
 
+        // ========================================
+        // 系统设置窗口相关
+        // ========================================
+        
+        private Window? _systemSettingsWindow;
+        private Slider? _mainVolumeSlider;
+        private Slider? _bgmVolumeSlider;
+        private Slider? _seVolumeSlider;
+        private Slider? _voiceVolumeSlider;
+        private TextBlock? _mainVolumeValue;
+        private TextBlock? _bgmVolumeValue;
+        private TextBlock? _seVolumeValue;
+        private TextBlock? _voiceVolumeValue;
+        
+        // AUTO设置相关控件
+        private Slider? _autoDelaySlider;
+        private TextBlock? _autoDelayValue;
+        private CheckBox? _autoCountdownCheckbox;
+        private int _autoLoadCounter = 0;  // 计数器，用于处理多次打开设置窗口的情况
+        private int _autoLoadVersion = 0;   // 版本号，用于验证回调是否过期
+        
+        /// <summary>
+        /// 显示系统设置窗口
+        /// </summary>
+        private void ShowSystemSettingsWindow(string volumeData)
+        {
+            // 如果窗口已打开，激活它
+            if (_systemSettingsWindow != null && _systemSettingsWindow.IsLoaded)
+            {
+                _systemSettingsWindow.Activate();
+                return;
+            }
+            
+            _systemSettingsWindow = new Window
+            {
+                Title = "系统设置",
+                Width = 450,
+                Height = 520,
+                MinWidth = 350,
+                MinHeight = 450,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = this,
+                ResizeMode = ResizeMode.CanResize,
+                WindowStyle = WindowStyle.SingleBorderWindow
+            };
+            
+            _systemSettingsWindow.Closed += SystemSettingsWindow_Closed;
+            
+            // 创建主布局面板（使用Border实现内边距）
+            var border = new Border { Padding = new Thickness(20) };
+            var mainPanel = new StackPanel();
+            
+            // 标题
+            var titleBlock = new TextBlock
+            {
+                Text = "SYSTEM SETTINGS",
+                FontFamily = new FontFamily("Microsoft YaHei UI"),
+                FontSize = 20,
+                FontWeight = FontWeights.Bold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 20),
+                Foreground = Brushes.DarkSlateGray
+            };
+            mainPanel.Children.Add(titleBlock);
+            
+            // 音量设置区域
+            var volumeGroup = new GroupBox
+            {
+                Header = "音量设置",
+                Margin = new Thickness(0, 0, 0, 15),
+                Padding = new Thickness(15)
+            };
+            
+            var volumePanel = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            
+            // 主音量控制
+            volumePanel.Children.Add(CreateVolumeControl("主音量", out _mainVolumeSlider, out _mainVolumeValue, VolumeType.Main));
+            
+            // BGM音量控制
+            volumePanel.Children.Add(CreateVolumeControl("BGM音量", out _bgmVolumeSlider, out _bgmVolumeValue, VolumeType.Bgm));
+            
+            // SE音量控制
+            volumePanel.Children.Add(CreateVolumeControl("SE音量", out _seVolumeSlider, out _seVolumeValue, VolumeType.Se));
+            
+            // Voice音量控制
+            volumePanel.Children.Add(CreateVolumeControl("Voice音量", out _voiceVolumeSlider, out _voiceVolumeValue, VolumeType.Voice));
+            
+            volumeGroup.Content = volumePanel;
+            mainPanel.Children.Add(volumeGroup);
+            
+            // AUTO设置区域
+            var autoGroup = new GroupBox
+            {
+                Header = "AUTO设置",
+                Margin = new Thickness(0, 0, 0, 15),
+                Padding = new Thickness(15)
+            };
+            
+            var autoPanel = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            
+            // AUTO延迟时间控制（0.5-10秒）
+            var delayPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 10) };
+            
+            var delayLabel = new TextBlock
+            {
+                Text = "自动推进延迟:",
+                FontFamily = new FontFamily("Microsoft YaHei UI"),
+                FontSize = 14,
+                Width = 100,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            delayPanel.Children.Add(delayLabel);
+            
+            _autoDelaySlider = new Slider
+            {
+                Minimum = 0.5,
+                Maximum = 10,
+                Value = 3,
+                Width = 200,
+                Margin = new Thickness(10, 0, 10, 0),
+                TickFrequency = 0.5,
+                IsSnapToTickEnabled = true
+            };
+            _autoDelaySlider.ValueChanged += AutoDelaySlider_ValueChanged;
+            delayPanel.Children.Add(_autoDelaySlider);
+            
+            _autoDelayValue = new TextBlock
+            {
+                Text = "3.0s",
+                FontFamily = new FontFamily("Microsoft YaHei UI"),
+                FontSize = 14,
+                Width = 50,
+                TextAlignment = TextAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            delayPanel.Children.Add(_autoDelayValue);
+            
+            autoPanel.Children.Add(delayPanel);
+            
+            // 显示倒计时选项
+            var countdownPanel = new StackPanel { Orientation = Orientation.Horizontal };
+            
+            var countdownLabel = new TextBlock
+            {
+                Text = "显示倒计时:",
+                FontFamily = new FontFamily("Microsoft YaHei UI"),
+                FontSize = 14,
+                Width = 100,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            countdownPanel.Children.Add(countdownLabel);
+            
+            _autoCountdownCheckbox = new CheckBox
+            {
+                IsChecked = true,
+                Margin = new Thickness(10, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            _autoCountdownCheckbox.Checked += AutoCountdownCheckbox_Checked;
+            _autoCountdownCheckbox.Unchecked += AutoCountdownCheckbox_Unchecked;
+            countdownPanel.Children.Add(_autoCountdownCheckbox);
+            
+            autoPanel.Children.Add(countdownPanel);
+            
+            autoGroup.Content = autoPanel;
+            mainPanel.Children.Add(autoGroup);
+            
+            // 设置窗口可通过标题栏关闭（点击X按钮）
+            
+            // 添加到窗口
+            _systemSettingsWindow.Content = mainPanel;
+            
+            // 加载初始音量值
+            LoadInitialVolumes(volumeData);
+            
+            // 加载初始AUTO设置（异步加载）
+            _ = LoadInitialAutoSettingsAsync();
+            
+            // 显示窗口（使用 Show() 而不是 ShowDialog()，避免阻塞主线程）
+            _systemSettingsWindow.Show();
+        }
+        
+        /// <summary>
+        /// 创建音量控制组件
+        /// </summary>
+        private UIElement CreateVolumeControl(string label, out Slider slider, out TextBlock valueBlock, VolumeType type)
+        {
+            var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 12) };
+            
+            // 标签行
+            var labelPanel = new StackPanel { Orientation = Orientation.Horizontal };
+            
+            var labelBlock = new TextBlock
+            {
+                Text = label,
+                FontFamily = new FontFamily("Microsoft YaHei UI"),
+                FontSize = 13,
+                Width = 80,
+                Foreground = Brushes.Black
+            };
+            
+            valueBlock = new TextBlock
+            {
+                Text = "100%",
+                FontFamily = new FontFamily("Microsoft YaHei UI"),
+                FontSize = 13,
+                Width = 50,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Foreground = Brushes.Black
+            };
+            
+            labelPanel.Children.Add(labelBlock);
+            labelPanel.Children.Add(valueBlock);
+            
+            // 滑块容器
+            var sliderPanel = new StackPanel { Orientation = Orientation.Horizontal };
+            
+            // 滑块
+            slider = new Slider
+            {
+                Minimum = 0,
+                Maximum = 100,
+                Value = 100,
+                Width = 300,
+                Height = 25,
+                Margin = new Thickness(0, 5, 0, 0)
+            };
+            
+            // 使用局部变量来捕获，避免在lambda中使用out参数
+            var localSlider = slider;
+            var localValueBlock = valueBlock;
+            
+            localSlider.ValueChanged += (s, e) =>
+            {
+                int value = (int)Math.Round(localSlider.Value);
+                localValueBlock.Text = $"{value}%";
+                UpdateVolume(type, value);
+            };
+            
+            sliderPanel.Children.Add(slider);
+            
+            panel.Children.Add(labelPanel);
+            panel.Children.Add(sliderPanel);
+            
+            return panel;
+        }
+        
+        /// <summary>
+        /// 加载初始音量值
+        /// </summary>
+        private void LoadInitialVolumes(string volumeData)
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(volumeData);
+                var root = doc.RootElement;
+                
+                if (root.TryGetProperty("main", out var mainProp))
+                {
+                    _mainVolumeSlider.Value = mainProp.GetInt32();
+                    _mainVolumeValue.Text = $"{mainProp.GetInt32()}%";
+                }
+                if (root.TryGetProperty("bgm", out var bgmProp))
+                {
+                    _bgmVolumeSlider.Value = bgmProp.GetInt32();
+                    _bgmVolumeValue.Text = $"{bgmProp.GetInt32()}%";
+                }
+                if (root.TryGetProperty("se", out var seProp))
+                {
+                    _seVolumeSlider.Value = seProp.GetInt32();
+                    _seVolumeValue.Text = $"{seProp.GetInt32()}%";
+                }
+                if (root.TryGetProperty("voice", out var voiceProp))
+                {
+                    _voiceVolumeSlider.Value = voiceProp.GetInt32();
+                    _voiceVolumeValue.Text = $"{voiceProp.GetInt32()}%";
+                }
+            }
+            catch (Exception ex)
+            {
+                if (_isDebug) Console.WriteLine($"[ERROR] LoadInitialVolumes: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// 加载初始AUTO设置（异步版本）
+        /// </summary>
+        private async Task LoadInitialAutoSettingsAsync()
+        {
+            try
+            {
+                // 先移除事件监听器，防止在设置值时触发
+                _autoDelaySlider.ValueChanged -= AutoDelaySlider_ValueChanged;
+                _autoCountdownCheckbox.Checked -= AutoCountdownCheckbox_Checked;
+                _autoCountdownCheckbox.Unchecked -= AutoCountdownCheckbox_Unchecked;
+                
+                // 从JavaScript获取当前AUTO设置
+                var script = "systemModule.getAutoSettings()";
+                var result = await webView.CoreWebView2.ExecuteScriptAsync(script);
+                
+                if (!string.IsNullOrEmpty(result))
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(result);
+                    var root = doc.RootElement;
+                    
+                    if (root.TryGetProperty("delay", out var delayProp))
+                    {
+                        _autoDelaySlider.Value = delayProp.GetDouble();
+                        _autoDelayValue.Text = $"{delayProp.GetDouble():F1}s";
+                    }
+                    if (root.TryGetProperty("showCountdown", out var countdownProp))
+                    {
+                        _autoCountdownCheckbox.IsChecked = countdownProp.GetBoolean();
+                    }
+                    
+                    Console.WriteLine("[AUTO-DBG] Settings loaded successfully via async");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AUTO-DBG] LoadInitialAutoSettingsAsync exception: {ex.Message}");
+            }
+            finally
+            {
+                // 恢复事件监听器
+                _autoDelaySlider.ValueChanged += AutoDelaySlider_ValueChanged;
+                _autoCountdownCheckbox.Checked += AutoCountdownCheckbox_Checked;
+                _autoCountdownCheckbox.Unchecked += AutoCountdownCheckbox_Unchecked;
+            }
+        }
+        
+        /// <summary>
+        /// 加载初始AUTO设置（保留旧方法以兼容）
+        /// </summary>
+        private void LoadInitialAutoSettings()
+        {
+            // 异步调用新方法
+            _ = LoadInitialAutoSettingsAsync();
+        }
+        
+        /// <summary>
+        /// AUTO延迟滑块值改变事件
+        /// </summary>
+        private void AutoDelaySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            Console.WriteLine($"[AUTO-DBG] AutoDelaySlider_ValueChanged called, newValue: {e.NewValue}");
+            
+            if (_autoDelayValue != null)
+            {
+                _autoDelayValue.Text = $"{e.NewValue:F1}s";
+            }
+            
+            // 通知JavaScript更新设置
+            _ = webView.CoreWebView2.ExecuteScriptAsync(
+                $"systemModule.updateAutoSettings({{ delay: {e.NewValue}, showCountdown: {(_autoCountdownCheckbox?.IsChecked ?? false).ToString().ToLower()} }})"
+            );
+        }
+        
+        /// <summary>
+        /// AUTO倒计时复选框勾选事件
+        /// </summary>
+        private void AutoCountdownCheckbox_Checked(object sender, RoutedEventArgs e)
+        {
+            // 通知JavaScript更新设置
+            _ = webView.CoreWebView2.ExecuteScriptAsync(
+                $"systemModule.updateAutoSettings({{ delay: {_autoDelaySlider?.Value ?? 3}, showCountdown: true }})"
+            );
+        }
+        
+        /// <summary>
+        /// AUTO倒计时复选框取消勾选事件
+        /// </summary>
+        private void AutoCountdownCheckbox_Unchecked(object sender, RoutedEventArgs e)
+        {
+            // 通知JavaScript更新设置
+            _ = webView.CoreWebView2.ExecuteScriptAsync(
+                $"systemModule.updateAutoSettings({{ delay: {_autoDelaySlider?.Value ?? 3}, showCountdown: false }})"
+            );
+        }
+        
+        /// <summary>
+        /// 更新音量设置
+        /// </summary>
+        private void UpdateVolume(VolumeType type, int value)
+        {
+            string channel = type switch
+            {
+                VolumeType.Main => "main",
+                VolumeType.Bgm => "bgm",
+                VolumeType.Se => "se",
+                VolumeType.Voice => "voice",
+                _ => "main"
+            };
+            
+            _ = webView.CoreWebView2.ExecuteScriptAsync(
+                $"systemModule.setVolumeChannel('{channel}', {value})"
+            );
+        }
+        
+        /// <summary>
+        /// 系统设置窗口关闭事件
+        /// </summary>
+        private void SystemSettingsWindow_Closed(object? sender, EventArgs e)
+        {
+            // 增加版本号，忽略之前的异步回调
+            _autoLoadVersion++;
+            
+            // 停止所有测试音频
+            _ = webView.CoreWebView2.ExecuteScriptAsync("systemModule.stopAllTestAudio()");
+            
+            // 通知 JavaScript 窗口已关闭，恢复音频播放
+            _ = webView.CoreWebView2.ExecuteScriptAsync("systemModule.onSystemSettingsClosed()");
+            
+            _systemSettingsWindow = null;
+        }
+        
+        /// <summary>
+        /// 音量类型枚举
+        /// </summary>
+        private enum VolumeType
+        {
+            Main,
+            Bgm,
+            Se,
+            Voice
+        }
+        
         protected override void OnClosed(EventArgs e)
         {
             _server?.Stop();
