@@ -486,7 +486,7 @@ namespace ShioriCSharp
         private void ShowAbout(object sender, RoutedEventArgs e)
         {
             MessageBox.Show(
-                $"Shiori Engine Launcher\nVersion: 1.2.5\n\nShiori Engine Copyright (c) 2026 bilibili 月が綺麗ですね_",
+                $"Shiori Engine Launcher\nVersion: 1.2.6\n\nShiori Engine Copyright (c) 2026 bilibili 月が綺麗ですね_",
                 "关于",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information
