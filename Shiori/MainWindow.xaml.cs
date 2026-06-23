@@ -14,6 +14,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Net;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -87,7 +88,16 @@ namespace ShioriCSharp
 
             // 启动本地服务器
             _server = new HttpServer(engineDir, 8080, _isDebug);
-            _server.Start();
+            try
+            {
+                _server.Start();
+            }
+            catch (HttpListenerException)
+            {
+                MessageBox.Show("端口 8080 已被占用，请关闭占用该端口的程序后重试。", "启动失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                Close();
+                return;
+            }
 
             // 初始化视频桥接
             _videoBridge = new VideoBridge(engineDir, _isDebug);
