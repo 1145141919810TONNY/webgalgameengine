@@ -22,7 +22,7 @@
     <RootNamespace>ShioriCSharp</RootNamespace>
     <AssemblyName Condition=" '$(Configuration)' == 'Debug' ">Shiori_debug</AssemblyName>
     <AssemblyName Condition=" '$(Configuration)' == 'Release' ">Shiori</AssemblyName>
-    <Version>1.2.5.0</Version>
+    <Version>1.2.6.0</Version>
     <Company>bilibili @月が綺麗ですね_</Company>
     <Authors>bilibili @月が綺麗ですね_</Authors>
     <Product>Shiori Engine Launcher</Product>
