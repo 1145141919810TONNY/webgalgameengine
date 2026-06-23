@@ -8,8 +8,8 @@
 
 更新时间：2026/5/4 V1.2.6
 
-- 立绘类命令请参考[illustration.md](assets/chars/illustration.md) 
-- 背景类命令请参考[background.md](assets/bg/background.md)
+- 立绘类命令请参考[illustration.md](illustration.md) 
+- 背景类命令请参考[background.md](background.md)
 - 本引擎的教学网页：[https://1145141919810tonny.github.io/Shioriteaching/](https://1145141919810tonny.github.io/Shioriteaching/)
 
 ## 1. 开发者工具
