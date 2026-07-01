@@ -1078,30 +1078,42 @@ const systemModule = {
         scenesBtn.textContent = 'SCENES';
         scenesBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            // 停止所有自动/快进模式并清除状态快照
+            // 停止所有自动/快进模式
             this.stopAllAutoSkipModes();
+            // 重新保存游戏状态快照（stopAllAutoSkipModes会清除它，需要补保存）
+            if (typeof gameEngine !== 'undefined' && gameEngine.saveStateSnapshot) {
+                gameEngine.saveStateSnapshot();
+            }
             window.location.href = '../html/saves.html';
         });
-        
+
         // MAP按钮
         const mapBtn = document.createElement('button');
         mapBtn.className = 'galgame-ui-btn';
         mapBtn.textContent = 'MAP';
         mapBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            // 停止所有自动/快进模式并清除状态快照
+            // 停止所有自动/快进模式
             this.stopAllAutoSkipModes();
+            // 重新保存游戏状态快照（stopAllAutoSkipModes会清除它，需要补保存）
+            if (typeof gameEngine !== 'undefined' && gameEngine.saveStateSnapshot) {
+                gameEngine.saveStateSnapshot();
+            }
             window.location.href = '../html/flowchart.html';
         });
-        
+
         // STORY按钮
         const storyBtn = document.createElement('button');
         storyBtn.className = 'galgame-ui-btn';
         storyBtn.textContent = 'STORY';
         storyBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            // 停止所有自动/快进模式并清除状态快照
+            // 停止所有自动/快进模式
             this.stopAllAutoSkipModes();
+            // 重新保存游戏状态快照（stopAllAutoSkipModes会清除它，需要补保存）
+            if (typeof gameEngine !== 'undefined' && gameEngine.saveStateSnapshot) {
+                gameEngine.saveStateSnapshot();
+            }
             window.location.href = '../html/story.html';
         });
         
@@ -2095,7 +2107,7 @@ const systemModule = {
      * 确保SKIP和AUTO状态不会在新页面/窗口中继续运行
      */
     stopAllAutoSkipModes: function() {
-        // 停止SKIP快进模式（使用system层方法，确保sessionStorage也被清理）
+        // 停止SKIP快进模式
         if (this.isFastForwardActive()) {
             this.stopFastForward();
             console.log('[State] Stopped SKIP mode before navigation');
@@ -2107,9 +2119,6 @@ const systemModule = {
             console.log('[State] Stopped AUTO mode before navigation');
         }
         
-        // 清除状态快照，防止新页面从sessionStorage恢复旧的SKIP/AUTO状态
-        sessionStorage.removeItem('gameStateSnapshot');
-        console.log('[State] Cleared game state snapshot for navigation');
     },
     
     /**
