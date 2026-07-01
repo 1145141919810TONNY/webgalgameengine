@@ -16,7 +16,7 @@
  * 格式：V主版本.次版本.修订号  （与 GameScanner 中的正则 ENGINE_VERSION\s*=\s*["'] 匹配）
  * 请勿删除或重命名此变量，否则管理器将无法正确识别引擎版本。
  */
-const ENGINE_VERSION = "V2.1.3";
+const ENGINE_VERSION = "V2.1.4";
 
 const gameEngine = {
     state: {
@@ -810,6 +810,9 @@ const gameEngine = {
                     if (typeof systemModule !== 'undefined' && systemModule.stopAllAutoSkipModes) {
                         systemModule.stopAllAutoSkipModes();
                     }
+                    // 自动保存游戏状态快照，确保所有存档相关页面（archive/flowchart/saves/story）
+                    // 都能检测到"返回当前游玩"按钮
+                    this.saveStateSnapshot();
                 }
             }, true); // true = 捕获阶段，在 inline onclick 之前执行
         }
@@ -8139,6 +8142,8 @@ const QuickSaveManager = {
         if (typeof systemModule !== 'undefined' && systemModule.stopAllAutoSkipModes) {
             systemModule.stopAllAutoSkipModes();
         }
+        // 保存当前游戏状态快照，确保存档页面能检测到"返回当前游玩"按钮
+        this.saveStateSnapshot();
         window.location.href = '../html/archive.html';
     },
     
