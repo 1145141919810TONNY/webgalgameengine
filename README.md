@@ -8,7 +8,7 @@
 
 如果要使用本模板，请根据license.txt中的指引进行修改本项目
 
-本引擎的教学网页：[https://1145141919810tonny.github.io/Shioriteaching/](https://1145141919810tonny.github.io/Shioriteaching/)，从2026年7月2日中，将移除README.MD文件中的可能过时的教程，详情请到教学网页中查看最新的内容
+本引擎的教学网页：[https://1145141919810tonny.github.io/Shioriteaching/](https://1145141919810tonny.github.io/Shioriteaching/)，从2026年7月2日后，将移除README.MD文件中的可能过时的教程，详情请到教学网页中查看最新的内容
 
 本引擎的一键式管理器：[https://github.com/1145141919810TONNY/Shiori-manager](https://github.com/1145141919810TONNY/Shiori-manager)
 
