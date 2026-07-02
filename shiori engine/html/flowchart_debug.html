@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>剧本流程图导航</title>
-    
+    <link rel="icon" type="image/png" href="../icon/icon-32.png">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
@@ -344,7 +344,7 @@
         //         点号分隔表示层级关系，用于自动计算垂直位置
         //   - fileName: 对应的HTML场景文件名（不含扩展名），如 "scene1" 对应 scene1.html
         //               必须与 scenes/ 目录下的实际文件名一致
-        //   - displayName: 节点显示文本，支持中文、英文、特殊符号
+        //   - displayName: 节点显示文本，支持中文、英文、特殊符号，可选项，根据对应的html中的，<title>属性自动匹配
         //   - links: 子节点ID数组，定义从当前节点可以跳转到的场景
         //            空数组 [] 表示终点节点（如结局）
         // 
@@ -402,7 +402,7 @@
          * */
         const scenes = [
             // === 主线剧情 ===
-            { id:"start",   fileName:"scene_start",     displayName:"故事开始",           links:["chapter1"] },
+            { id:"start",   fileName:"scene1",     displayName:"故事开始",           links:["chapter1"] },
             { id:"chapter1",   fileName:"scene_ch1",      displayName:"第一章",           links:["branch_point"] },
             { id:"branch_point",   fileName:"scene_branch",   displayName:"关键抉择",     links:["route_a","route_b","route_c","route_d"] ,x:-0.8},
             
@@ -452,6 +452,54 @@
         // 构建查找表
         const sceneMap = {};
         scenes.forEach(s => sceneMap[s.id] = s);
+        
+        // 场景标题缓存（避免重复请求）
+        const sceneTitleCache = {};
+        
+        /**
+         * 异步获取场景文件的<title>标签
+         * @param {string} fileName - 场景文件名（不含扩展名）
+         * @param {string} nodeId - 节点ID，用于更新显示
+         */
+        function fetchSceneTitle(fileName, nodeId) {
+            if (sceneTitleCache[fileName]) {
+                return sceneTitleCache[fileName];  // 返回缓存
+            }
+            
+            fetch(`../scenes/${encodeURIComponent(fileName)}.html`)
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.text();
+                })
+                .then(html => {
+                    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+                    const title = titleMatch ? titleMatch[1].trim() : fileName;
+                    
+                    // 更新缓存
+                    sceneTitleCache[fileName] = title;
+                    
+                    // 更新节点显示（如果有的话）
+                    const nodeEl = document.getElementById('node-' + nodeId.replace(/\./g, '_'));
+                    if (nodeEl && !nodeEl.classList.contains('locked')) {
+                        const span = nodeEl.querySelector('span');
+                        if (span && span.textContent === '加载中...') {
+                            span.textContent = title;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.warn(`[Flowchart] Failed to fetch title for ${fileName}:`, error);
+                });
+        }
+        
+        // 预加载所有场景标题（仅针对没有displayName的场景）
+        scenes.forEach(s => {
+            if (!s.displayName) {
+                // 如果没有 displayName，先显示"加载中..."，然后异步获取
+                s.displayName = '加载中...';
+                fetchSceneTitle(s.fileName, s.id);
+            }
+        });
         
         // 构建反向查找（子节点 -> 父节点列表）
         const parentOf = {};
