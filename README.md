@@ -67,7 +67,7 @@
 
 ### 优化
 - 移除了剧本文件名必须为`scene`开头的限制
-- 移除了`saves.html`中的硬编码，现在改变为可选项，现在引擎将会识别剧本文件的`<title>`属性来命名
+- 移除了`saves.html`、`archive.html`中的硬编码，现在改变为可选项，现在引擎将会识别剧本文件的`<title>`属性来命名
 - `flowchart.html`和`flowchart_debug.html`中的`displayName`元素也变为可选项，默认会识别剧本文件的`<title>`属性来命名
 
 # 版本更新内容（2026/7/1）
