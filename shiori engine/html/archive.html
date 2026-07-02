@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>游戏存档管理</title>
+    <link rel="icon" type="image/png" href="../icon/icon-32.png">
     <style>
         * {
             margin: 0;
@@ -525,7 +526,7 @@
             }
         }
     </style>
-<script src="illustration.js"></script>
+<script src="../illustration.js"></script>
 </head>
 <body>
     <div class="actions">
@@ -566,10 +567,13 @@
             // localStorage 键名
             STORAGE_KEY: 'galgame_archives',
             
-            // 场景名称映射
+            // 场景标题缓存（避免重复请求）
+            sceneTitleCache: {},
+            
+            // 场景名称映射（可选的覆盖配置）
             sceneNames: {
-                'scene1': '初次相遇',
-               //根据需求增减，也可以不写。这里只做默认的映射名称
+                // 'scene1': '自定义名称',
+                // 可以在这里手动配置特定场景的显示名称，会覆盖<title>标签
             },
             
             /**
@@ -653,6 +657,57 @@
             },
             
             /**
+             * 覆盖指定索引的存档（使用当前游戏进度）
+             * @param {number} index - 存档在数组中的索引
+             */
+            overwriteArchive: function(index) {
+                // 获取当前游戏状态快照
+                const snapshotStr = sessionStorage.getItem('gameStateSnapshot');
+                if (!snapshotStr) {
+                    this.showMessage('无法获取当前游戏状态', 'error');
+                    return;
+                }
+                
+                let snapshot;
+                try {
+                    snapshot = JSON.parse(snapshotStr);
+                } catch (e) {
+                    this.showMessage('游戏状态数据无效', 'error');
+                    return;
+                }
+                
+                const archives = this.loadArchives();
+                const archive = archives[index];
+                
+                if (!archive) {
+                    this.showMessage('存档不存在', 'error');
+                    return;
+                }
+                
+                // 二次确认
+                if (!confirm(`确定要覆盖存档 "${archive.saveName || '存档'}" 吗？`)) {
+                    return;
+                }
+                
+                if (!confirm('此操作将覆盖原有存档，确定继续？')) {
+                    return;
+                }
+                
+                // 更新存档数据
+                const parts = snapshot.pagePath.split('/');
+                archive.sceneFile = parts[parts.length - 1] || 'unknown.html';
+                archive.lineIndex = snapshot.currentLine || 0;
+                archive.snapshot = snapshot;
+                archive.previewText = snapshot.previewText || '当前进度存档';
+                archive.timestamp = Date.now();
+                archive.formattedTime = this.formatTimestamp(archive.timestamp);
+                
+                this.saveArchives(archives);
+                this.showMessage('存档已覆盖', 'success');
+                this.renderArchiveList();
+            },
+            
+            /**
              * 更新存档名称
              * @param {number} index - 存档索引
              * @param {string} newName - 新名称
@@ -679,7 +734,7 @@
                     return;
                 }
                 
-                // 保存加载目标到 sessionStorage
+                // 保存加载目标到 sessionStorage（用于恢复完整状态）
                 sessionStorage.setItem('archiveLoadTarget', JSON.stringify({
                     index: index,
                     sceneFile: archive.sceneFile,
@@ -687,8 +742,8 @@
                     snapshot: archive.snapshot
                 }));
                 
-                // 跳转到对应的剧本页面
-                const scenePath = '../scenes/' + archive.sceneFile;
+                // 跳转到对应的剧本页面，将 lineIndex 作为 URL 参数传递
+                const scenePath = '../scenes/' + archive.sceneFile + '?startLine=' + archive.lineIndex;
                 window.location.href = scenePath;
             },
             
@@ -708,15 +763,86 @@
                     countEl.textContent = '共有 ' + archives.length + ' 个存档';
                 }
                 
+                // 检查是否从剧本页面进入（有游戏状态快照）
+                let isFromScene = false;
+                try {
+                    const snapshotStr = sessionStorage.getItem('gameStateSnapshot');
+                    if (snapshotStr) {
+                        const snapshot = JSON.parse(snapshotStr);
+                        isFromScene = snapshot.pagePath && snapshot.pagePath.includes('/scenes/');
+                    }
+                } catch (e) {}
+                
+                // 如果从剧本页面进入，在列表最前面添加"新建存档"按钮
+                if (isFromScene) {
+                    const newSaveCard = document.createElement('div');
+                    newSaveCard.className = 'archive-card';
+                    newSaveCard.innerHTML = `
+                        <div class="save-index">#NEW</div>
+                        <div class="save-name">保存当前存档</div>
+                        <div class="save-info" style="margin-bottom: 10px;">点击保存当前进度到新存档</div>
+                        <div class="save-actions">
+                            <button class="btn-load" onclick="ArchiveManager.createNewArchive()">保存</button>
+                            <button class="btn-delete disabled" disabled>删除</button>
+                        </div>
+                    `;
+                    grid.appendChild(newSaveCard);
+                }
+                
                 if (archives.length === 0) {
-                    // 显示空状态
-                    this.renderEmptyState(grid);
+                    // 如果没有存档且不是从剧本页面进入，显示空状态
+                    if (!isFromScene) {
+                        this.renderEmptyState(grid);
+                    }
                 } else {
                     // 渲染存档卡片
                     archives.forEach((archive, index) => {
-                        const card = this.createArchiveCard(index, archive, archives.length);
+                        const card = this.createArchiveCard(index, archive, archives.length + (isFromScene ? 1 : 0));
                         grid.appendChild(card);
                     });
+                }
+            },
+            
+            /**
+             * 创建新存档（保存当前进度）
+             */
+            createNewArchive: function() {
+                try {
+                    const snapshotStr = sessionStorage.getItem('gameStateSnapshot');
+                    if (!snapshotStr) {
+                        this.showMessage('没有可保存的游戏状态', 'error');
+                        return;
+                    }
+                    
+                    const snapshot = JSON.parse(snapshotStr);
+                    
+                    // 创建存档数据
+                    const saveData = {
+                        id: Date.now().toString(),
+                        timestamp: Date.now(),
+                        formattedTime: this.formatTimestamp(Date.now()),
+                        sceneFile: snapshot.pagePath.split('/').pop(),
+                        lineIndex: snapshot.currentLine,
+                        previewText: snapshot.previewText || '当前进度存档',
+                        snapshot: snapshot,
+                        saveName: this.getDefaultSaveName(0)
+                    };
+                    
+                    // 加载现有存档
+                    const archives = this.loadArchives();
+                    
+                    // 添加到数组开头（最新的在前）
+                    archives.unshift(saveData);
+                    
+                    // 保存到localStorage
+                    localStorage.setItem('galgame_archives', JSON.stringify(archives));
+                    this.showMessage('已创建新存档', 'success');
+                    
+                    // 刷新存档列表
+                    this.renderArchiveList();
+                } catch (e) {
+                    console.error('[Archive] Failed to create new archive:', e);
+                    this.showMessage('创建存档失败', 'error');
                 }
             },
             
@@ -746,11 +872,29 @@
             createArchiveCard: function(index, archive, totalCount) {
                 const card = document.createElement('div');
                 card.className = 'archive-card';
+                const sceneId = archive.sceneFile ? archive.sceneFile.replace('.html', '') : '';
+                card.setAttribute('data-scene-id', sceneId);
                 
                 const sceneName = this.getSceneName(archive.sceneFile);
                 const previewText = this.truncateText(archive.previewText || '无文本预览', 50);
                 const saveName = archive.saveName || this.getDefaultSaveName(index);
                 const displayIndex = totalCount - index; // 显示序号（最新的在前）
+                
+                // 检查是否从剧本页面进入（有游戏状态快照且包含场景路径）
+                let isFromScene = false;
+                try {
+                    const snapshotStr = sessionStorage.getItem('gameStateSnapshot');
+                    if (snapshotStr) {
+                        const snapshot = JSON.parse(snapshotStr);
+                        isFromScene = snapshot.pagePath && snapshot.pagePath.includes('/scenes/');
+                    }
+                } catch (e) {}
+                
+                // 覆盖按钮HTML（仅从剧本页面进入时显示）
+                const overwriteBtn = isFromScene ? `
+                    <button class="btn-load" style="background: rgba(255, 165, 0, 0.3); border-color: #FFA500;" 
+                            onclick="ArchiveManager.overwriteArchive(${index})">覆盖</button>
+                ` : '';
                 
                 card.innerHTML = `
                     <div class="save-index">#${displayIndex}</div>
@@ -783,6 +927,7 @@
                     <div class="card-actions">
                         <button class="btn-load" onclick="ArchiveManager.loadArchive(${index})">加载</button>
                         <button class="btn-delete" onclick="ArchiveManager.deleteArchive(${index})">删除</button>
+                        ${overwriteBtn}
                     </div>
                 `;
                 
@@ -849,7 +994,64 @@
              */
             getSceneName: function(sceneFile) {
                 const sceneId = sceneFile.replace('.html', '');
-                return this.sceneNames[sceneId] || sceneFile;
+                // 优先使用用户配置的名称
+                if (this.sceneNames[sceneId]) {
+                    return this.sceneNames[sceneId];
+                }
+                // 其次使用缓存的标题
+                if (this.sceneTitleCache[sceneId]) {
+                    return this.sceneTitleCache[sceneId];
+                }
+                // 触发异步获取（会更新缓存和UI）
+                this.fetchSceneTitle(sceneId);
+                // 返回文件名作为临时显示
+                return sceneId;
+            },
+            
+            /**
+             * 异步获取场景文件的<title>标签
+             * @param {string} sceneId - 场景ID（不含.html）
+             */
+            fetchSceneTitle: function(sceneId) {
+                if (this.sceneTitleCache[sceneId] || this.sceneNames[sceneId]) {
+                    return; // 已有缓存或用户配置
+                }
+                
+                const sceneFile = `${sceneId}.html`;
+                fetch(`../scenes/${encodeURIComponent(sceneFile)}`)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Network response was not ok');
+                        return response.text();
+                    })
+                    .then(html => {
+                        // 解析HTML获取<title>标签
+                        const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+                        const title = titleMatch ? titleMatch[1].trim() : sceneId;
+                        
+                        // 更新缓存
+                        this.sceneTitleCache[sceneId] = title;
+                        
+                        // 更新所有相关卡片的显示
+                        this.updateSceneNameDisplays(sceneId, title);
+                    })
+                    .catch(error => {
+                        console.warn(`[Archive Manager] Failed to fetch title for ${sceneFile}:`, error);
+                    });
+            },
+            
+            /**
+             * 更新所有显示指定场景名称的元素
+             * @param {string} sceneId - 场景ID
+             * @param {string} title - 新的显示名称
+             */
+            updateSceneNameDisplays: function(sceneId, title) {
+                const cards = document.querySelectorAll(`.archive-card[data-scene-id="${sceneId}"]`);
+                cards.forEach(card => {
+                    const nameEl = card.querySelector('.scene-name');
+                    if (nameEl) {
+                        nameEl.textContent = title;
+                    }
+                });
             },
             
             /**
