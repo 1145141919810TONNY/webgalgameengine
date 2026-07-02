@@ -16,7 +16,7 @@
  * 格式：V主版本.次版本.修订号  （与 GameScanner 中的正则 ENGINE_VERSION\s*=\s*["'] 匹配）
  * 请勿删除或重命名此变量，否则管理器将无法正确识别引擎版本。
  */
-const ENGINE_VERSION = "V2.1.4";
+const ENGINE_VERSION = "V2.1.5";
 
 const gameEngine = {
     state: {
@@ -129,12 +129,13 @@ const gameEngine = {
             return;
         }
         
-        // 获取当前页面URL
-        const currentPage = window.location.pathname.split('/').pop();
+        // 获取当前页面URL（解码URL编码的中文字符）
+        const rawPage = window.location.pathname.split('/').pop();
+        const currentPage = decodeURIComponent(rawPage);
         console.log(`[Line Numbers] Annotating story for ${currentPage}`);
         
         // 异步加载当前HTML文件并解析行号
-        fetch(currentPage)
+        fetch(rawPage)
             .then(response => response.text())
             .then(htmlContent => {
                 this.parseStoryLineNumbers(htmlContent);
@@ -252,8 +253,9 @@ const gameEngine = {
             const archiveLoadTargetStr = sessionStorage.getItem('archiveLoadTarget');
             if (archiveLoadTargetStr) {
                 const archiveLoadTarget = JSON.parse(archiveLoadTargetStr);
-                // 检查文件名是否匹配（只比较文件名，避免路径格式差异）
-                const currentFileName = window.location.pathname.split('/').pop();
+                // 检查文件名是否匹配（只比较文件名，避免路径格式差异，解码URL编码的中文字符）
+                const rawCurrentFile = window.location.pathname.split('/').pop();
+                const currentFileName = decodeURIComponent(rawCurrentFile);
                 if (archiveLoadTarget.sceneFile === currentFileName && archiveLoadTarget.snapshot) {
                     snapshot = archiveLoadTarget.snapshot;
                     isArchiveLoad = true;
@@ -270,8 +272,9 @@ const gameEngine = {
             console.log('[State Restore] Using snapshot from gameStateSnapshot:', snapshot);
         }
         
-        // 路径匹配检查（只比较文件名）
-        const currentFileName = window.location.pathname.split('/').pop();
+        // 路径匹配检查（只比较文件名，解码URL编码的中文字符）
+        const rawCurrentFile = window.location.pathname.split('/').pop();
+        const currentFileName = decodeURIComponent(rawCurrentFile);
         const snapshotFileName = snapshot && snapshot.pagePath ? snapshot.pagePath.split('/').pop() : null;
         const pathMatch = snapshotFileName === currentFileName;
         
@@ -5239,8 +5242,9 @@ const gameEngine = {
      * 将当前页面文件名添加到completedScenes并保存
      */
     markSceneCompleted: function() {
-        // 获取当前页面文件名
-        const currentPage = window.location.pathname.split('/').pop();
+        // 获取当前页面文件名（解码URL编码的中文字符）
+        const rawPage = window.location.pathname.split('/').pop();
+        const currentPage = decodeURIComponent(rawPage);
         
         // 如果未记录，则添加并保存
         if (!this.state.completedScenes.includes(currentPage)) {
@@ -5326,7 +5330,9 @@ const gameEngine = {
      */
     saveCurrentSceneMarker: function() {
         // 获取当前页面文件名作为场景ID
-        const currentPage = window.location.pathname.split('/').pop();
+        // 注意：window.location.pathname可能包含URL编码的中文字符，需要解码
+        const rawPage = window.location.pathname.split('/').pop();
+        const currentPage = decodeURIComponent(rawPage);
         const sceneId = currentPage.replace('.html', '');
         
         // 加载现有进度或使用默认数据
@@ -5402,7 +5408,8 @@ const gameEngine = {
         const snapshot = {
             // 基本信息
             pageUrl: window.location.href,
-            pagePath: window.location.pathname,
+            // 解码URL编码的中文路径
+            pagePath: decodeURIComponent(window.location.pathname),
             
             // 剧情进度
             currentLine: this.state.currentLine,
@@ -7140,8 +7147,9 @@ const gameEngine = {
         if (systemModule.debugVisible && systemModule.debugPanel) {
             const debugContent = document.getElementById('debug-content');
             if (debugContent) {
-                // 获取当前场景文件名
-                const currentPage = window.location.pathname.split('/').pop() || 'unknown.html';
+                // 获取当前场景文件名（解码URL编码的中文字符）
+                const rawPage = window.location.pathname.split('/').pop() || 'unknown.html';
+                const currentPage = decodeURIComponent(rawPage);
                 const currentIndex = this.state.currentLine;
                 
                 let info = `<div style="color: #FFFF00; margin-bottom: 5px;">${currentPage}</div>`;
