@@ -607,8 +607,9 @@ const systemModule = {
             return;
         }
         
-        // 获取当前场景文件名
-        const currentPage = window.location.pathname.split('/').pop() || 'unknown.html';
+        // 获取当前场景文件名（解码URL编码的中文字符）
+        const rawPage = window.location.pathname.split('/').pop() || 'unknown.html';
+        const currentPage = decodeURIComponent(rawPage);
         
         // ===== 构建调试信息显示 =====
         
