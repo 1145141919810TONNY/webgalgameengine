@@ -14,10 +14,35 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="Shiori Engine Launcher" Height="720" Width="1280">
-    <DockPanel>
-        <Menu DockPanel.Dock="Top" Name="MainMenu">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Menu Grid.Row="0" Name="MainMenu">
             <!-- 菜单项将在代码后台动态添加 -->
         </Menu>
-        <wv2:WebView2 Name="webView" />
-    </DockPanel>
+
+        <!-- WebView2 内容层 -->
+        <wv2:WebView2 Grid.Row="1" Name="webView" Visibility="Collapsed" />
+
+        <!-- 启动加载遮罩（覆盖在 WebView 上方，首次启动时显示） -->
+        <Border Grid.Row="1" Name="LoadingOverlay" Background="#FF1A1A2E" Visibility="Visible"
+                Panel.ZIndex="10">
+            <Grid>
+                <!-- 图片模式：若 splash.png 存在则显示 -->
+                <Image Name="SplashImage" Stretch="Uniform" Visibility="Collapsed" />
+                <!-- 文字模式：兜底显示 -->
+                <StackPanel Name="SplashText" VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="Shiori Engine"
+                               FontSize="28" FontWeight="Bold" Foreground="White"
+                               HorizontalAlignment="Center" Margin="0,0,0,8" />
+                    <TextBlock Text="正在启动引擎，请稍候..."
+                               FontSize="15" Foreground="#A0A0C0"
+                               HorizontalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
 </Window>
