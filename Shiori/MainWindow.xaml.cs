@@ -19,6 +19,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
 
 namespace ShioriCSharp
@@ -32,6 +35,11 @@ namespace ShioriCSharp
         private MenuItem? _restartAction;
         private CharVisualizerWindow? _charVisualizerWindow;
         private bool _quitConfirmed = false; // QUIT按钮确认标志
+
+        // 启动遮罩（logo）控制
+        private DispatcherTimer? _splashTimer;
+        private bool _loadingCompleted;
+        private bool _splashDismissed;
 
         /// <summary>供子窗口访问 WebView2 控件</summary>
         public Microsoft.Web.WebView2.Wpf.WebView2 WebView => webView;
@@ -75,16 +83,72 @@ namespace ShioriCSharp
 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            // 启动 3 秒定时器，保证遮罩至少显示 3 秒
+            _splashTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+            _splashTimer.Tick += (_, _) =>
+            {
+                _splashTimer.Stop();
+                TryDismissSplash();
+            };
+            _splashTimer.Start();
+
             SetupMenu();
 
             var engineDir = Path.Combine(_appDir, "shiori engine");
-            
+
+            // 检测启动图片：优先使用 assets/cg/logo.*（不限扩展名，与管理器标题图片同目录）
+            var logoPatterns = new[] { "logo.png", "logo.jpg", "logo.jpeg", "logo.bmp", "logo.gif", "logo.webp" };
+            var cgDir = Path.Combine(engineDir, "assets", "cg");
+            string? foundLogo = null;
+            if (Directory.Exists(cgDir))
+            {
+                foundLogo = logoPatterns
+                    .Select(p => Path.Combine(cgDir, p))
+                    .FirstOrDefault(File.Exists);
+            }
+            if (foundLogo != null)
+            {
+                try
+                {
+                    SplashImage.Source = new BitmapImage(new Uri(foundLogo));
+                    SplashImage.Visibility = Visibility.Visible;
+                    SplashText.Visibility = Visibility.Collapsed;
+                }
+                catch { /* 加载失败则回退文字 */ }
+            }
+
+
+            // 点击遮罩任意位置即可跳过剩余等待
+            LoadingOverlay.MouseLeftButtonDown += (_, _) =>
+            {
+                _splashTimer?.Stop();
+                TryDismissSplash();
+            };
+
             if (!Directory.Exists(engineDir))
             {
                 MessageBox.Show("未找到 'shiori engine' 文件夹", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                 Close();
                 return;
             }
+
+            // 提前发起 WebView2 环境创建（不 await，与服务器启动并行）
+            var exeNameForWv2 = Path.GetFileNameWithoutExtension(
+                Process.GetCurrentProcess().MainModule?.FileName ?? "");
+            var userDataFolder = Path.Combine(_appDir, exeNameForWv2 + ".WebView2");
+
+            // 首次启动优化：预置最简 Profile，大幅减少 WebView2 初始化时间
+            PreSeedWebView2Folder(userDataFolder);
+
+            var wv2Options = new CoreWebView2EnvironmentOptions
+            {
+                AdditionalBrowserArguments = GetWebView2OptimizationArgs(),
+                Language = "zh-CN"
+            };
+            var wv2EnvironmentTask = CoreWebView2Environment.CreateAsync(
+                userDataFolder: userDataFolder,
+                options: wv2Options
+            );
 
             // 启动本地服务器
             _server = new HttpServer(engineDir, 8080, _isDebug);
@@ -102,9 +166,11 @@ namespace ShioriCSharp
             // 初始化视频桥接
             _videoBridge = new VideoBridge(engineDir, _isDebug);
 
-            // 初始化 WebView2
-            await webView.EnsureCoreWebView2Async();
+            // 等待环境创建完成（此时已与上面操作重叠）
+            var environment = await wv2EnvironmentTask;
+            await webView.EnsureCoreWebView2Async(environment);
             webView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
+            webView.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
             
             // 加载页面（添加debug参数）
             var debugParam = _isDebug ? "?debug=1" : "";
@@ -129,6 +195,10 @@ namespace ShioriCSharp
             var reloadAction = new MenuItem { Header = "重新加载引擎", InputGestureText = "Ctrl+F5" };
             reloadAction.Click += (s, e) => webView.Reload();
             fileMenu.Items.Add(reloadAction);
+
+            var cleanupAction = new MenuItem { Header = "清理无用缓存文件" };
+            cleanupAction.Click += (s, e) => RunCacheCleanup();
+            fileMenu.Items.Add(cleanupAction);
 
             fileMenu.Items.Add(new Separator());
 
@@ -486,7 +556,7 @@ namespace ShioriCSharp
         private void ShowAbout(object sender, RoutedEventArgs e)
         {
             MessageBox.Show(
-                $"Shiori Engine Launcher\nVersion: 1.2.6\n\nShiori Engine Copyright (c) 2026 bilibili 月が綺麗ですね_",
+                $"Shiori Engine Launcher\nVersion: 1.2.7\n\nShiori Engine Copyright (c) 2026 bilibili 月が綺麗ですね_",
                 "关于",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information
@@ -711,6 +781,52 @@ namespace ShioriCSharp
                 }
                 catch { }
             });
+        }
+
+        /// <summary>
+        /// 页面加载完成后，若遮罩已显示满 3 秒则直接淡出；
+        /// 否则等待到 3 秒后再淡出。用户点击可跳过等待。
+        /// </summary>
+        private void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+        {
+            if (!e.IsSuccess) return;
+            _loadingCompleted = true;
+            TryDismissSplash();
+        }
+
+        /// <summary>
+        /// 尝试关闭启动遮罩：加载必须完成 + 定时器必须已到（或被用户点击跳过）。
+        /// 两个条件都由 TryDismissSplash 入口处检查，定时器 Tick 和 点击事件
+        /// 都会调用本方法。
+        /// </summary>
+        private void TryDismissSplash()
+        {
+            // 加载未完成 → 不关闭
+            if (!_loadingCompleted) return;
+            // 定时器还在跑且用户未点击 → 不关闭（等待定时器到期）
+            if (_splashTimer != null && _splashTimer.IsEnabled) return;
+
+            FadeOutSplash();
+        }
+
+        /// <summary>
+        /// 遮罩淡出动画（500ms），完成后隐藏遮罩使游戏可见。
+        /// </summary>
+        private void FadeOutSplash()
+        {
+            if (_splashDismissed) return;
+            _splashDismissed = true;
+
+            var fadeOut = new DoubleAnimation(1.0, 0.0, TimeSpan.FromMilliseconds(500))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn }
+            };
+            fadeOut.Completed += (_, _) =>
+            {
+                LoadingOverlay.Visibility = Visibility.Collapsed;
+                webView.Visibility = Visibility.Visible;
+            };
+            LoadingOverlay.BeginAnimation(UIElement.OpacityProperty, fadeOut);
         }
 
         private async void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
@@ -1429,13 +1545,317 @@ namespace ShioriCSharp
             Voice
         }
         
+        /// <summary>
+        /// 菜单项"清理无用缓存文件"的点击处理。
+        /// 弹出确认对话框，确认后执行清理并报告结果。
+        /// </summary>
+        private void RunCacheCleanup()
+        {
+            var result = MessageBox.Show(
+                this,
+                "说明：本功能主要用于清理 V1.2.7 之前旧版本遗留的历史缓存文件，\n" +
+                "若您是首次使用即为当前及之后版本启动器，通常无需执行此操作。\n\n" +
+                "此操作将清理 WebView2 生成的缓存文件和临时数据，包括：\n\n" +
+                "  · HTTP 缓存 / GPU 缓存 / 编译缓存\n" +
+                "  · 崩溃报告 / 浏览器指标\n" +
+                "  · 商业数据库 / 隐私沙盒数据\n" +
+                "  · 组件更新缓存\n\n" +
+                "游戏存档（localStorage）、Cookie 和用户设置不受影响。\n\n" +
+                "是否继续？",
+                "清理无用缓存文件",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Information,
+                MessageBoxResult.No
+            );
+
+            if (result != MessageBoxResult.Yes) return;
+
+            try
+            {
+                CleanupWebView2Folder();
+                MessageBox.Show(
+                    this,
+                    "清理完成！\n\n" +
+                    "提示：下次重启程序后效果会更彻底（运行中部分文件可能被锁定）。",
+                    "清理完成",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information
+                );
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    this,
+                    $"清理过程中出现错误：\n{ex.Message}",
+                    "清理失败",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
+            }
+        }
+
         protected override void OnClosed(EventArgs e)
         {
             _server?.Stop();
             _videoBridge?.CloseVideo();
             base.OnClosed(e);
+            // 清理 WebView2 生成的无用文件，仅保留存档相关数据
+            CleanupWebView2Folder();
             // 强制终止进程，确保子窗口（CharPreviewWindow）不会阻止退出
             Environment.Exit(0);
+        }
+
+        /// <summary>
+        /// 返回 WebView2 初始化时传入的 Chromium 优化参数。
+        /// 通过命令行参数在源头禁止生成崩溃报告、遥测、商业数据库、隐私沙盒等无用文件。
+        /// </summary>
+        private static string GetWebView2OptimizationArgs()
+        {
+            return string.Join(" ", new[]
+            {
+                // ── 崩溃报告 & 遥测（最大的垃圾来源）──
+                "--disable-breakpad",
+                "--disable-crash-reporter",
+                "--disable-metrics",
+                "--disable-field-trial-config",
+
+                // ── 组件更新 ──
+                "--disable-component-update",
+
+                // ── 后台网络请求 & 静默 ping ──
+                "--disable-background-networking",
+                "--no-pings",
+
+                // ── 磁盘缓存最小化（HTTP/媒体/GPU 均限制为 1 MB）──
+                "--disk-cache-size=1048576",
+                "--media-cache-size=1048576",
+                "--gpu-disk-cache-size-kb=512",
+
+                // ── 禁用 Chromium 无用 Feature ──
+                "--disable-features=" + string.Join(",", new[]
+                {
+                    "CommerceSubscriptions",
+                    "DiscountConsentV2",
+                    "ParcelTracking",
+                    "BrowsingTopics",
+                    "InterestGroupStorage",
+                    "Fledge",
+                    "FledgeAuction",
+                    "PrivateAggregationApi",
+                    "SharedStorageAPI",
+                    "PrivacySandboxAdsAPIs",
+                    "PrivacySandboxSettings",
+                    "PrivacySandboxEnrollment",
+                    "AutofillServerCommunication",
+                    "AutofillAiModelCache",
+                    "FeatureEngagementTracker",
+                    "NetworkActionPredictor",
+                    "OptimizationHints",
+                    "OptimizationGuide",
+                    "OptimizationGuideFetching",
+                    "SafeBrowsing",
+                    "SafeBrowsingEnhancedProtection",
+                    "Sync",
+                    "SyncTrustedVault",
+                    "IdleDetection",
+                    "BackForwardCache",
+                    "Journeys",
+                    "TabHoverCardImages",
+                    "WebOTP",
+                }),
+
+                // ── 禁用无关子系统 ──
+                "--disable-speech-api",
+                "--disable-sync",
+                "--disable-web-resources",
+                "--disable-origin-trials",
+                "--no-default-browser-check",
+                "--no-first-run",
+                "--disable-extensions",
+            });
+        }
+
+        /// <summary>
+        /// 首次启动时预置最简 WebView2 用户数据目录。
+        /// WebView2 首次遇到空目录时会执行繁重的 Profile 初始化（创建 Preferences、
+        /// Local State、各类 SQLite 数据库等，耗时数秒）。提前写入最关键的两个 JSON 和
+        /// 哨兵文件，让 WebView2 认为 Profile 已就绪，从而跳过首次初始化。
+        /// </summary>
+        /// <param name="userDataFolder">{exeName}.WebView2 根目录</param>
+        private static void PreSeedWebView2Folder(string userDataFolder)
+        {
+            var ebwPath = Path.Combine(userDataFolder, "EBWebView");
+            // 若已有 Profile 数据则无需预置
+            if (Directory.Exists(ebwPath)) return;
+
+            try
+            {
+                var defaultPath = Path.Combine(ebwPath, "Default");
+                Directory.CreateDirectory(defaultPath);
+
+                // ── 1. 哨兵文件：告诉 WebView2"已运行过首次设置"──
+                File.WriteAllText(Path.Combine(ebwPath, "First Run"), "");
+                File.WriteAllText(Path.Combine(defaultPath, "First Run"), "");
+
+                // ── 2. Local State（根级别配置）──
+                var localState = @"{""consented_to_metrics"":false,""metrics"":{""uid"":""""},""reporting"":{""metrics"":false},""browser"":{""enabled_labs_experiments"":[]}}";
+                File.WriteAllText(Path.Combine(ebwPath, "Local State"), localState);
+
+                // ── 3. Preferences（用户偏好，WebView2 首次运行会写入大量默认值）──
+                var prefs = @"{
+  ""autofill"": {""enabled"": false},
+  ""browser"": {
+    ""check_default_browser"": false,
+    ""window_placement"": {""bottom"":720,""left"":0,""maximized"":false,""right"":1280,""top"":0,""work_area_bottom"":0,""work_area_left"":0,""work_area_right"":0,""work_area_top"":0}
+  },
+  ""credentials_enable_service"": false,
+  ""download"": {""directory_upgrade"": true},
+  ""extensions"": {""alerts"": {""initialized"": true},""chrome_url_overrides"": {}},
+  ""intl"": {""accept_languages"": ""zh-CN,zh;q=0.9"",""selected_languages"": ""zh-CN,zh""},
+  ""profile"": {
+    ""content_settings"": {""exceptions"": {},""pref_version"": 1},
+    ""created_by_version"": ""\"",
+    ""name"": """",
+    ""password_manager_enabled"": false
+  },
+  ""safebrowsing"": {""enabled"": false},
+  ""savefile"": {""default_directory"": """"},
+  ""signin"": {""allowed"": false},
+  ""sync"": {""disabled"": true},
+  ""translate"": {""enabled"": false}
+}";
+                File.WriteAllText(Path.Combine(defaultPath, "Preferences"), prefs);
+
+                // ── 4. 预建必要空目录（避免首次运行时逐个创建）──
+                string[] essentialDirs = {
+                    "Local Storage", "IndexedDB", "blob_storage",
+                    "File System",
+                };
+                foreach (var d in essentialDirs)
+                    Directory.CreateDirectory(Path.Combine(defaultPath, d));
+            }
+            catch
+            {
+                // 预置失败不阻塞启动，WebView2 自行兜底初始化
+            }
+        }
+
+        /// <summary>
+        /// 清理 WebView2 用户数据目录中的非必要文件（作为安全兜底）。
+        /// 主要删除上一版遗留的垃圾文件和可能仍生成的少量缓存。
+        /// </summary>
+        private void CleanupWebView2Folder()
+        {
+            try
+            {
+                var exeName = Path.GetFileNameWithoutExtension(
+                    Process.GetCurrentProcess().MainModule?.FileName ?? "");
+                var userDataFolder = Path.Combine(_appDir, exeName + ".WebView2");
+                if (!Directory.Exists(userDataFolder)) return;
+
+                var ebwPath = Path.Combine(userDataFolder, "EBWebView");
+                if (!Directory.Exists(ebwPath)) return;
+
+                // 大部分无用文件已通过初始化参数禁止生成。
+                // 此处仅做兜底清理：删除可能仍然存在的遗留/漏网垃圾。
+
+                // === EBWebView 根目录：删除残余的崩溃/遥测等目录 ===
+                string[] rootDeletable = {
+                    "Crashpad", "BrowserMetrics", "GPUPersistentCache",
+                    "GraphiteDawnCache", "GrShaderCache", "ShaderCache",
+                    "component_crx_cache", "extensions_crx_cache",
+                    "hyphen-data", "MEIPreload", "OriginTrials",
+                    "Speech Recognition", "Subresource Filter", "WidevineCdm",
+                    "VideoDecodeStats", "AutoLaunchProtocolsComponent",
+                    "PKIMetadata", "SmartScreen",
+                    "Trust Protection Lists", "TrustTokenKeyCommitments",
+                    "CertificateRevocation",
+                };
+
+                foreach (var name in rootDeletable)
+                    TryDelete(Path.Combine(ebwPath, name));
+
+                DeleteFilesByPattern(ebwPath, "*.pma");
+
+                // === Default 目录：删除残余的缓存与商业/遥测数据库 ===
+                var defaultPath = Path.Combine(ebwPath, "Default");
+                if (!Directory.Exists(defaultPath)) return;
+
+                string[] defaultDeletable = {
+                    "Cache", "Code Cache", "GPUCache",
+                    "DawnGraphiteCache", "DawnWebGPUCache", "GrShaderCache",
+                    "VideoDecodeStats", "commerce_subscription_db",
+                    "discounts_db", "discount_infos_db", "parcel_tracking_db",
+                    "DashTrackerDatabase", "BrowsingTopicsSiteData",
+                    "BrowsingTopicsState", "InterestGroups",
+                    "PrivateAggregation", "SharedStorage", "BudgetDatabase",
+                    "Vpn Tokens", "AutofillAiModelCache", "AutofillStrikeDatabase",
+                    "PersistentOriginTrials", "Shared Dictionary",
+                    "Safe Browsing Network", "shared_proto_db",
+                    "Feature Engagement Tracker", "DIPS",
+                    "Network Action Predictor",
+                    "Site Characteristics Database",
+                    "optimization_guide_hint_cache_store",
+                    "Sessions", "README", "ExtensionActivityComp",
+                };
+
+                foreach (var name in defaultDeletable)
+                {
+                    var fp = Path.Combine(defaultPath, name);
+                    // 同时清理同名 journal 文件
+                    TryDelete(fp);
+                    TryDelete(fp + "-journal");
+                    TryDelete(fp + "-wal");
+                }
+
+                DeleteFilesByPattern(defaultPath, "*.old");
+                DeleteFilesByPattern(defaultPath, "*.pma");
+                CleanLevelDbOldLogs(defaultPath);
+            }
+            catch
+            {
+                // 清理失败不影响正常退出
+            }
+        }
+
+        private static void TryDelete(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+                else if (Directory.Exists(path))
+                    Directory.Delete(path, true);
+            }
+            catch
+            {
+                // 文件可能被锁定，忽略
+            }
+        }
+
+        private static void DeleteFilesByPattern(string directory, string pattern)
+        {
+            try
+            {
+                if (!Directory.Exists(directory)) return;
+                foreach (var file in Directory.GetFiles(directory, pattern, SearchOption.AllDirectories))
+                {
+                    try { File.Delete(file); } catch { }
+                }
+            }
+            catch { }
+        }
+
+        private static void CleanLevelDbOldLogs(string directory)
+        {
+            try
+            {
+                foreach (var file in Directory.GetFiles(directory, "LOG.old", SearchOption.AllDirectories))
+                {
+                    try { File.Delete(file); } catch { }
+                }
+            }
+            catch { }
         }
     }
 }
