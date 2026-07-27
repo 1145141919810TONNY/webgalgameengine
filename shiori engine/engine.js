@@ -14,9 +14,9 @@
 /**
  * 引擎核心版本号 —— Shiori Manager 通过此常量识别引擎版本。
  * 格式：V主版本.次版本.修订号  （与 GameScanner 中的正则 ENGINE_VERSION\s*=\s*["'] 匹配）
- * 请勿删除或重命名此变量，否则管理器将无法正确识别引擎版本。
+ * 请勿删除或重命名此变量，否则管理器将无法正确识别基准的引擎版本。
  */
-const ENGINE_VERSION = "V2.1.5";
+const ENGINE_VERSION = "V2.1.6";
 
 const gameEngine = {
     state: {
@@ -1145,7 +1145,7 @@ const gameEngine = {
      */
     executeCommand: function(command, shouldAutoNext = true) {
         // 支持多指令并行解析：使用逗号分隔多个指令
-        // 例如：command: "[normal],[lock]" 或 command: "[pov 友凛],[阻止]"
+        // 例如：command: "[normal],[lock]" 或 command: "[pov 角色A],[阻止]"
         const commands = command.split(',').map(cmd => cmd.trim()).filter(cmd => cmd.length > 0);
         
         // 定义需要等待用户点击的命令类型
@@ -5620,9 +5620,10 @@ const gameEngine = {
             let modifiersParts = [];
             let charId = null;
 
-            // 检查第一个部分是否为角色名称标识符（非关键词且非资源ID）
+            // 检查第一个部分是否为角色名称标识符（非关键词）
+            // 注意：仅当指令有多个部分时才可能是"角色名 + 修饰词"格式
             const firstPart = parts[0];
-            if (!this.isModifierKeyword(firstPart) && !firstPart.match(/^lh\d+$/)) {
+            if (parts.length > 1 && !this.isModifierKeyword(firstPart)) {
                 roleName = firstPart;
                 modifiersParts = parts.slice(1);
             } else {
@@ -5714,8 +5715,110 @@ const gameEngine = {
     },
 
     /**
+     * 图片扩展名缓存：basePath → '.ext'
+     * _SHIORI_EXT_MAP 由 C# 在启动时扫描文件系统注入（全覆盖）
+     * _charExtCache 为运行时动态填补的本地缓存
+     */
+    _charExtCache: {},
+
+    /**
+     * 检查文件名是否已包含已知图片扩展名
+     * @param {string} filename
+     * @returns {boolean}
+     */
+    _hasImageExtension: function(filename) {
+        return /\.(png|jpg|jpeg|webp|gif|bmp)$/i.test(filename);
+    },
+
+    /**
+     * 将图片基础路径统一为 /assets/chars/xxx 格式，用于查缓存
+     * 支持 ./assets/chars/xxx、assets/chars/xxx、../assets/chars/xxx
+     * @param {string} basePath
+     * @returns {string}
+     */
+    _normalizeCharBasePath: function(basePath) {
+        if (!basePath) return basePath;
+        var normalized = basePath;
+        if (normalized.indexOf('./') === 0) normalized = normalized.substring(2);
+        if (normalized.indexOf('../') === 0) normalized = normalized.substring(3);
+        if (normalized.indexOf('/') !== 0) normalized = '/' + normalized;
+        return normalized;
+    },
+
+    /**
+     * 加载图片，自动尝试多个扩展名
+     *
+     * 查找顺序：
+     *  1. 路径已有扩展名 → 直接加载（对来自 CHAR_CONFIG_SUB 等已知路径零改动）
+     *  2. 命中 C# 注入的全局映射 _SHIORI_EXT_MAP → 直接加载（零延迟）
+     *  3. 命中本地缓存 _charExtCache → 直接加载
+     *  4. 以上均未命中 → 顺序 onerror 链尝试 .png→.jpg→.jpeg→.webp→.bmp
+     *     （命中后写入本地缓存）
+     *
+     * @param {HTMLImageElement} imgEl - img 元素
+     * @param {string} basePath - 基本路径（可能含或不含扩展名）
+     */
+    _loadImageWithFallback: function(imgEl, basePath) {
+        var self = this;
+
+        // 1. 已有已知扩展名则直接加载（不破坏 CHAR_CONFIG_SUB 等配置的正确路径）
+        if (self._hasImageExtension(basePath)) {
+            imgEl.src = basePath;
+            return;
+        }
+
+        var shioriMap = window._SHIORI_EXT_MAP;
+        var basePathNoExt = basePath;
+
+        // normalize 成 /assets/chars/xxx 格式查缓存
+        var normalized = self._normalizeCharBasePath(basePathNoExt);
+
+        // 2. 查缓存：优先原始路径，再 normalized
+        var ext = (shioriMap && shioriMap[basePathNoExt]) || self._charExtCache[basePathNoExt]
+               || (shioriMap && shioriMap[normalized]) || self._charExtCache[normalized];
+
+        if (ext) {
+            self._charExtCache[basePathNoExt] = ext;
+            if (normalized !== basePathNoExt) self._charExtCache[normalized] = ext;
+            imgEl.src = basePathNoExt + ext;
+            return;
+        }
+
+        // 3. 缓存未命中 → 顺序 onerror 链回退（可靠，无异步竞争）
+        var exts = ['.png', '.jpg', '.jpeg', '.webp', '.bmp'];
+        var idx = 0;
+
+        var tryNext = function() {
+            idx++;
+            if (idx < exts.length) {
+                imgEl.src = basePathNoExt + exts[idx];
+            } else {
+                // 全部失败，回退到 .png
+                imgEl.src = basePathNoExt + '.png';
+                console.warn('[Engine] 所有扩展名加载失败:', basePathNoExt);
+            }
+        };
+
+        // 记录 onload 以便命中时缓存扩展名
+        var origOnload = imgEl.onload;
+        imgEl.onload = function() {
+            if (!self._charExtCache[basePathNoExt]) {
+                self._charExtCache[basePathNoExt] = exts[idx >= 0 ? idx : 0];
+                if (normalized !== basePathNoExt) {
+                    self._charExtCache[normalized] = exts[idx >= 0 ? idx : 0];
+                }
+            }
+            if (origOnload && origOnload !== imgEl.onload) origOnload.call(imgEl);
+        };
+
+        imgEl.onerror = tryNext;
+        imgEl.src = basePathNoExt + exts[0];
+    },
+
+    /**
      * 角色资源路径解析（新系统）
      * 根据文件ID或完整路径，返回实际可用的文件路径
+     * 注意：若文件名不含扩展名，则不拼接任何扩展名，由 _loadImageWithFallback 自动尝试
      * @param {string} fileIdOrPath - 文件ID或路径
      * @param {string} charName - 角色名（用于拼接路径）
      */
@@ -5743,7 +5846,7 @@ const gameEngine = {
                                 const nsKey = `${cfgCharName}_${item.file}`;
                                 const fullPath = (item.file && (item.file.startsWith('/') || item.file.includes('://')))
                                     ? item.file
-                                    : base + item.file + '.png';
+                                    : base + item.file; // 不含扩展名，由 _loadImageWithFallback 自动尝试
                                 if (!CHAR_FILE_MAP[nsKey]) {
                                     CHAR_FILE_MAP[nsKey] = fullPath;
                                 }
@@ -5764,13 +5867,13 @@ const gameEngine = {
             return CHAR_FILE_MAP[charName + '_' + fileIdOrPath];
         }
 
-        // 3. 带角色名前缀的路径
+        // 3. 带角色名前缀的路径（不含扩展名，由 _loadImageWithFallback 处理）
         if (charName && CHAR_PATH_MAP[charName]) {
-            return CHAR_PATH_MAP[charName] + '/' + fileIdOrPath + '.png';
+            return CHAR_PATH_MAP[charName] + '/' + fileIdOrPath;
         }
 
-        // 4. 回退到根目录
-        return '/assets/chars/' + charName + '/' + fileIdOrPath + '.png';
+        // 4. 回退到根目录（不含扩展名，由 _loadImageWithFallback 处理）
+        return '/assets/chars/' + charName + '/' + fileIdOrPath;
     },
 
     /**
@@ -5823,16 +5926,17 @@ const gameEngine = {
             '右右': 'rightr', 'rightr': 'rightr'
         };
 
-        const verticalMap = {
-            '下': 'down', 'down': 'down',
-            '中下': 'downm', 'downm': 'downm',
-            '下下': 'downd', 'downd': 'downd', 'bottom': 'downd',
-            '上': 'up', 'up': 'up',
-            '中上': 'upm', 'upm': 'upm',
-            '上上': 'upu', 'upu': 'upu', 'top': 'upu'
-        };
+       const verticalMap = {
+           '平': 'flat', 'flat': 'flat',
+           '下': 'down', 'down': 'down',
+           '中下': 'downm', 'downm': 'downm',
+           '下下': 'downd', 'downd': 'downd', 'bottom': 'downd',
+           '上': 'up', 'up': 'up',
+           '中上': 'upm', 'upm': 'upm',
+           '上上': 'upu', 'upu': 'upu', 'top': 'upu'
+       };
 
-        const layerMap = {
+       const layerMap = {
             '前': 'front', 'front': 'front',
             '后': 'back', 'back': 'back'
         };
@@ -6171,9 +6275,9 @@ const gameEngine = {
             faceEl.style.zIndex = 2;
         }
 
-        // 更新图片源
-        if (dressEl.src !== dressPath) dressEl.src = dressPath;
-        if (faceEl.src !== facePath) faceEl.src = facePath;
+        // 更新图片源（自动尝试扩展名回退：.png → .jpg → .jpeg → .webp）
+        this._loadImageWithFallback(dressEl, dressPath);
+        this._loadImageWithFallback(faceEl, facePath);
 
         // 应用亮度控制
         if (props.brightness === 'dim') {
@@ -6276,9 +6380,11 @@ const gameEngine = {
         let lastSegmentParts = segments[segments.length - 1].split(/\s+/);
         
         // 检查第一个片段是否包含角色名称标识符
+        // 注意：仅当第一个片段有多个部分时才可能是"角色名 + 修饰词"格式
+        // 单元素片段的第一部分就是 charId 本身，不应误判为 roleName
         const firstSegmentParts = segments[0].split(/\s+/);
         const firstPart = firstSegmentParts[0];
-        if (!this.isModifierKeyword(firstPart) && !firstPart.match(/^lh\d+$/)) {
+        if (firstSegmentParts.length > 1 && !this.isModifierKeyword(firstPart)) {
             roleName = firstPart;
             // 从所有片段中移除角色名称标识符（如果它出现在开头）
             for (let i = 0; i < segments.length; i++) {
@@ -6358,7 +6464,7 @@ const gameEngine = {
             currentIndex++;
             
             if (currentIndex < totalSegments) {
-                // 关键修正：无论是否瞬移，都保持标准延时以展示当前状态
+                // 无论是否瞬移，都保持标准延时以展示当前状态
                 const delay = 500; 
                 const timeoutId = setTimeout(processNext, delay);
                 this.state.charActionQueues[charId].timeoutId = timeoutId;
@@ -6379,7 +6485,7 @@ const gameEngine = {
         // 水平位置关键词
         const positionKeywords = ['左左', 'leftl', '左', 'left', '左右', 'leftr', '中', 'middle', 'center', '右左', 'rightl', '右', 'right', '右右', 'rightr'];
         // 垂直位置关键词
-        const verticalKeywords = ['下', 'down', '中下', 'downm', '下下', 'downd', 'bottom', '上', 'up', '中上', 'upm', '上上', 'upu', 'top'];
+        const verticalKeywords = ['平', 'flat', '下', 'down', '中下', 'downm', '下下', 'downd', 'bottom', '上', 'up', '中上', 'upm', '上上', 'upu', 'top'];
         // 层级关键词
         const layerKeywords = ['前', 'front', '后', 'back'];
         // 动画关键词
@@ -6599,8 +6705,8 @@ const gameEngine = {
                 // 因此直接返回，跳过后续的样式应用和透明度处理
                 return;
             } else {
-                // 非同标识符切换，直接更新图片源
-                charEl.src = path;
+                // 非同标识符切换，使用扩展名回退加载（支持 jpg/webp 等非 PNG 格式）
+                this._loadImageWithFallback(charEl, path);
             }
         }
 
@@ -7749,16 +7855,17 @@ const gameEngine = {
             '右右': 'rightr', 'rightr': 'rightr'
         };
     
-        const verticalMap = {
-            '下': 'down', 'down': 'down',
-            '中下': 'downm', 'downm': 'downm',
-            '下下': 'downd', 'downd': 'downd', 'bottom': 'downd',
-            '上': 'up', 'up': 'up',
-            '中上': 'upm', 'upm': 'upm',
-            '上上': 'upu', 'upu': 'upu', 'top': 'upu'
-        };
-    
-        const layerMap = {
+       const verticalMap = {
+           '平': 'flat', 'flat': 'flat',
+           '下': 'down', 'down': 'down',
+           '中下': 'downm', 'downm': 'downm',
+           '下下': 'downd', 'downd': 'downd', 'bottom': 'downd',
+           '上': 'up', 'up': 'up',
+           '中上': 'upm', 'upm': 'upm',
+           '上上': 'upu', 'upu': 'upu', 'top': 'upu'
+       };
+   
+       const layerMap = {
             '前': 'front', 'front': 'front',
             '后': 'back', 'back': 'back'
         };
