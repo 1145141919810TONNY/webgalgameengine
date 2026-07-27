@@ -31,7 +31,7 @@
 
 ![img](https://github.com/1145141919810TONNY/webgalgameengine/blob/main/img/6.png)
 
-![img](https://github.com/1145141919810TONNY/webgalgameengine/blob/main/img/7.png)
+![img](https://github.com/1145141919810TONNY/webgalgameengine/blob/main/img/9.png)
 
 # Shiori 命名缘起
 
