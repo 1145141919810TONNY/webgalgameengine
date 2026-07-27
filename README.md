@@ -66,7 +66,7 @@
 > 注：在本版本发布的`engine.js`中有一些可视化编辑器需要用到的立绘相关代码，与引擎核心不冲突，因此可以放心使用
 
 ## 开发中预告
-- 目前正在开发C++版启动器，预计能够将约180MB大小的完整启动器体积缩小为800KB（release）与4000KB（debug）
+- 目前正在开发C++版启动器，预计能够将约265MB大小的完整启动器体积缩小为800KB（release）与4000KB（debug）
 
 ![img](https://github.com/1145141919810TONNY/webgalgameengine/blob/main/img/7.png)
 > 如图所示，ShioriC++.exe/ShioridebugC++.exe是正在研发中的c++版本启动器，体积大小已经在图片中展示。此版本为正在开发中的版本，具体体积大小还未确定，请以发布为准。
