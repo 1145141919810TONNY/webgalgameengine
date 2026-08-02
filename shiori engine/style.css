@@ -159,10 +159,10 @@ body {
     background-color: rgba(0, 0, 0, 0.85);
     padding: 8px 15px;
     border-radius: 5px 5px 0 0;
-    max-width: 300px;
+    max-width: clamp(150px, 28vw, 300px);
     font-weight: bold;
     color: #FFD700;  /* 金色 */
-    font-size: 32px; /* 加大 */
+    font-size: 32px; /* 由响应式区覆盖 */
     font-weight: 900; /* 加粗 */
     user-select: none;
     -webkit-user-select: none;
@@ -177,21 +177,21 @@ body {
     flex-direction: row;
     align-items: center;
     align-self: flex-start;
-    margin-bottom: 5px;
+    margin-bottom: clamp(2px, 0.5vh, 5px);
     position: relative;
-    top: -5px;
+    top: clamp(-3px, -0.5vh, -5px);
 }
 
 /* AUTO倒计时显示 */
 .auto-countdown {
     display: none;
-    font-size: 16px;
+    font-size: clamp(12px, 1.5vw, 16px);
     font-weight: bold;
     color: #FFD700;
-    margin-left: 10px;
-    padding: 2px 4px;
+    margin-left: clamp(5px, 1vw, 10px);
+    padding: clamp(1px, 0.3vh, 2px) clamp(2px, 0.5vw, 4px);
     background: transparent;
-    min-width: 35px;
+    min-width: clamp(25px, 4vw, 35px);
     text-align: center;
     text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
     animation: countdown-pulse 1s infinite;
@@ -212,14 +212,14 @@ body {
 #voice-progress-container {
     display: flex;
     align-items: center;
-    margin-left: 10px;
-    height: 40px;
+    margin-left: clamp(5px, 1vw, 10px);
+    height: clamp(30px, 4vh, 40px);
 }
 
 /* 人物音频进度条轨道 */
 #voice-progress-bar {
-    width: 120px;
-    height: 6px;
+    width: clamp(80px, 10vw, 120px);
+    height: clamp(4px, 0.6vh, 6px);
     background: rgba(255, 255, 255, 0.2);
     border-radius: 3px;
     overflow: hidden;
@@ -239,7 +239,7 @@ body {
 #text-box {
     font-size: 25px;
     line-height: 1.6;
-    margin-top: 5px; /* 在姓名框下方一点 */
+    margin-top: clamp(2px, 0.4vh, 5px); /* 在姓名框下方一点 */
     flex-grow: 1;
     user-select: none;
     -webkit-user-select: none;
@@ -298,14 +298,16 @@ body {
 
 #novel-text-box {
     color: #1a1a1a;
-    font-size: 30px;
-    line-height: 2.0;
-    max-width: calc(100% - 400px);
-    width: calc(100% - 400px);
-    padding: 40px 20px;
+    font-size: clamp(16px, 2.8vw, 30px);
+    line-height: clamp(1.6, 3.2vh, 2.0);
+    max-width: min(calc(100% - clamp(40px, 8vw, 400px)), 1200px);
+    width: min(calc(100% - clamp(40px, 8vw, 400px)), 1200px);
+    padding: clamp(10px, 4vh, 40px) clamp(10px, 2vw, 20px);
     text-align: left;
     white-space: pre-wrap;
     word-wrap: break-word;
+    word-break: break-word;
+    overflow-wrap: break-word;
     font-weight: 600;
     letter-spacing: 0.5px;
     position: relative;
@@ -340,14 +342,14 @@ body {
     display: none;
     grid-template-columns: 1fr;
     grid-template-rows: 1fr;
-    gap: 15px;
+    gap: clamp(8px, 1.5vh, 15px);
     width: 100%;
     height: auto;
     z-index: 15;
     max-width: none;
     max-height: 80%;
     overflow: hidden;
-    padding: 10px;
+    padding: clamp(5px, 1vw, 10px);
     box-sizing: border-box;
 }
 
@@ -358,7 +360,7 @@ body {
     border: 2px solid #FFD700;
     padding: 15px 25px;
     font-size: 18px;
-    border-radius: 10px;
+    border-radius: clamp(6px, 1vw, 10px);
     cursor: pointer;
     transition: all 0.3s ease;
     min-height: 60px;
@@ -423,8 +425,9 @@ audio {
 /* 点击提示 */
 .click-prompt {
     position: absolute;
-    bottom: 200px;
-    right: 20px;
+    bottom: clamp(80px, 20vh, 200px);
+    right: clamp(8px, 1.5vw, 20px);
+    font-size: clamp(12px, 1.3vw, 16px);
     color: white;
     animation: blink 1s infinite;
 }
@@ -460,17 +463,17 @@ audio {
     position: fixed;
     top: 0;
     right: -300px; /* 初始位置在屏幕右边外 */
-    width: 250px;
+    width: clamp(180px, 25vw, 250px);
     height: 100vh;
     background: rgba(128, 128, 128, 0.5); /* 半透明灰色背景 */
     z-index: 9999;
-    padding: 20px;
+    padding: clamp(10px, 2vw, 20px);
     box-sizing: border-box;
     transition: right 0.3s ease;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 15px;
+    gap: clamp(8px, 1.5vh, 15px);
 }
 
 .context-menu.show {
@@ -487,13 +490,13 @@ audio {
 .context-menu li {
     display: block;
     width: 100%;
-    padding: 15px;
-    margin: 5px 0;
+    padding: clamp(8px, 1.5vh, 15px);
+    margin: clamp(3px, 0.5vh, 5px) 0;
     background-color: transparent;
     color: #FFD700;
     border: 3px solid #FFD700;
-    border-radius: 30px;
-    font-size: 18px;
+    border-radius: clamp(20px, 3vw, 30px);
+    font-size: clamp(13px, 1.6vw, 18px);
     font-weight: bold;
     cursor: pointer;
     text-align: center;
@@ -530,15 +533,15 @@ audio {
 /* POV视角指示器 */
 .pov-indicator {
     position: fixed;
-    right: 10px;
-    top: 100px;
+    right: clamp(4px, 1vw, 10px);
+    top: clamp(60px, 10vh, 100px);
     color: #FFD700;
-    font-size: 24px;
+    font-size: clamp(14px, 2.5vw, 24px);
     font-weight: bold;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), 
-                 -2px -2px 4px rgba(0, 0, 0, 0.8),
-                 2px -2px 4px rgba(0, 0, 0, 0.8),
-                 -2px 2px 4px rgba(0, 0, 0, 0.8);
+                -2px -2px 4px rgba(0, 0, 0, 0.8),
+                2px -2px 4px rgba(0, 0, 0, 0.8),
+                -2px 2px 4px rgba(0, 0, 0, 0.8);
     z-index: 100; /* 确保高于小说模式遮罩层 (z-index: 50) */
     pointer-events: none;
     user-select: none;
@@ -583,84 +586,73 @@ audio {
 
 /* 基础样式（默认 1920x1080） */
 #name-box {
-    font-size: 32px;
-    padding: 8px 15px;
+    font-size: clamp(22px, 2.8vw, 32px);
+    padding: clamp(4px, 0.8vh, 8px) clamp(8px, 1.5vw, 15px);
 }
 
 #text-box {
-    font-size: 25px;
+    font-size: clamp(18px, 2.2vw, 25px);
 }
 
 #text-box-container {
-    padding: 10px 20px 20px;
-}
-
-#novel-text-box {
-    font-size: 30px;
+    padding: clamp(6px, 1vh, 10px) clamp(10px, 2vw, 20px) clamp(10px, 2vh, 20px);
 }
 
 .choice-btn {
-    font-size: 18px;
-    padding: 15px 25px;
+    font-size: clamp(14px, 1.6vw, 18px);
+    padding: clamp(10px, 1.5vh, 15px) clamp(15px, 2.5vw, 25px);
+    min-height: clamp(40px, 6vh, 60px);
 }
 
 /* 小屏幕适配（1366x768 及以下） */
 @media (max-width: 1366px) and (max-height: 768px) {
     #name-box {
-        font-size: 26px;
-        padding: 7px 14px;
+        font-size: clamp(24px, 3vw, 28px);
+        padding: clamp(5px, 0.7vh, 7px) clamp(12px, 1.5vw, 14px);
     }
     
     #voice-progress-bar {
-        width: 100px;
-        height: 5px;
+        width: clamp(80px, 9vw, 100px);
+        height: clamp(4px, 0.5vh, 5px);
     }
     
     #text-box {
-        font-size: 22px;
+        font-size: clamp(20px, 2.5vw, 24px);
     }
     
     #text-box-container {
-        padding: 9px 18px 18px;
-    }
-    
-    #novel-text-box {
-        font-size: 26px;
+        padding: clamp(7px, 1vh, 9px) clamp(15px, 2vw, 18px) clamp(15px, 2vh, 18px);
     }
     
     .choice-btn {
-        font-size: 17px;
-        padding: 14px 22px;
+        font-size: clamp(15px, 1.5vw, 18px);
+        padding: clamp(12px, 1.5vh, 16px) clamp(18px, 2.5vw, 24px);
     }
 }
 
 /* 更小屏幕适配（1280x720 及以下） */
 @media (max-width: 1280px) and (max-height: 720px) {
     #name-box {
-        font-size: 24px;
-        padding: 6px 12px;
+        font-size: clamp(22px, 2.8vw, 26px);
+        padding: clamp(4px, 0.6vh, 6px) clamp(10px, 1.5vw, 14px);
     }
     
     #voice-progress-bar {
-        width: 80px;
-        height: 4px;
+        width: clamp(60px, 7vw, 80px);
+        height: clamp(3px, 0.4vh, 4px);
     }
     
     #text-box {
-        font-size: 20px;
+        font-size: clamp(18px, 2.2vw, 22px);
     }
     
     #text-box-container {
-        padding: 8px 15px 15px;
-    }
-    
-    #novel-text-box {
-        font-size: 24px;
+        padding: clamp(6px, 0.8vh, 8px) clamp(12px, 1.5vw, 15px) clamp(12px, 1.5vh, 15px);
     }
     
     .choice-btn {
-        font-size: 16px;
-        padding: 12px 20px;
+        font-size: clamp(14px, 1.5vw, 17px);
+        padding: clamp(10px, 1.2vh, 14px) clamp(16px, 2vw, 22px);
     }
 }
 
@@ -742,20 +734,20 @@ audio {
 @media all and (display-mode: fullscreen),
        all and (-webkit-full-screen) {
     #text-box-container {
-        padding: 10px 20px 40px; /* 底部增加20px安全区域 */
+        padding: clamp(8px, 1.2vh, 10px) clamp(15px, 2.5vw, 20px) clamp(25px, 5vh, 45px); /* 底部增加安全区域 */
     }
     
     #name-box {
-        margin-bottom: 10px; /* 增加与文本框的间距 */
+        margin-bottom: clamp(5px, 1vh, 10px); /* 增加与文本框的间距 */
     }
     
     #voice-progress-container {
-        height: 50px;
+        height: clamp(35px, 5vh, 50px);
     }
     
     #voice-progress-bar {
-        width: 140px;
-        height: 7px;
+        width: clamp(100px, 12vw, 140px);
+        height: clamp(5px, 0.7vh, 7px);
     }
 }
 
@@ -763,7 +755,7 @@ audio {
 @media all and (display-mode: fullscreen),
        all and (-webkit-full-screen) {
     #novel-text-box {
-        padding: 60px 40px; /* 上下增加20px安全区域 */
+        padding: clamp(20px, 6vh, 60px) clamp(20px, 3vw, 40px);
     }
 }
 
@@ -771,7 +763,7 @@ audio {
 @media all and (display-mode: fullscreen),
        all and (-webkit-full-screen) {
     #options-container {
-        padding: 30px;
+        padding: clamp(15px, 2vw, 30px);
         max-height: 70%; /* 减少最大高度，避免超出可视区域 */
     }
 }
@@ -1015,7 +1007,7 @@ audio {
 #log-content {
     flex: 1;
     overflow-y: auto;
-    padding: 40px 20px 80px;
+    padding: clamp(20px, 4vh, 40px) clamp(10px, 2vw, 20px) clamp(40px, 8vh, 80px);
     color: #fff;
     font-size: clamp(16px, 2.5vw, 22px);
     line-height: 1.6;
@@ -1026,8 +1018,8 @@ audio {
 .log-speaker {
     color: #FFD700;
     font-weight: bold;
-    margin-top: 16px;
-    margin-bottom: 2px;
+    margin-top: clamp(8px, 1.5vh, 16px);
+    margin-bottom: clamp(1px, 0.2vh, 2px);
     position: relative;
     z-index: 1;
     line-height: 1.4;
@@ -1036,7 +1028,7 @@ audio {
 /* 说话内容样式 */
 .log-text {
     color: #fff;
-    margin-bottom: 16px;
+    margin-bottom: clamp(8px, 1.5vh, 16px);
     margin-top: 0;
     line-height: 1.6;
     display: block;
@@ -1045,7 +1037,7 @@ audio {
 /* 无说话人的文本样式 */
 .log-text-no-speaker {
     color: #fff;
-    margin-bottom: 16px;
+    margin-bottom: clamp(8px, 1.5vh, 16px);
     margin-top: 0;
 }
 
@@ -1054,7 +1046,7 @@ audio {
     display: flex;
     flex-direction: row;
     align-items: flex-start;
-    gap: 10px;
+    gap: clamp(5px, 1vw, 10px);
     margin-top: 0;
     margin-bottom: 0;
     position: relative;
@@ -1131,7 +1123,7 @@ audio {
     bottom: 0;
     left: 0;
     width: 100%;
-    padding: 15px 20px;
+    padding: clamp(10px, 1.5vh, 15px) clamp(10px, 2vw, 20px);
     background: rgba(0, 0, 0, 0.8);
     display: flex;
     justify-content: flex-end;
@@ -1179,15 +1171,24 @@ audio {
 
 /* JavaScript 检测全屏状态时使用的类 */
 body.is-fullscreen #text-box-container {
-    padding: 10px 20px 45px; /* 底部增加25px安全区域 */
+    padding: clamp(8px, 1.2vh, 10px) clamp(15px, 2.5vw, 20px) clamp(25px, 5vh, 45px); /* 底部增加安全区域 */
 }
 
 body.is-fullscreen #name-box {
-    margin-bottom: 10px;
+    margin-bottom: clamp(5px, 1vh, 10px);
 }
 
 body.is-fullscreen #novel-text-box {
-    padding: 60px 40px;
+    padding: clamp(20px, 6vh, 60px) clamp(20px, 3vw, 40px);
+}
+
+body.is-fullscreen #voice-progress-container {
+    height: clamp(35px, 5vh, 50px);
+}
+
+body.is-fullscreen #voice-progress-bar {
+    width: clamp(100px, 12vw, 140px);
+    height: clamp(5px, 0.7vh, 7px);
 }
 
 /* ========================================
@@ -1223,12 +1224,12 @@ body.is-fullscreen #novel-text-box {
 }
 
 body.is-fullscreen #options-container {
-    padding: 30px;
+    padding: clamp(15px, 2vw, 30px);
     max-height: 70%;
 }
 
 body.is-fullscreen .pov-indicator {
-    top: 30px; /* 全屏时指示器位置下移 */
+    top: clamp(25px, 4vh, 40px); /* 全屏时指示器适当调整位置 */
 }
 
 /* ========================================
@@ -1238,34 +1239,43 @@ body.is-fullscreen .pov-indicator {
 
 /* 最大化模式下的文本框容器 - 增加底部安全区域 */
 body.is-maximized #text-box-container {
-    padding: 10px 20px 45px; /* 底部增加25px安全区域，与全屏一致 */
+    padding: clamp(8px, 1.2vh, 10px) clamp(15px, 2.5vw, 20px) clamp(25px, 5vh, 45px); /* 底部增加安全区域，与全屏一致 */
 }
 
 body.is-maximized #name-box {
-    margin-bottom: 10px;
+    margin-bottom: clamp(5px, 1vh, 10px);
 }
 
 /* 最大化模式下的小说模式容器 */
 body.is-maximized #novel-text-box {
-    padding: 60px 40px; /* 与全屏保持一致 */
+    padding: clamp(20px, 6vh, 60px) clamp(20px, 3vw, 40px); /* 与全屏保持一致 */
 }
 
 /* 最大化模式下的选项容器 */
 body.is-maximized #options-container {
-    padding: 30px;
+    padding: clamp(15px, 2vw, 30px);
     max-height: 70%; /* 与全屏保持一致 */
 }
 
 body.is-maximized .pov-indicator {
-    top: 30px; /* 与全屏保持一致 */
+    top: clamp(25px, 4vh, 40px); /* 与全屏保持一致 */
+}
+
+body.is-maximized #voice-progress-container {
+    height: clamp(35px, 5vh, 50px);
+}
+
+body.is-maximized #voice-progress-bar {
+    width: clamp(100px, 12vw, 140px);
+    height: clamp(5px, 0.7vh, 7px);
 }
 
 /* 最大化模式下主菜单容器底部安全区域 */
 body.is-maximized #menu-container {
-    padding-bottom: 50px; /* 为主菜单底部预留空间，防止被任务栏遮挡 */
+    padding-bottom: clamp(20px, 5vh, 50px); /* 为主菜单底部预留空间，防止被任务栏遮挡 */
 }
 
 /* 最大化模式下信息容器底部安全区域 */
 body.is-maximized #info-container {
-    padding-bottom: 50px; /* 为快捷键和版权信息底部预留空间，防止被任务栏遮挡 */
+    padding-bottom: clamp(20px, 5vh, 50px); /* 为快捷键和版权信息底部预留空间，防止被任务栏遮挡 */
 }
