@@ -12,7 +12,9 @@
 
 本引擎的一键式管理器：[https://github.com/1145141919810TONNY/Shiori-manager](https://github.com/1145141919810TONNY/Shiori-manager)，`验证引擎完整性.bat`文件虽可正常使用，但是已被全新的`SHA-256`编码校验完全替代，请到管理器releases页面中下载校验器。
 
-如果你在编译启动器时因网络问题编译失败时，可以前往release下载`离线编译依赖补丁 V1.2.2-2`补丁包进行编译，
+本引擎专用可视化编辑器链接：[https://github.com/1145141919810TONNY/Shiori-editor](https://github.com/1145141919810TONNY/Shiori-editor)
+
+如果你在编译启动器时因网络问题编译失败时，可以前往release下载`离线编译依赖补丁 V1.2.7-3`补丁包进行编译，
 
 由于引擎在早期开发阶段缺乏完整的资源测试环境，本 README 中可能包含部分已废弃或不支持的语法。**若与本文档存在冲突，请以README2.MD文档为准。**
 [README2.md](README2.md)
