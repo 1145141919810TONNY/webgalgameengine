@@ -16,7 +16,7 @@
  * 格式：V主版本.次版本.修订号  （与 GameScanner 中的正则 ENGINE_VERSION\s*=\s*["'] 匹配）
  * 请勿删除或重命名此变量，否则管理器将无法正确识别基准的引擎版本。
  */
-const ENGINE_VERSION = "V2.1.6";
+const ENGINE_VERSION = "V2.1.7";
 
 const gameEngine = {
     state: {
@@ -281,21 +281,10 @@ const gameEngine = {
         if (snapshot && pathMatch && startLine > 0) {
             console.log('[State Restore] Detected state snapshot, restoring full state...');
 
-            // 1. 恢复systemModule中的状态变量
-            if (typeof systemModule !== 'undefined') {
-                if (snapshot.lastActiveBgm) {
-                    systemModule.lastActiveBgm = snapshot.lastActiveBgm;
-                    console.log('[State Restore] Restored BGM:', snapshot.lastActiveBgm);
-                }
-                if (snapshot.lastActiveBg) {
-                    systemModule.lastActiveBg = snapshot.lastActiveBg;
-                    console.log('[State Restore] Restored BG:', snapshot.lastActiveBg);
-                }
-                if (snapshot.lastActiveChars) {
-                    systemModule.lastActiveChars = snapshot.lastActiveChars;
-                    console.log('[State Restore] Restored Chars:', snapshot.lastActiveChars);
-                }
-            }
+            // 1. 注意：不从此处恢复systemModule的BGM/BG/Chars持久状态
+            //    这些状态将由 buildStateFromHistory 从历史行（0..startLine-1）重建，
+            //    以确保「从当前行运行」时获得正确的上下文状态，
+            //    避免前一次运行的过期快照污染。
 
             // 2. 恢复引擎内部状态变量
             // 恢复全屏小说模式状态
@@ -344,12 +333,6 @@ const gameEngine = {
                 console.log('[State Restore] Restored isClickLocked:', snapshot.isClickLocked);
             }
             
-            // 恢复当前激活的立绘状态
-            if (snapshot.activeChars) {
-                this.state.activeChars = snapshot.activeChars;
-                console.log('[State Restore] Restored activeChars:', snapshot.activeChars);
-            }
-            
             // 恢复角色好感度数据
             if (snapshot.affinity) {
                 this.state.affinity = snapshot.affinity;
@@ -362,33 +345,8 @@ const gameEngine = {
                 console.log('[State Restore] Restored completedScenes:', snapshot.completedScenes);
             }
 
-            // 3. 实际渲染恢复的状态
-            // 恢复背景
-            if (snapshot.lastActiveBg) {
-                let bgPath = null;
-                if (this.sceneData.background && this.sceneData.background[snapshot.lastActiveBg]) {
-                    bgPath = this.sceneData.background[snapshot.lastActiveBg];
-                } else if (typeof CG_CONFIG_SUB !== 'undefined' && CG_CONFIG_SUB[snapshot.lastActiveBg]) {
-                    bgPath = CG_CONFIG_SUB[snapshot.lastActiveBg];
-                }
-
-                if (bgPath) {
-                    this.setBackground(bgPath);
-                    console.log('[State Restore] Applied background:', bgPath);
-                }
-            }
-
-            // 恢复BGM
-            if (snapshot.lastActiveBgm && this.sceneData.bgm && this.sceneData.bgm[snapshot.lastActiveBgm]) {
-                this.playAudio(snapshot.lastActiveBgm);
-                console.log('[State Restore] Playing BGM:', snapshot.lastActiveBgm);
-            }
-
-            // 恢复立绘
-            if (snapshot.lastActiveChars) {
-                this.renderChars(snapshot.lastActiveChars);
-                console.log('[State Restore] Rendered characters:', snapshot.lastActiveChars);
-            }
+            // 3. 注意：BGM/BG/Chars的实际渲染已移至 buildStateFromHistory 中处理
+            //    这里不再从快照恢复持久内容状态，避免「从当前行运行」时使用过期状态
 
             // 恢复全屏小说模式（实际渲染）
             if (snapshot.novelMode) {
@@ -483,6 +441,15 @@ const gameEngine = {
             }
         }
         
+        // ============================================
+        // 如果 startLine > 0，始终从历史行扫描持久元素（BGM/BG/Chars）
+        // 不再依赖快照恢复，确保「从当前行运行」时获得正确的上下文状态
+        // ============================================
+        if (startLine > 0) {
+            console.log('[State Build] Building state from history lines 0-' + (startLine - 1));
+            this.buildStateFromHistory(startLine);
+        }
+
         // 显示指定行的对话
         this.displayLine(this.state.currentLine);
         // 请求音频播放权限（处理浏览器自动播放策略）
@@ -5474,6 +5441,108 @@ const gameEngine = {
         return null;
     },
     
+    /**
+     * 从历史行构建持久状态（用于「从当前行运行」等场景）
+     * 扫描 story[0..startLine-1]，提取最后生效的 BGM、BG、Chars
+     * 类比存档系统（archive.html）的读档恢复机制
+     * @param {number} startLine - 起始行索引（从这一行开始播放）
+     */
+    buildStateFromHistory: function(startLine) {
+        if (!this.sceneData || !this.sceneData.story) return;
+        
+        var lastBgm = null;       // 最后一条 bgm 指令原文
+        var lastBg = null;        // 最后一条 background 指令原文
+        var lastChars = null;     // 最后一条 chars 指令原文
+        
+        for (var i = 0; i < startLine && i < this.sceneData.story.length; i++) {
+            var line = this.sceneData.story[i];
+            if (line.bgm !== undefined && line.bgm !== null) {
+                lastBgm = line.bgm;
+            }
+            if (line.background !== undefined && line.background !== null) {
+                lastBg = line.background;
+            }
+            if (line.chars !== undefined && line.chars !== null) {
+                lastChars = line.chars;
+            }
+        }
+        
+        console.log('[State Build] Scanned history, found BGM:', lastBgm, 'BG:', lastBg, 'Chars:', lastChars);
+        
+        // 应用 BGM 状态
+        if (lastBgm) {
+            // 提取实际的 BGM key（支持多种格式：[wait time=...]bgmKey、bgm wait bgmKey、bgmKey 等）
+            var actualBgmKey = lastBgm;
+            
+            // 处理 [wait time=...]BGM_KEY 格式
+            if (typeof lastBgm === 'string' && (lastBgm.includes('[wait time=') || lastBgm.includes('[wait time ='))) {
+                var waitMatch = lastBgm.match(/\[wait\s+time\s*=\s*\d+\s*\]\s*(.+)/);
+                if (waitMatch) {
+                    actualBgmKey = waitMatch[1].trim();
+                }
+            }
+            
+            if (typeof systemModule !== 'undefined') {
+                systemModule.lastActiveBgm = actualBgmKey;
+            }
+            // 实际播放/停止 BGM
+            if (lastBgm === 'bgm stop') {
+                this.stopBGM();
+            } else if (typeof lastBgm === 'string' && lastBgm.startsWith('bgm wait ')) {
+                var newBgmKey = lastBgm.substring('bgm wait '.length).trim();
+                if (this.sceneData.bgm && this.sceneData.bgm[newBgmKey]) {
+                    this.playAudio(newBgmKey);
+                }
+            } else if (typeof lastBgm === 'string' && (lastBgm.includes('[wait time=') || lastBgm.includes('[wait time ='))) {
+                // [wait time=...]BGM_KEY 格式：提取实际 BGM key 并播放
+                if (this.sceneData.bgm && this.sceneData.bgm[actualBgmKey]) {
+                    this.playAudio(actualBgmKey);
+                }
+            } else if (this.sceneData.bgm && this.sceneData.bgm[lastBgm]) {
+                this.playAudio(lastBgm);
+            }
+        }
+        
+        // 应用背景状态
+        if (lastBg && typeof lastBg === 'string') {
+            // 解析可能存在的转场前缀
+            var bgId = lastBg;
+            var prefixes = ['trans ', '转场 ', 'slideL ', '左滑 ', 'slideR ', '右滑 ', 'scanL ', '左转场 ', 'scanR ', '右转场 '];
+            for (var p = 0; p < prefixes.length; p++) {
+                if (bgId.startsWith(prefixes[p])) {
+                    bgId = bgId.substring(prefixes[p].length).trim();
+                    break;
+                }
+            }
+            
+            if (typeof systemModule !== 'undefined') {
+                systemModule.lastActiveBg = bgId;
+            }
+            
+            var bgPath = null;
+            if (this.sceneData.background && this.sceneData.background[bgId]) {
+                bgPath = this.sceneData.background[bgId];
+            } else if (typeof CG_CONFIG_SUB !== 'undefined' && CG_CONFIG_SUB[bgId]) {
+                bgPath = CG_CONFIG_SUB[bgId];
+            }
+            if (bgPath) {
+                this.setBackground(bgPath);
+            }
+        }
+        
+        // 应用立绘状态
+        if (lastChars) {
+            if (typeof systemModule !== 'undefined') {
+                systemModule.lastActiveChars = lastChars;
+            }
+            this.renderChars(lastChars);
+        }
+        
+        console.log('[State Build] Applied state from history - BGM:', 
+            (typeof systemModule !== 'undefined' ? systemModule.lastActiveBgm : null),
+            'BG:', (typeof systemModule !== 'undefined' ? systemModule.lastActiveBg : null));
+    },
+
     /**
      * 切换右键菜单显示/隐藏
      */
