@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>场景模板文件</title>
+		<link rel="icon" type="image/png" href="../icon/icon-32.png">
+		<link rel="stylesheet" href="../style.css">
+		<script src="../bgm_config.js"></script>
+		<script src="../cg_config.js"></script>
+		<script src="../bg_config.js"></script>
+		<script src="../illustration.js"></script>
+		<script src="../modules/progress_api.js"></script>
+	</head>
+	<body>
+		<div id="background-container"></div>
+		<div id="character-container"></div>
+		<div id="text-box-container">
+			<div id="name-box">
+				<span>[姓名]</span>
+			</div>
+			<div id="text-box">[文本]</div>
+		</div>
+		<div id="options-container"></div>
+		<div id="novel-mode-container">
+			<div id="novel-text-box">[全屏文本]</div>
+		</div>
+		<audio id="bgm-player" loop></audio>
+		<audio id="se-player"></audio>
+		<audio id="voice-player"></audio>
+		<div id="video-player"
+			style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:100; background-color:black;">
+			<video id="main-video" style="width:100%; height:100%; object-fit:contain;" controls>
+				您的浏览器不支持视频播放。
+			</video>
+		</div>
+		<div id="context-menu-backdrop" class="context-menu-backdrop"></div>
+		<div id="context-menu" class="context-menu">
+			<ul>
+				<li onclick="QuickSaveManager.quickSave()">保存存档 (F5)</li>
+				<li onclick="QuickSaveManager.openArchivePage()">存档页面</li>
+				<li onclick="gameEngine.saveStateSnapshot(); window.location.href='../html/saves.html'">进度管理</li>
+				<li onclick="window.location.href='../index.html'">返回标题页面</li>
+			</ul>
+			<div
+				style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255, 215, 0, 0.3); color: rgba(255, 215, 0, 0.6); font-size: 12px; line-height: 1.8; text-align: center;">
+				<div>F1 - 调试面板</div>
+				<div>F5 - 快速保存</div>
+				<div>Ctrl - 快进模式</div>
+				<div>+ / ↑ 增加音量 | - / ↓ 减少音量</div>
+			</div>
+		</div>
+		<script src="../system.js"></script>
+		<script src="../engine.js"></script>
+		<script>
+			const sceneData = {
+				background: BG_CONFIG_SUB,
+				bgm: BGM_CONFIG_SUB,
+				audio: {},
+				story: [{
+						text: "",
+					},
+				]
+			};
+
+			document.addEventListener('DOMContentLoaded', () => {
+				// 检查URL中是否包含startLine参数
+				const urlParams = new URLSearchParams(window.location.search);
+				const startLine = parseInt(urlParams.get('startLine')) || 0;
+
+				// 使用起始行号初始化引擎
+				gameEngine.init(sceneData, startLine);
+			});
+		</script>
+	</body>
+</html>
