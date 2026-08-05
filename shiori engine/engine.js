@@ -16,7 +16,7 @@
  * 格式：V主版本.次版本.修订号  （与 GameScanner 中的正则 ENGINE_VERSION\s*=\s*["'] 匹配）
  * 请勿删除或重命名此变量，否则管理器将无法正确识别基准的引擎版本。
  */
-const ENGINE_VERSION = "V2.1.7";
+const ENGINE_VERSION = "V2.1.8";
 
 const gameEngine = {
     state: {
@@ -1349,7 +1349,7 @@ const gameEngine = {
             
             button.addEventListener('click', (e) => {
                 e.stopPropagation();
-                this.goToScene(choice.target);
+                this.handleChoiceTarget(choice.target);
             });
             
             this.elements.optionsContainer.appendChild(button);
@@ -2624,6 +2624,93 @@ const gameEngine = {
         this.state.skipMode = mode;
         console.log(`[SKIP] Starting fast forward with mode: ${mode === 2 ? 'SKIP/2' : 'SKIP/1'}`);
         this.startFastForward(mode);
+    },
+    
+    /**
+     * 处理选项的 target 跳转逻辑
+     * 支持三种跳转方式：
+     * 1. target: "#" — 不跳转，直接继续运行下一行
+     * 2. target: "标签名" — 在本文件 story 数组中查找 [标签名] 并跳转
+     * 3. target: "xxx.html" — 跳转到其他场景页面
+     * @param {string} target - 选项的 target 值
+     */
+    handleChoiceTarget: function(target) {
+        // 关闭选项菜单
+        this.state.choicesActive = false;
+        if (this.elements.optionsContainer) {
+            this.elements.optionsContainer.style.display = 'none';
+        }
+        
+        // 清除当前显示的选项按钮
+        if (this.elements.optionsContainer) {
+            this.elements.optionsContainer.innerHTML = '';
+        }
+        
+        if (!target) {
+            // 没有 target，继续下一行
+            this.nextLine();
+            return;
+        }
+        
+        // target === "#" — 不跳转，直接继续下一行
+        if (target === '#') {
+            console.log('[ChoiceTarget] # 不跳转，继续运行下一行');
+            this.nextLine();
+            return;
+        }
+        
+        // 判断是否为 URL（包含 .html、/ 或 \\）
+        var isUrl = /\.html/i.test(target) || target.indexOf('/') !== -1 || target.indexOf('\\') !== -1;
+        
+        if (isUrl) {
+            // URL 跳转 — 跳转到其他场景页面
+            this.goToScene(target);
+            return;
+        }
+        
+        // 标签跳转 — 在当前 story 数组中查找 [标签名]
+        this.jumpToLabel(target);
+    },
+    
+    /**
+     * 跳转到当前场景 story 数组中的指定标签位置
+     * 查找 command: "[标签名]" 的行，从该行的下一行开始执行
+     * @param {string} label - 标签名（区分大小写）
+     */
+    jumpToLabel: function(label) {
+        if (!this.sceneData || !this.sceneData.story) {
+            console.warn('[ChoiceTarget] 无法跳转：sceneData 或 story 数组不存在');
+            this.nextLine();
+            return;
+        }
+        
+        var story = this.sceneData.story;
+        var targetCommand = '[' + label + ']';
+        
+        // 精确查找 command === "[标签名]" 的行
+        for (var i = 0; i < story.length; i++) {
+            var line = story[i];
+            if (line.command && line.command.trim() === targetCommand) {
+                // 找到标签，从下一行开始
+                var nextLine = i + 1;
+                console.log('[ChoiceTarget] 找到标签 "' + label + '" 在第 ' + i + ' 行，跳转到第 ' + nextLine + ' 行');
+                
+                if (nextLine < story.length) {
+                    this.state.currentLine = nextLine - 1; // nextLine 会自动 +1
+                    this.nextLine();
+                } else {
+                    console.warn('[ChoiceTarget] 标签 "' + label + '" 已是 story 数组末尾');
+                    // 到达末尾，正常结束场景
+                    this.state.currentLine = story.length;
+                    this.handleEndOfScene();
+                }
+                return;
+            }
+        }
+        
+        // 未找到标签
+        console.warn('[ChoiceTarget] 未找到标签 "' + label + '"（command: "' + targetCommand + '"），回退为继续下一行');
+        this.nextLine();
     },
     
     /**
@@ -5963,6 +6050,7 @@ const gameEngine = {
             verticalExplicit: false,
             zIndexOffset: 0,
             scale: 1,
+            scaleExplicit: false,
             instant: false,
             actionType: null,
             fadeType: null,
@@ -6073,6 +6161,29 @@ const gameEngine = {
                     result.preciseZ = Math.max(-360, Math.min(360, angleValue));
                 }
             }
+        }
+
+        // 百分比缩放：与旧版立绘保持一致，支持正数、负数和小数。
+        // x:/y: 坐标中的百分号不能被当作缩放处理。
+        for (const mod of filteredModArray) {
+            if (!mod.endsWith('%') || mod.startsWith('x:') || mod.startsWith('y:')) {
+                continue;
+            }
+
+            const percentValue = parseFloat(mod.slice(0, -1));
+            if (isNaN(percentValue)) {
+                continue;
+            }
+
+            const scaleValue = 1 + (percentValue / 100);
+            if (scaleValue <= 0) {
+                console.warn(`[CharDiffParser] Invalid scale value ${mod}, reset to 100%`);
+                result.scale = 1;
+            } else {
+                result.scale = scaleValue;
+                result.scaleExplicit = true;
+            }
+            break;
         }
 
         // 方位
@@ -6227,10 +6338,10 @@ const gameEngine = {
         // 位置计算
         let finalLeft = (dress && dress.x !== undefined) ? dress.x + '%' : '50%';
         let finalBottom = (dress && dress.y !== undefined) ? dress.y + '%' : '0';
-        let finalScale = (dress && dress.z !== undefined) ? (100 + dress.z) / 100 : 1;
-
-        if (props.scale && props.scale !== 1) {
-            finalScale *= props.scale;
+        const dressScale = (dress && dress.z !== undefined) ? (100 + dress.z) / 100 : 1;
+        let finalScale = dressScale * (props.scale || 1);
+        if (!Number.isFinite(finalScale) || finalScale <= 0) {
+            finalScale = 1;
         }
 
         if (props.preciseX !== null) {
@@ -6298,51 +6409,50 @@ const gameEngine = {
         charContainer.style.transformOrigin = 'bottom center';
         charContainer.style.visibility = 'visible';
 
-        // 应用样式到 dress
+        // 保存分层立绘的几何基准。缩放时必须同步调整表情层的相对位置，
+        // 否则身体会放大/缩小，而脸仍停留在原来的屏幕坐标。
+        const faceScaleFactor = (face && face.z !== undefined) ? (100 + face.z) / 100 : 1;
+        const dressX = dress && dress.x !== undefined ? dress.x : 50;
+        const dressY = dress && dress.y !== undefined ? dress.y : 0;
+        let faceOffsetX = (face && face.x !== undefined) ? face.x - dressX : 0;
+        let faceOffsetY = (face && face.y !== undefined) ? face.y - dressY : 0;
+
+        // 应用校正偏移
+        if (typeof CHAR_DIFF_OFFSET !== 'undefined') {
+            const globalOffset = CHAR_DIFF_OFFSET["全局"] || {};
+            faceOffsetX += globalOffset.x || 0;
+            faceOffsetY += globalOffset.y || 0;
+
+            const charOffset = CHAR_DIFF_OFFSET[charName] || {};
+            const orientOffset = charOffset[orientation] || {};
+            faceOffsetX += orientOffset.x || 0;
+            faceOffsetY += orientOffset.y || 0;
+        }
+
+        // face.x/y 是按 dress 的基础 z 比例校准的坐标，因此偏移只需要
+        // 乘以“当前比例 / 基础比例”，不能直接乘总缩放比例。
+        charContainer.dataset.charDiffBaseScale = String(
+            Number.isFinite(dressScale) && dressScale > 0 ? dressScale : 1
+        );
+        charContainer.dataset.charDiffScale = String(finalScale);
+        charContainer.dataset.charDiffFaceScale = String(faceScaleFactor);
+        charContainer.dataset.charDiffFaceOffsetX = String(faceOffsetX);
+        charContainer.dataset.charDiffFaceOffsetY = String(faceOffsetY);
+
         dressEl.style.left = '50%';
         dressEl.style.bottom = '0';
         dressEl.style.height = '100%';
-        dressEl.style.transform = `translateX(-50%) scale(${finalScale})`;
         dressEl.style.zIndex = 1;
 
-        // Face 缩放
-        let faceScale = finalScale;
-        if (face && face.z !== undefined) {
-            const faceZScale = (100 + face.z) / 100;
-            faceScale = finalScale * faceZScale;
-        }
+        faceEl.style.height = '100%';
+        faceEl.style.zIndex = 2;
 
-        // Face 位置
-        if (face && face.x !== undefined && face.y !== undefined) {
-            const dressX = dress && dress.x !== undefined ? dress.x : 50;
-            const dressY = dress && dress.y !== undefined ? dress.y : 0;
-            let offsetX = face.x - dressX;
-            let offsetY = face.y - dressY;
-
-            // 应用校正偏移
-            if (typeof CHAR_DIFF_OFFSET !== 'undefined') {
-                const globalOffset = CHAR_DIFF_OFFSET["全局"] || {};
-                offsetX += globalOffset.x || 0;
-                offsetY += globalOffset.y || 0;
-                
-                const charOffset = CHAR_DIFF_OFFSET[charName] || {};
-                const orientOffset = charOffset[orientation] || {};
-                offsetX += orientOffset.x || 0;
-                offsetY += orientOffset.y || 0;
-            }
-
-            faceEl.style.left = `calc(50% + ${offsetX}%)`;
-            faceEl.style.bottom = `${offsetY}%`;
-            faceEl.style.height = '100%';
-            faceEl.style.transform = `translateX(-50%) scale(${faceScale})`;
-            faceEl.style.zIndex = 2;
-        } else {
-            faceEl.style.left = '50%';
-            faceEl.style.bottom = '0';
-            faceEl.style.height = '100%';
-            faceEl.style.transform = `translateX(-50%) scale(${faceScale})`;
-            faceEl.style.zIndex = 2;
-        }
+        const layerTransition = isInstant || isNewChar
+            ? 'none'
+            : 'transform 0.5s ease, left 0.5s ease, bottom 0.5s ease';
+        dressEl.style.transition = layerTransition;
+        faceEl.style.transition = layerTransition;
+        this.updateLayeredCharScale(charContainer, finalScale);
 
         // 更新图片源（自动尝试扩展名回退：.png → .jpg → .jpeg → .webp）
         this._loadImageWithFallback(dressEl, dressPath);
@@ -6389,6 +6499,55 @@ const gameEngine = {
         }
 
         console.log(`[CharDiff] 更新立绘: ${charName} ${orientation} dress=${dress.id} face=${face.id}`);
+    },
+
+    /**
+     * 更新新版分层立绘的实际缩放。
+     * 分层立绘的容器高度始终是布局高度，不能像旧版 img 一样直接修改 height。
+     * @param {HTMLElement} charContainer - 分层立绘容器
+     * @param {number} scale - 身体层的实际缩放比例
+     * @param {string|undefined} transition - 图层过渡样式；省略时保持当前设置
+     * @returns {boolean} 是否成功更新了分层立绘
+     */
+    updateLayeredCharScale: function(charContainer, scale, transition) {
+        if (!charContainer || !charContainer.classList ||
+            !charContainer.classList.contains('character-layered')) {
+            return false;
+        }
+
+        const dressEl = charContainer.querySelector('.char-dress');
+        const faceEl = charContainer.querySelector('.char-face');
+        if (!dressEl || !faceEl) return false;
+
+        const numericScale = Number(scale);
+        const actualScale = Number.isFinite(numericScale) && numericScale > 0
+            ? numericScale
+            : 1;
+        const baseScaleValue = parseFloat(charContainer.dataset.charDiffBaseScale);
+        const baseScale = Number.isFinite(baseScaleValue) && baseScaleValue > 0
+            ? baseScaleValue
+            : 1;
+        const offsetScale = actualScale / baseScale;
+        const faceScaleValue = parseFloat(charContainer.dataset.charDiffFaceScale);
+        const faceScaleFactor = Number.isFinite(faceScaleValue) ? faceScaleValue : 1;
+        const offsetXValue = parseFloat(charContainer.dataset.charDiffFaceOffsetX);
+        const offsetYValue = parseFloat(charContainer.dataset.charDiffFaceOffsetY);
+        const faceOffsetX = Number.isFinite(offsetXValue) ? offsetXValue : 0;
+        const faceOffsetY = Number.isFinite(offsetYValue) ? offsetYValue : 0;
+
+        if (transition !== undefined) {
+            dressEl.style.transition = transition;
+            faceEl.style.transition = transition;
+        }
+
+        dressEl.style.transform = `translateX(-50%) scale(${actualScale})`;
+        faceEl.style.left = `calc(50% + ${faceOffsetX * offsetScale}%)`;
+        faceEl.style.bottom = `${faceOffsetY * offsetScale}%`;
+        faceEl.style.transform =
+            `translateX(-50%) scale(${actualScale * faceScaleFactor})`;
+
+        charContainer.dataset.charDiffScale = String(actualScale);
+        return true;
     },
 
     /**
@@ -7422,12 +7581,21 @@ const gameEngine = {
         const currentBottom = parseFloat(currentBottomStr) || 0;
         const newBottom = currentBottom + 10;
         charEl.style.bottom = `${newBottom}%`;
-        
-        // 从 DOM 读取当前缩放比例
-        const currentHeightStr = charEl.style.height || '100%';
-        const currentScale = parseFloat(currentHeightStr) / 100 || 1;
-        const newScale = Math.max(0.1, currentScale - 0.1);
-        charEl.style.height = `${newScale * 100}%`;
+
+        // 新版分层立绘的容器高度固定为布局高度，缩放必须作用于身体/表情图层。
+        if (this.updateLayeredCharScale(
+            charEl,
+            Math.max(0.1, (parseFloat(charEl.dataset.charDiffScale) || 1) - 0.1),
+            'transform 0.5s ease, left 0.5s ease, bottom 0.5s ease'
+        )) {
+            // 分层立绘已完成缩放，继续处理位置和层级即可。
+        } else {
+            // 旧版立绘仍通过图片高度缩放。
+            const currentHeightStr = charEl.style.height || '100%';
+            const currentScale = parseFloat(currentHeightStr) / 100 || 1;
+            const newScale = Math.max(0.1, currentScale - 0.1);
+            charEl.style.height = `${newScale * 100}%`;
+        }
         
         // 如果当前层级不是“后”，则强制设置为“后”
         const currentZIndex = parseInt(charEl.style.zIndex) || 10;
@@ -7447,12 +7615,34 @@ const gameEngine = {
         const currentBottom = parseFloat(currentBottomStr) || 0;
         const newBottom = currentBottom - 10;
         charEl.style.bottom = `${newBottom}%`;
-        
-        // 从 DOM 读取当前缩放比例
-        const currentHeightStr = charEl.style.height || '100%';
-        const currentScale = parseFloat(currentHeightStr) / 100 || 1;
-        const newScale = Math.min(2.0, currentScale + 0.1);
-        charEl.style.height = `${newScale * 100}%`;
+
+        // 新版分层立绘同样需要让表情层跟随身体缩放。
+        const isLayeredChar = charEl && charEl.classList &&
+            charEl.classList.contains('character-layered');
+        const currentLayeredScale = isLayeredChar
+            ? (parseFloat(charEl.dataset.charDiffScale) || 1)
+            : null;
+        const layeredBaseScale = isLayeredChar
+            ? (parseFloat(charEl.dataset.charDiffBaseScale) || 1)
+            : null;
+        // 旧版的上限是绝对 2.0；新版需要保留配置本身的 z 基准，
+        // 否则 z:100（基础 2.0）时“前进”会被错误地夹回原比例。
+        const nextLayeredScale = isLayeredChar
+            ? Math.min(Math.max(2.0, layeredBaseScale + 1.0), currentLayeredScale + 0.1)
+            : null;
+        if (this.updateLayeredCharScale(
+            charEl,
+            isLayeredChar ? nextLayeredScale : null,
+            'transform 0.5s ease, left 0.5s ease, bottom 0.5s ease'
+        )) {
+            // 分层立绘已完成缩放，继续处理位置和层级即可。
+        } else {
+            // 旧版立绘仍通过图片高度缩放。
+            const currentHeightStr = charEl.style.height || '100%';
+            const currentScale = parseFloat(currentHeightStr) / 100 || 1;
+            const newScale = Math.min(2.0, currentScale + 0.1);
+            charEl.style.height = `${newScale * 100}%`;
+        }
         
         // 如果当前层级不是“前”，则强制设置为“前”
         const currentZIndex = parseInt(charEl.style.zIndex) || 10;
@@ -7466,9 +7656,23 @@ const gameEngine = {
      * 先放大7%，再缩小7%，重复2次
      */
     applyJumpscareAction: function(charEl, props) {
-        const baseScale = props.scale;
+        const isLayeredChar = charEl && charEl.classList &&
+            charEl.classList.contains('character-layered');
+        const layeredScale = isLayeredChar ? parseFloat(charEl.dataset.charDiffScale) : NaN;
+        const baseScale = Number.isFinite(layeredScale) ? layeredScale : (props.scale || 1);
         const scaleUp = baseScale * 1.07;  // 放大7%
         const scaleDown = baseScale * 0.93; // 缩小7%
+        const setScale = (scale) => {
+            if (isLayeredChar) {
+                this.updateLayeredCharScale(
+                    charEl,
+                    scale,
+                    'transform 0.1s ease, left 0.1s ease, bottom 0.1s ease'
+                );
+            } else {
+                charEl.style.height = `${scale * 100}%`;
+            }
+        };
         
         let step = 0;
         const maxSteps = 10; // 5个阶段 x 2次循环 = 10步
@@ -7476,20 +7680,20 @@ const gameEngine = {
         const animate = () => {
             if (step >= maxSteps) {
                 // 动画结束，恢复到基准缩放
-                charEl.style.height = `${baseScale * 100}%`;
+                setScale(baseScale);
                 return;
             }
             
             const phase = step % 5;
             if (phase === 0 || phase === 4) {
                 // 基准状态
-                charEl.style.height = `${baseScale * 100}%`;
+                setScale(baseScale);
             } else if (phase === 1 || phase === 3) {
                 // 放大7%
-                charEl.style.height = `${scaleUp * 100}%`;
+                setScale(scaleUp);
             } else if (phase === 2) {
                 // 缩小7%
-                charEl.style.height = `${scaleDown * 100}%`;
+                setScale(scaleDown);
             }
             
             step++;
