@@ -1801,6 +1801,16 @@ const gameEngine = {
             return;
         }
 
+        // 立即设置背景转场标志，屏蔽用户点击交互
+        this.state.isBackgroundTransitioning = true;
+
+        // 记录转场起始行号作为锚点，用于后续校验
+        this.state.transitionStartLine = this.state.currentLine;
+        console.log(`[转场锚点-滑屏] 记录起始行号: ${this.state.transitionStartLine}`);
+
+        // 在转场动画正式开始前，立即清除所有旧立绘，确保画面干净
+        this.removeAllChars();
+
         const bgContainer = this.elements.backgroundContainer;
         
         // 预加载新背景图片，防止闪烁
@@ -1839,7 +1849,7 @@ const gameEngine = {
 
             // 动画结束后清理
             setTimeout(() => {
-                this.removeAllChars();
+                // 立绘已在转场开始时清除，此处无需再次调用
                 this.setBackground(newBgPath);
                 
                 // 移除临时层
@@ -3339,6 +3349,9 @@ const gameEngine = {
     performBackgroundTransitionSequence: function(newBgPath, type, onComplete) {
         const duration = 1000;
         const container = this.elements.backgroundContainer;
+        
+        // 在转场开始前，立即清除所有旧立绘，确保画面干净（相当于 [消失 all]）
+        this.removeAllChars();
         
         if (type === 'fade') {
             container.style.transition = `opacity ${duration}ms ease-in-out`;
@@ -6499,6 +6512,21 @@ const gameEngine = {
         }
 
         console.log(`[CharDiff] 更新立绘: ${charName} ${orientation} dress=${dress.id} face=${face.id}`);
+
+        // 注册到 state，使 removeAllChars / removeChar / syncDebugCharsState 能正确管理新版立绘
+        // 注意：新版立绘的 charId 与 charName 相同（DOM ID 为 char-${charName}）
+        this.state.activeChars[charName] = {
+            path: dressPath,
+            orientation,
+            dress: dress.id,
+            face: face.id,
+            isNewSystem: true,
+            domElement: charContainer
+        };
+        this.state.charNameMap[charName] = { charId: charName, domElement: charContainer };
+
+        // 更新调试日志中的立绘状态
+        this.syncDebugCharsState();
     },
 
     /**
