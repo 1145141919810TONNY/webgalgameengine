@@ -523,16 +523,6 @@
 					return null;
 				},
 
-				// 获取所有场景列表
-				getAllScenes: function() {
-					// 这里列出所有可能的scene文件
-					return [
-						'scene1.html',
-						'scene2.html',
-						'scene3.html'
-					];
-				},
-
 				// 显示进度信息
 				displayProgress: function() {
 					const progressData = this.loadProgress();
@@ -586,129 +576,106 @@
 				},
 
 			// 显示快速跳转按钮
-			displayQuickJumpButtons: function(progressData) {
-				const jumpGrid = document.getElementById('quick-jump-grid');
-				jumpGrid.innerHTML = '';
+		displayQuickJumpButtons: function(progressData) {
+			const self = this;
+			const jumpGrid = document.getElementById('quick-jump-grid');
+			jumpGrid.innerHTML = '';
 
-				if (progressData && progressData.sceneMarkers) {
-					const markers = progressData.sceneMarkers;
-					const markerKeys = Object.keys(markers);
+			const showEmptyHint = function() {
+				jumpGrid.innerHTML = '<p style="text-align: center; color: #666;">还没有可以跳转的场景</p>';
+			};
 
-					// 过滤出已访问的场景(兼容新旧格式)
-					const visitedScenes = markerKeys.filter(marker => {
-						const value = markers[marker];
-						// 新格式: {visited: 1, lastAccessTime: ...}
-						// 旧格式: 1
-						return (typeof value === 'object' && value.visited === 1) || value === 1;
-					});
+			if (!progressData || !progressData.sceneMarkers) {
+				showEmptyHint();
+				return;
+			}
 
-					if (visitedScenes.length > 0) {
-						visitedScenes.forEach(sceneId => {
-							const sceneFileName = `${sceneId}.html`;
+			const markers = progressData.sceneMarkers;
+			const markerKeys = Object.keys(markers);
 
-							// 检查是否为有效的场景文件
-							if (this.isValidSceneFile(sceneFileName)) {
-								// 创建卡片元素，先用文件名作为默认名称
-								const cardDiv = document.createElement('div');
-								cardDiv.className = 'scene-card';
-								cardDiv.setAttribute('data-scene', sceneFileName);
-								cardDiv.setAttribute('data-scene-id', sceneId);
-								cardDiv.onclick = function() {
-									SaveManager.jumpToScene(sceneFileName);
-								};
-								cardDiv.innerHTML = `
-                                    <div class="scene-name">加载中...</div>
-                                `;
-								jumpGrid.appendChild(cardDiv);
+			// 过滤出已访问的场景(兼容新旧格式)
+			const visitedScenes = markerKeys.filter(marker => {
+				const value = markers[marker];
+				// 新格式: {visited: 1, lastAccessTime: ...}
+				// 旧格式: 1
+				return (typeof value === 'object' && value.visited === 1) || value === 1;
+			});
 
-								// 异步获取场景标题
-								this.fetchSceneTitle(sceneId, cardDiv);
-							}
-						});
-					} else {
-						jumpGrid.innerHTML = '<p style="text-align: center; color: #666;">还没有可以跳转的场景</p>';
-					}
-				} else {
-					jumpGrid.innerHTML = '<p style="text-align: center; color: #666;">还没有可以跳转的场景</p>';
-				}
-			},
+			if (visitedScenes.length === 0) {
+				showEmptyHint();
+				return;
+			}
 
-			// 异步获取场景文件的<title>标签
-			fetchSceneTitle: function(sceneId, cardDiv) {
-				const sceneFileName = `${sceneId}.html`;
-				fetch(`../scenes/${encodeURIComponent(sceneFileName)}`)
-					.then(response => {
-						if (!response.ok) throw new Error('Network response was not ok');
-						return response.text();
-					})
-					.then(html => {
-						// 解析HTML获取<title>标签
-						const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-						const title = titleMatch ? titleMatch[1].trim() : sceneId;
-						// 更新卡片显示
-						const nameDiv = cardDiv.querySelector('.scene-name');
-						if (nameDiv) {
-							nameDiv.textContent = title;
-						}
-					})
-					.catch(error => {
-						console.warn(`[SaveManager] Failed to fetch title for ${sceneFileName}:`, error);
-						// 使用默认名称
-						const nameDiv = cardDiv.querySelector('.scene-name');
-						if (nameDiv) {
-							nameDiv.textContent = sceneId.replace(/_/g, ' ').replace('scene', '场景 ');
-						}
-					});
-			},
+			// 跟踪异步校验结果：仅在 scenes/ 目录内真实存在的文件才会保留卡片，
+			// 历史/脏数据（如曾误存的 CG、archive 等系统页面）会因 fetch 404 被自动移除
+			let pending = visitedScenes.length;
+			let validCount = 0;
 
-
-			// 检查是否为有效的场景文件
-			isValidSceneFile: function(fileName) {
-				// 排除非场景页面
-				const excludedPatterns = [
-					'_', 'demo', 'video', 'bgm', 'index', 'test', 'flowchart', 'saves', 'archive'
-				];
-				
-				// 必须是以.html结尾的文件
-				if (!fileName.endsWith('.html')) {
-					return false;
-				}
-				
-				// 检查是否包含排除模式
-				const lowerFileName = fileName.toLowerCase();
-				for (const pattern of excludedPatterns) {
-					if (lowerFileName.includes(pattern)) {
-						return false;
-					}
-				}
-				
-				return true;
-			},
-
-				// 跳转到指定场景
-				jumpToScene: function(sceneFileName) {
-					// 确定场景文件路径
-					let fullPath = '';
-
-					// 处理不同类型的页面跳转
-					if (sceneFileName === 'index.html') {
-						// 返回主菜单
-						fullPath = '../index.html';
-					} else if (['saves.html', 'bgm.html', 'video.html'].includes(sceneFileName)) {
-						// 跳转到html目录下的页面
-						fullPath = './' + sceneFileName;
-					} else if (!sceneFileName.includes('/')) {
-						// 跳转到scenes子目录下的场景文件
-						fullPath = '../scenes/' + sceneFileName;
-					} else {
-						// 如果路径已包含目录信息，直接使用
-						fullPath = '../' + sceneFileName;
-					}
-
-					// 跳转到指定场景
-					window.location.href = fullPath;
+			const onCheckDone = function(exists) {
+				if (exists) validCount++;
+				pending--;
+				if (pending === 0 && validCount === 0) {
+					showEmptyHint();
 				}
 			};
+
+			visitedScenes.forEach(sceneId => {
+				const sceneFileName = `${sceneId}.html`;
+
+				// 先创建卡片，标题与有效性通过异步 fetch 校验
+				const cardDiv = document.createElement('div');
+				cardDiv.className = 'scene-card';
+				cardDiv.setAttribute('data-scene', sceneFileName);
+				cardDiv.setAttribute('data-scene-id', sceneId);
+				cardDiv.onclick = function() {
+					SaveManager.jumpToScene(sceneFileName);
+				};
+				cardDiv.innerHTML = `
+					<div class="scene-name">加载中...</div>
+				`;
+				jumpGrid.appendChild(cardDiv);
+
+				// 异步获取场景标题；若 scenes/ 内不存在该文件则移除卡片
+				self.fetchSceneTitle(sceneId, cardDiv, onCheckDone);
+			});
+		},
+
+		// 异步获取场景文件的<title>标签
+		// 同时用于校验该文件是否真实存在于 scenes/ 目录内
+		fetchSceneTitle: function(sceneId, cardDiv, onComplete) {
+			const sceneFileName = `${sceneId}.html`;
+			fetch(`../scenes/${encodeURIComponent(sceneFileName)}`)
+				.then(response => {
+					if (!response.ok) throw new Error('Scene not found: ' + response.status);
+					return response.text();
+				})
+				.then(html => {
+					// 解析HTML获取<title>标签
+					const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+					const title = titleMatch ? titleMatch[1].trim() : sceneId;
+					// 更新卡片显示
+					const nameDiv = cardDiv.querySelector('.scene-name');
+					if (nameDiv) {
+						nameDiv.textContent = title;
+					}
+					if (onComplete) onComplete(true);
+				})
+				.catch(error => {
+					console.warn(`[SaveManager] scenes/ 内未找到 ${sceneFileName}，移除该卡片:`, error);
+					// 文件不存在（如历史脏数据），从 DOM 移除卡片
+					if (cardDiv.parentNode) {
+						cardDiv.parentNode.removeChild(cardDiv);
+					}
+					if (onComplete) onComplete(false);
+				});
+		},
+
+		// 跳转到指定场景
+		// 所有场景文件均位于 scenes/ 目录下（由 engine.js 保证仅记录 scenes/ 内的页面）
+		jumpToScene: function(sceneFileName) {
+			window.location.href = '../scenes/' + sceneFileName;
+		}
+	};
 
 			/**
 			 * 智能返回功能管理器
