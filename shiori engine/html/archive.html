@@ -152,6 +152,7 @@
             display: flex;
             flex-direction: column;
             animation: fadeIn 0.4s ease;
+            overflow: hidden;
         }
         
         @keyframes fadeIn {
@@ -171,6 +172,83 @@
             transform: translateY(-3px);
         }
         
+        /* 缩略图：直接作为 .archive-card 的背景（占满整个卡片） */
+        /* 当存在缩略图时通过 .has-thumbnail 类启用背景图与黑色滤镜 */
+        .archive-card.has-thumbnail {
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-color: #000;
+        }
+
+        /* 黑色遮罩层：覆盖在背景图与立绘之上、卡片内容（序号/名称/按钮）之下，
+           提高对比度避免文字被画面遮挡。
+           透明度由 CSS 变量 --bg-mask-opacity 控制（0-1），由拖拽条实时设置：
+           0=不显示，1=全黑。默认 0.5（50%）。
+           层级：背景(0) → 立绘 .thumb-char-stage(2) → 黑色遮罩 ::before(3) → 文字(4) */
+        .archive-card.has-thumbnail::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #000;
+            pointer-events: none;
+            opacity: var(--bg-mask-opacity, 0.5);
+            z-index: 3;
+        }
+
+        /* 立绘迷你视口：镜像场景 #character-container（高 75%，宽 100%，bottom:0）。
+           这样引擎采集的百分比坐标在新容器内按卡片比例缩放，位置忠实还原。 */
+        .archive-card .thumb-char-stage {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 75%;
+            pointer-events: none;
+            overflow: visible;
+            z-index: 2; /* 在滤镜之上，使立绘可见 */
+        }
+
+        /* 缩略图分层立绘容器：镜像场景 .character-layered 的基础样式。
+           每个立绘组（新版 dress+face 或旧版单图）外面包一层这个容器，
+           其 style 中注入 parentCssText（含 left/bottom/transform/zIndex/width/height 等）。
+           场景中 .character-layered 有 width:100%; height:100% 相对于 #character-container，
+           在缩略图中 .thumb-char-stage 就是"迷你 character-container"，所以容器的
+           100% 宽度/高度会自动相对于 stage 计算，保证百分比坐标在卡片中按比例还原。 */
+        .archive-card .thumb-char-layered {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: visible;
+        }
+
+        /* 缩略图立绘 img：只提供基础属性（position/object-fit/transform-origin），
+           transform/left/bottom/height 等全部由内联 style（cssText）决定，
+           避免硬写 transform:translateX(-50%) 覆盖新版立绘的 scale()。 */
+        .archive-card .thumb-char-img {
+            position: absolute;
+            object-fit: contain;
+            object-position: bottom center;
+            transform-origin: bottom center;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        /* 卡片内非缩略图内容（序号、名称、按钮等）需在遮罩之上 */
+        .archive-card > .save-index,
+        .archive-card > .save-name,
+        .archive-card > .save-info,
+        .archive-card > .preview-text,
+        .archive-card > .card-actions {
+            position: relative;
+            z-index: 4;
+        }
+
         /* 存档序号 */
         .save-index {
             position: absolute;
@@ -404,6 +482,88 @@
             box-shadow: 0 4px 20px rgba(33, 150, 243, 0.3);
             animation: slideInRight 0.3s ease;
         }
+
+        /* 背景遮罩控制面板：与 #smart-return-box 对称，固定在左上角 */
+        #bg-mask-panel {
+            position: fixed;
+            top: 80px;
+            left: 30px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 2px solid #FFD700;
+            border-radius: 12px;
+            padding: 14px 18px;
+            z-index: 1500;
+            min-width: 220px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(255, 215, 0, 0.3);
+            animation: slideInLeft 0.3s ease;
+        }
+
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        #bg-mask-label {
+            color: #FFD700;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        #bg-mask-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #bg-mask-slider {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            background: rgba(255, 215, 0, 0.3);
+            border-radius: 3px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        #bg-mask-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #FFD700;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 6px rgba(255, 215, 0, 0.6);
+        }
+
+        #bg-mask-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #FFD700;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 6px rgba(255, 215, 0, 0.6);
+        }
+
+        #bg-mask-value {
+            color: #FFD700;
+            font-size: 13px;
+            font-weight: bold;
+            min-width: 42px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
         
         @keyframes slideInRight {
             from {
@@ -453,7 +613,7 @@
             h1 {
                 font-size: 28px;
             }
-            
+
             .save-name {
                 font-size: 16px;
             }
@@ -478,7 +638,7 @@
             h1 {
                 font-size: 24px;
             }
-            
+
             .save-name {
                 font-size: 14px;
             }
@@ -503,11 +663,11 @@
             .container {
                 width: 95%;
             }
-            
+
             .archive-grid {
                 grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             }
-            
+
             h1 {
                 font-size: 20px;
             }
@@ -527,8 +687,19 @@
         }
     </style>
 <script src="../illustration.js"></script>
+<script src="../api/progress_api.js"></script>
 </head>
 <body>
+    <!-- 背景遮罩透明度控制面板（与右上的 #smart-return-box 对称，固定在左上角） -->
+    <div id="bg-mask-panel">
+        <div id="bg-mask-label">背景遮罩</div>
+        <div id="bg-mask-row">
+            <input type="range" id="bg-mask-slider" min="0" max="100" step="1" value="50"
+                   oninput="ArchiveManager.onBgMaskChange(this.value)">
+            <span id="bg-mask-value">50%</span>
+        </div>
+    </div>
+
     <div class="actions">
         <button onclick="ArchiveManager.refreshArchives()">刷新存档</button>
         <button onclick="location.href='saves.html'" class="primary">进度管理</button>
@@ -581,7 +752,71 @@
              */
             init: function() {
                 this.renderArchiveList();
+                // 从 API 加载持久化的背景遮罩透明度并应用到滑块与卡片
+                this.initBgMask();
                 console.log('[Archive Manager] Initialized with dynamic list');
+            },
+
+            /**
+             * 初始化背景遮罩透明度
+             * 优先从 GalgameProgressAPI 读取持久化值，API 不可用时直接读 localStorage，
+             * 同步滑块位置与卡片遮罩
+             */
+            initBgMask: function() {
+                const api = window.GalgameProgressAPI;
+                let opacity = 50;
+                if (api && typeof api.getBgMaskOpacity === 'function') {
+                    opacity = api.getBgMaskOpacity();
+                } else {
+                    // 回退：直接读取 localStorage
+                    try {
+                        const v = localStorage.getItem('archiveBgMaskOpacity');
+                        if (v !== null && v !== '') {
+                            const n = parseInt(v, 10);
+                            if (!isNaN(n)) opacity = Math.max(0, Math.min(100, n));
+                        }
+                    } catch (e) { /* 保持默认 50 */ }
+                }
+                this.applyBgMask(opacity);
+            },
+
+            /**
+             * 应用背景遮罩透明度
+             * @param {number} opacity - 0-100 的整数
+             */
+            applyBgMask: function(opacity) {
+                const n = Math.max(0, Math.min(100, parseInt(opacity, 10) || 0));
+                // 同步滑块与数值显示
+                const slider = document.getElementById('bg-mask-slider');
+                const valueEl = document.getElementById('bg-mask-value');
+                if (slider) slider.value = n;
+                if (valueEl) valueEl.textContent = n + '%';
+                // 通过 CSS 变量控制卡片遮罩透明度（0-1）
+                document.documentElement.style.setProperty('--bg-mask-opacity', (n / 100).toString());
+            },
+
+            /**
+             * 拖拽条变化回调
+             * 实时更新卡片遮罩并持久化（API + localStorage 双写 + 通知宿主）
+             * @param {string|number} value - 0-100 的整数值
+             */
+            onBgMaskChange: function(value) {
+                this.applyBgMask(value);
+                const n = Math.max(0, Math.min(100, parseInt(value, 10) || 0));
+                // 直接写 localStorage，保证即便 API 不可用也能持久化
+                try {
+                    localStorage.setItem('archiveBgMaskOpacity', String(n));
+                } catch (e) { /* 忽略 */ }
+                // 同时调用 API（若可用），保持与 progress_api.js 的一致性
+                const api = window.GalgameProgressAPI;
+                if (api && typeof api.setBgMaskOpacity === 'function') {
+                    api.setBgMaskOpacity(n);
+                }
+                // 通知 C# 宿主该键已更新（与存档操作一致），
+                // 确保 WebView2 环境下持久化
+                if (typeof this.notifyStorageOperation === 'function') {
+                    this.notifyStorageOperation('SAVE', 'archiveBgMaskOpacity', 'localStorage');
+                }
             },
             
             /**
@@ -699,6 +934,8 @@
                 archive.lineIndex = snapshot.currentLine || 0;
                 archive.snapshot = snapshot;
                 archive.previewText = snapshot.previewText || '当前进度存档';
+                // 更新缩略图为当前剧本画面（同样基于引擎保存的 snapshot）
+                archive.thumbnail = snapshot.thumbnail || null;
                 archive.timestamp = Date.now();
                 archive.formattedTime = this.formatTimestamp(archive.timestamp);
                 
@@ -825,6 +1062,10 @@
                         lineIndex: snapshot.currentLine,
                         previewText: snapshot.previewText || '当前进度存档',
                         snapshot: snapshot,
+                        // 缩略图：剧本形态的画面数据（背景图+立绘），由引擎 captureThumbnail 采集
+                        // 当玩家在存档页保存时，snapshot 来自引擎跳转前保存的状态，
+                        // 因此缩略图反映的是剧本画面，而非 archive.html 自身画面。
+                        thumbnail: snapshot.thumbnail || null,
                         saveName: this.getDefaultSaveName(0)
                     };
                     
@@ -879,6 +1120,13 @@
                 const previewText = this.truncateText(archive.previewText || '无文本预览', 50);
                 const saveName = archive.saveName || this.getDefaultSaveName(index);
                 const displayIndex = totalCount - index; // 显示序号（最新的在前）
+                // 生成缩略图数据：背景图作为卡片自身背景，立绘叠加其上
+                const thumbnail = this.buildThumbnail(archive.thumbnail);
+                // 将背景内联样式应用到卡片（覆盖默认半透明黑底）
+                if (thumbnail.bgCss) {
+                    card.style.cssText = (card.style.cssText || '') + ';' + thumbnail.bgCss;
+                    card.classList.add('has-thumbnail');
+                }
                 
                 // 检查是否从剧本页面进入（有游戏状态快照且包含场景路径）
                 let isFromScene = false;
@@ -897,6 +1145,7 @@
                 ` : '';
                 
                 card.innerHTML = `
+                    ${thumbnail.charsHtml}
                     <div class="save-index">#${displayIndex}</div>
                     <div class="save-name" 
                          contenteditable="false" 
@@ -933,7 +1182,62 @@
                 
                 return card;
             },
-            
+
+            /**
+             * 构建缩略图数据
+             * 由引擎 captureThumbnail 采集的剧本画面数据（背景图+立绘），
+             * 供存档页重建"剧本形态"缩略图作为存档卡片自身的背景，
+             * 而非截取存档页自身画面。bg 与 CG 一视同仁——均通过 thumbnail.bg
+             * 中已解析的实际 URL 加载。
+             *
+             * 立绘定位修复：引擎采集的 left/bottom/height 是基于场景全屏视口
+             * （#character-container 宽 100vw、高 75vh）的百分比。直接套用到
+             * 存档卡片会偏移/出框。这里把存档卡片当作"迷你视口"——
+             * 在卡片内重建一个等比例的 .thumb-char-stage 容器（高 75%），
+             * 立绘 img 镜像场景 .character-img 的样式（position:absolute;
+             * bottom:0; height:容器高; object-fit:contain; transform:translateX(-50%)），
+             * 使百分比坐标在新容器内自动按卡片比例缩放，位置忠实还原剧本形态。
+             * @param {Object} thumbnail - 缩略图数据 {bg, bgCss, chars, capturedAt}
+             * @returns {Object} - { bgCss: 背景内联样式字符串, charsHtml: 立绘叠加 HTML }
+             *                     无数据时两者均为空串（卡片将保持默认背景）
+             */
+            buildThumbnail: function(thumbnail) {
+                const empty = { bgCss: '', charsHtml: '' };
+                if (!thumbnail || (!thumbnail.bg && !(thumbnail.chars && thumbnail.chars.length))) {
+                    return empty;
+                }
+
+                let bgCss = '';
+                if (thumbnail.bg) {
+                    bgCss = `background-image:url('${thumbnail.bg}');${thumbnail.bgCss || ''};`;
+                }
+
+                let charsHtml = '';
+                if (thumbnail.chars && thumbnail.chars.length) {
+                    const groups = thumbnail.chars.map(function(c) {
+                        let parentCssText = c.parentCssText || '';
+                        let imgs;
+                        if (c.imgs) {
+                            imgs = c.imgs;
+                        } else {
+                            imgs = [{
+                                src: c.src,
+                                cssText: c.cssText || '',
+                                className: ''
+                            }];
+                        }
+                        const imgsHtml = imgs.map(function(img) {
+                            return `<img src="${img.src}" class="thumb-char-img" style="${img.cssText || ''}" alt="" draggable="false">`;
+                        }).join('');
+                        const containerStyle = parentCssText ? ` style="${parentCssText}"` : '';
+                        return `<div class="thumb-char-layered"${containerStyle}>${imgsHtml}</div>`;
+                    }).join('');
+                    charsHtml = `<div class="thumb-char-stage">${groups}</div>`;
+                }
+
+                return { bgCss: bgCss, charsHtml: charsHtml };
+            },
+
             /**
              * 处理存档名称编辑完成
              * @param {number} index - 存档索引
@@ -943,7 +1247,7 @@
                 element.contentEditable = false;
                 const newName = element.textContent.trim();
                 this.updateArchiveName(index, newName);
-                
+
                 // 更新显示
                 const archives = this.loadArchives();
                 element.textContent = archives[index].saveName;
