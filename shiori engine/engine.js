@@ -16,7 +16,7 @@
  * 格式：V主版本.次版本.修订号  （与 GameScanner 中的正则 ENGINE_VERSION\s*=\s*["'] 匹配）
  * 请勿删除或重命名此变量，否则管理器将无法正确识别基准的引擎版本。
  */
-const ENGINE_VERSION = "V2.1.9";
+const ENGINE_VERSION = "V2.1.10";
 
 const gameEngine = {
     state: {
@@ -5305,14 +5305,31 @@ const gameEngine = {
     },
     
     /**
+     * 检查当前页面是否位于 scenes/ 目录内
+     * 用于过滤非场景页面（如 html/ 目录下的 CG.html、archive.html、saves.html 等系统页面），
+     * 避免它们被错误地写入游戏进度（completedScenes / sceneMarkers）。
+     * 浏览器中 window.location.pathname 始终使用正斜杠分隔，即使在 Windows 下也会归一化。
+     * @returns {boolean} - 当前页面是否在 scenes/ 目录内
+     */
+    isInScenesFolder: function() {
+        const path = decodeURIComponent(window.location.pathname || '');
+        return path.indexOf('/scenes/') !== -1;
+    },
+
+    /**
      * 标记当前场景为已完成
      * 将当前页面文件名添加到completedScenes并保存
+     * 仅当当前页面位于 scenes/ 目录内时才记录，过滤系统页面
      */
     markSceneCompleted: function() {
+        // 过滤非场景页面（如 CG.html、archive.html 等），避免污染进度数据
+        if (!this.isInScenesFolder()) {
+            return;
+        }
         // 获取当前页面文件名（解码URL编码的中文字符）
         const rawPage = window.location.pathname.split('/').pop();
         const currentPage = decodeURIComponent(rawPage);
-        
+
         // 如果未记录，则添加并保存
         if (!this.state.completedScenes.includes(currentPage)) {
             this.state.completedScenes.push(currentPage);
@@ -5394,8 +5411,13 @@ const gameEngine = {
     /**
      * 保存当前场景标记
      * 记录玩家已进入过的场景，用于进度追踪
+     * 仅当当前页面位于 scenes/ 目录内时才记录，过滤系统页面
      */
     saveCurrentSceneMarker: function() {
+        // 过滤非场景页面（如 CG.html、archive.html 等），避免污染进度数据
+        if (!this.isInScenesFolder()) {
+            return;
+        }
         // 获取当前页面文件名作为场景ID
         // 注意：window.location.pathname可能包含URL编码的中文字符，需要解码
         const rawPage = window.location.pathname.split('/').pop();
@@ -5436,7 +5458,96 @@ const gameEngine = {
             sceneMarkers: {}
         };
     },
-    
+
+    /**
+     * 捕获当前剧本画面的缩略图数据
+     * 从实际渲染的 DOM 中提取背景图 URL 与所有立绘 img 元素的 src/样式，
+     * bg 与 CG 一视同仁（均通过实际解析后的 URL 获取），
+     * 供存档页重建"剧本形态"缩略图（而非截取存档页自身画面）。
+     * @returns {Object|null} - 缩略图数据对象 {bg, chars}，无可用数据时返回 null
+     */
+    captureThumbnail: function() {
+        try {
+            if (!this.elements || !this.elements.backgroundContainer) {
+                return null;
+            }
+
+            // 1. 提取背景图：从 backgroundContainer 的内联样式中取出
+            //    backgroundImage 形如 url("...") 或 url(...)，统一解析出纯 URL
+            const bgContainer = this.elements.backgroundContainer;
+            const bgImageRaw = bgContainer.style.backgroundImage || '';
+            const bgMatch = bgImageRaw.match(/url\(["']?([^"')]+)["']?\)/i);
+            const bgUrl = bgMatch ? bgMatch[1] : null;
+
+            // 背景图额外样式（保证 contain/center 等呈现一致）
+            const bgExtraCss = [
+                bgContainer.style.backgroundSize ? 'background-size:' + bgContainer.style.backgroundSize : '',
+                bgContainer.style.backgroundPosition ? 'background-position:' + bgContainer.style.backgroundPosition : '',
+                bgContainer.style.backgroundRepeat ? 'background-repeat:' + bgContainer.style.backgroundRepeat : '',
+                bgContainer.style.backgroundColor ? 'background-color:' + bgContainer.style.backgroundColor : ''
+            ].filter(Boolean).join(';');
+
+            // 2. 提取立绘：按容器分组采集
+            //    新版分层立绘：.character-layered 容器 > .char-dress + .char-face
+            //    旧版单图立绘：直接 <img class="character-img">，无包裹容器
+            //    每组 charGroup 包含容器样式（parentCssText）和子 img 列表（imgs）
+            const chars = [];
+            if (this.elements.characterContainer) {
+                const container = this.elements.characterContainer;
+
+                // 新版：遍历所有 .character-layered 容器
+                container.querySelectorAll('.character-layered').forEach(layered => {
+                    const group = {
+                        parentCssText: layered.style.cssText || '',
+                        parentClass: 'character-layered',
+                        imgs: []
+                    };
+                    layered.querySelectorAll('img').forEach(img => {
+                        if (!img.src) return;
+                        group.imgs.push({
+                            src: img.src,
+                            cssText: img.style.cssText || '',
+                            className: img.className || ''
+                        });
+                    });
+                    if (group.imgs.length > 0) {
+                        chars.push(group);
+                    }
+                });
+
+                // 旧版：直接在 characterContainer 下的 img（不属于任何 .character-layered）
+                container.querySelectorAll(':scope > img').forEach(img => {
+                    if (!img.src) return;
+                    chars.push({
+                        parentCssText: '',
+                        parentClass: 'character-img',
+                        imgs: [{
+                            src: img.src,
+                            cssText: img.style.cssText || '',
+                            className: img.className || ''
+                        }]
+                    });
+                });
+            }
+
+            // 没有背景也没有立绘则视为无可用画面
+            if (!bgUrl && chars.length === 0) {
+                return null;
+            }
+
+            return {
+                bg: bgUrl,
+                bgCss: bgExtraCss,
+                chars: chars,
+                // 记录采集时间，便于排序/调试
+                capturedAt: Date.now()
+            };
+        } catch (e) {
+            console.warn('[State Snapshot] captureThumbnail failed:', e);
+            return null;
+        }
+    },
+
     /**
      * 保存当前游戏状态的完整快照
      * 用于从存档页精确返回时恢复状态
@@ -5504,13 +5615,18 @@ const gameEngine = {
             // POV视角状态
             povActive: this.state.povActive,
             povName: povName,
-            
+
             // 点击锁定状态
             isClickLocked: this.state.isClickLocked,
-            
+
             // 当前激活的立绘状态（详细）
             activeChars: this.state.activeChars,
-            
+
+            // 缩略图数据：从当前 DOM 提取背景图与立绘元素的呈现信息，
+            // 供存档页（archive.html）重建"剧本形态"缩略图（背景图+立绘叠加），
+            // 而非截取存档页自身画面。bg/CG 一视同仁，均通过实际渲染的 URL 解析。
+            thumbnail: this.captureThumbnail(),
+
             // 角色好感度数据
             affinity: this.state.affinity,
             
@@ -8508,6 +8624,13 @@ const QuickSaveManager = {
             return;
         }
         
+        // 确保快照是最新的（包含当前剧本画面缩略图）
+        // 在场景页 F5 保存时，gameEngine 已在每次推进时更新快照，
+        // 但为保险起见这里再保存一次以捕获最新画面
+        if (typeof gameEngine !== 'undefined' && gameEngine.saveStateSnapshot) {
+            gameEngine.saveStateSnapshot();
+        }
+        
         // 获取当前游戏状态
         const snapshot = sessionStorage.getItem('gameStateSnapshot');
         if (!snapshot) {
@@ -8524,7 +8647,9 @@ const QuickSaveManager = {
             sceneFile: this.extractSceneFileName(gameState.pagePath),
             lineIndex: gameState.currentLine,
             previewText: this.getCurrentPreviewText(),
-            snapshot: gameState
+            snapshot: gameState,
+            // 缩略图：剧本形态画面数据（背景图+立绘），由 captureThumbnail 采集
+            thumbnail: gameState.thumbnail || null
         };
         
         // 添加到存档列表
@@ -8558,8 +8683,11 @@ const QuickSaveManager = {
         if (typeof systemModule !== 'undefined' && systemModule.stopAllAutoSkipModes) {
             systemModule.stopAllAutoSkipModes();
         }
-        // 保存当前游戏状态快照，确保存档页面能检测到"返回当前游玩"按钮
-        this.saveStateSnapshot();
+        // 保存当前游戏状态快照（含缩略图），确保存档页面能检测到"返回当前游玩"按钮
+        // 并让存档页 createNewArchive 能从 snapshot.thumbnail 获取剧本画面
+        if (typeof gameEngine !== 'undefined' && gameEngine.saveStateSnapshot) {
+            gameEngine.saveStateSnapshot();
+        }
         window.location.href = '../html/archive.html';
     },
     
