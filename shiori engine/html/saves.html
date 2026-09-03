@@ -673,6 +673,14 @@
 		// 跳转到指定场景
 		// 所有场景文件均位于 scenes/ 目录下（由 engine.js 保证仅记录 scenes/ 内的页面）
 		jumpToScene: function(sceneFileName) {
+			// ★ 场景入口跳入信号：目标场景加载后，engine.js 会读取
+			// localStorage['shiori_scene_entry_' + sceneFileName] 中的 f.（该场景最近一次
+			// 经 nextScene / choice 正常流程进入时的变量），实现“从头播放但变量接续”。
+			// 同时清除可能残留的 nextScene 信号，避免被误判为跨场景续玩。
+			try {
+				sessionStorage.removeItem('shiori_next_scene_target');
+				sessionStorage.setItem('shiori_scene_entry_jump', '1');
+			} catch (e) {}
 			window.location.href = '../scenes/' + sceneFileName;
 		}
 	};
