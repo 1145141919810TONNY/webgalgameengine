@@ -13,7 +13,7 @@
             height: 100vh;
             overflow: hidden;
             position: relative;
-            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('assets/cg/bg.jpg') center center/cover no-repeat;/*修改背景图片url*/
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('assets/cg/bg.jpg') center center/cover no-repeat;
             font-family: 'Microsoft YaHei', sans-serif;
             display: flex;
         }
@@ -292,7 +292,7 @@
     <div id="menu-container">
         <h1 id="menu-title">Shiori</h1>
         
-        <a href="scenes/scene1.html" class="menu-btn">开始游戏</a>
+        <a href="scenes/scene1.html" id="new-game-btn" class="menu-btn">开始游戏（这里没写完）</a>
         <a href="./html/archive.html" class="menu-btn">存档</a>
         <a id="progress-btn" href="./html/saves.html" class="menu-btn">进度管理</a>
         <a href="./html/flowchart.html" class="menu-btn">剧本流程图</a>
@@ -300,28 +300,18 @@
         <a href="./html/bgm.html" class="menu-btn">BGM鉴赏</a>
         <a href="./html/video.html" class="menu-btn">视频鉴赏</a>
         <a href="./html/CG.html" class="menu-btn">CG鉴赏</a>
+        <a href="./html/copy.html" class="menu-btn">版权信息</a>
 
     </div>
-    
-    <div id="info-container">
-        <a href="https://space.bilibili.com/87412647?spm_id_from=333.1007.0.0" target="_blank"> 程序/引擎开发：bilibili @月が綺麗ですね_</a><br/>
-		引擎：Shiori（栞）Engine<br />
-        若要使用本引擎，请到<a href="https://github.com/1145141919810TONNY/webgalgameengine" target="_blank">github</a>下载该引擎模板<br />
-        此作品为完全免费的开源引擎模板<br />
-		本引擎采用宽松开源协议，具体授权条款详见 license.txt 文件<br />
-        本引擎的官方教学<a href="https://1145141919810tonny.github.io/Shioriteaching/" target="_blank">Github Pages网页</a><br />
-    </div>
+   
 
-    <!--<div id="info-container-right">-->
-
-    <!--</div>-->
-    
     <script src="bgm_config.js"></script>
     <script src="cg_config.js"></script>
     <script src="cg_load_strategy.js"></script>
     <script src="system.js"></script>
 
-    <script src="engine.js"></script>
+    <script src="vars.js"></script>
+<script src="engine.js"></script>
     <script>
         if (window.location.protocol === 'file:') {
             // 禁用进度管理按钮
@@ -378,9 +368,24 @@
             setTimeout(function() {
                 gameEngine.playAudio('bgm1');
             }, 100);
-            
+
             // 预加载CG鉴赏页面的全尺寸图片，避免打开时的卡顿
             preloadCGFullImages();
+
+            // 「开始游戏」按钮桥接：清空 f. 变量（新游戏）
+            // 不影响存档——存档独立存储在自己的槽位里
+            // sf. 不清，保留通关解锁等跨周目标记
+            // 开发者可自由修改按钮 href 指向任意场景，本逻辑只监听 id
+            var newGameBtn = document.getElementById('new-game-btn');
+            if (newGameBtn) {
+                newGameBtn.addEventListener('click', function (e) {
+                    if (typeof VarSpace !== 'undefined' && VarSpace && VarSpace.clearF) {
+                        VarSpace.clearF();
+                        console.log('[NewGame] VarSpace.f.* cleared (sf.* preserved)');
+                    }
+                    // 不阻止默认跳转，让 href 正常生效
+                });
+            }
         });
         
         // 预加载CG全尺寸图片函数（只预加载关键图片，其余使用懒加载）
