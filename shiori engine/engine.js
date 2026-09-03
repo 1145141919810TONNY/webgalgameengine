@@ -16,7 +16,20 @@
  * 格式：V主版本.次版本.修订号  （与 GameScanner 中的正则 ENGINE_VERSION\s*=\s*["'] 匹配）
  * 请勿删除或重命名此变量，否则管理器将无法正确识别基准的引擎版本。
  */
-const ENGINE_VERSION = "V2.1.10";
+const ENGINE_VERSION = "V2.2.0";
+
+/**
+ * 变量系统（VarSpace / f.·sf.·tf.）接入
+ * ---------------------------------------------------------------
+ * vars.js 须在各页面 <script> 中于 engine.js / system.js 之前引入（已在 32 个页面完成）。
+ * 引擎后续阶段（好感度 f. / 鉴赏解锁 sf. / 临时态 tf.）将统一通过全局 window.VarSpace 访问。
+ * 详见同目录 VAR_SYSTEM_PLAN.md。
+ */
+if (typeof VarSpace === 'undefined' || !VarSpace) {
+    console.error('[VarSpace] 未检测到 vars.js：请确保在 engine.js 之前引入 vars.js（否则变量系统不可用）');
+} else if (VarSpace.init) {
+    VarSpace.init(); // 幂等：vars.js 加载时已初始化，此处仅确保
+}
 
 const gameEngine = {
     state: {
@@ -28,10 +41,6 @@ const gameEngine = {
         novelMode: false,
         // 选项菜单是否处于激活状态
         choicesActive: false,
-        // 条件判断栈，用于嵌套的条件分支
-        conditionalStack: [],
-        // 当前条件判断的结果
-        currentConditionResult: null,
         // 待显示的选项列表
         pendingSelections: [],
         // 是否禁用Live2D演出效果
@@ -265,7 +274,58 @@ const gameEngine = {
         } catch (e) {
             console.error('[State Restore] Failed to parse archiveLoadTarget:', e);
         }
-        
+
+        // —— f. 入口恢复（在 gameStateSnapshot 加载之前）——
+        // vars.js 的 init() 已根据信号决定是否继承 sessionStorage 镜像：
+        //   - nextScene 跳转 / 读档 → 继承（vars.js 已处理）
+        //   - 其他入口 → 清零（vars.js 已 clearF）
+        // 此处仅处理"场景入口快照"恢复：需要 saves.html / flowchart.html 显式设置
+        // shiori_scene_entry_jump 信号才执行，避免从启动器"加载指定文件"时
+        // 误用 scene_entry 覆盖 vars.js 的 clearF。
+        if (!isArchiveLoad) {
+            var _currentFile = decodeURIComponent(window.location.pathname.split('/').pop());
+            var _isNextSceneJump = false;
+            try {
+                var _nextTargetStr = sessionStorage.getItem('shiori_next_scene_target');
+                if (_nextTargetStr) {
+                    _isNextSceneJump = true;
+                    sessionStorage.removeItem('shiori_next_scene_target');
+                    console.log('[State Restore] nextScene jump detected, f. inherited from sessionStorage runtime mirror');
+                }
+            } catch (e) {}
+
+            var _entryJumpRestored = false;
+            if (!_isNextSceneJump) {
+                // 仅在有显式跳入信号时才用场景入口快照恢复 f.
+                // （saves.html / flowchart.html / story.html 点击场景卡片时设置 shiori_scene_entry_jump）
+                // 从启动器"加载指定文件"、直接打开 URL 等无信号入口 → 不恢复，f. 保持清零
+                try {
+                    var _entryJumpStr = sessionStorage.getItem('shiori_scene_entry_jump');
+                    if (_entryJumpStr) {
+                        sessionStorage.removeItem('shiori_scene_entry_jump');
+                        var _entryFvars = this.loadSceneEntryFvars(_currentFile);
+                        if (_entryFvars && typeof VarSpace !== 'undefined' && VarSpace && VarSpace.restoreF) {
+                            try {
+                                VarSpace.restoreF(_entryFvars);
+                                _entryJumpRestored = true;
+                                // 同步旧 state.affinity 镜像（兼容 F1 调试面板 / 旧演出读取）
+                                this.initAffinitySystem();
+                                var _hasEntryF = false;
+                                for (var _fk in _entryFvars) {
+                                    if (Object.prototype.hasOwnProperty.call(_entryFvars, _fk)) {
+                                        this.state.affinity[_fk] = _entryFvars[_fk];
+                                        _hasEntryF = true;
+                                    }
+                                }
+                                if (!_hasEntryF) this.state.affinity = {};
+                                console.log('[State Restore] Restored f.* from scene entry snapshot:', _entryFvars);
+                            } catch (e) {}
+                        }
+                    }
+                } catch (e) {}
+            }
+        }
+
         // 2. 如果没有存档加载目标，检查当前游戏状态快照
         if (!snapshot) {
             snapshot = this.loadStateSnapshot();
@@ -277,7 +337,57 @@ const gameEngine = {
         const currentFileName = decodeURIComponent(rawCurrentFile);
         const snapshotFileName = snapshot && snapshot.pagePath ? snapshot.pagePath.split('/').pop() : null;
         const pathMatch = snapshotFileName === currentFileName;
-        
+
+        // ★ 读档兼容保险：gameVersion 检测 + nearestLabel 兜底定位
+        if (snapshot && pathMatch && isArchiveLoad) {
+            // 1. gameVersion 不匹配 → 提示玩家（不阻塞，由玩家自行决定是否继续）
+            var _curVer = (typeof ENGINE_VERSION !== 'undefined') ? ENGINE_VERSION : null;
+            var _snapVer = snapshot.gameVersion || null;
+            if (_snapVer && _curVer && _snapVer !== _curVer) {
+                console.warn('[State Restore] gameVersion mismatch: snapshot=' + _snapVer + ' current=' + _curVer +
+                             ' —— 此存档由旧版本创建，定位可能失效，将由玩家自行决定是否继续');
+            }
+
+            // 2. lineIndex 有效性检测：越界或失效时用 nearestLabel 兜底
+            //    - lineIndex 有效 → 精确恢复到存档行（首选）
+            //    - lineIndex 越界/失效 → 查找 nearestLabel，跳到标签下一行（兜底）
+            var _storyLen = (this.sceneData && this.sceneData.story) ? this.sceneData.story.length : 0;
+            var _lineIdx = (snapshot.currentLine != null) ? snapshot.currentLine : -1;
+            var _lineValid = (_lineIdx >= 0 && _lineIdx < _storyLen);
+
+            // 版本不一致时，lineIndex 可信度降低（剧本可能已变更），倾向用 nearestLabel 兜底
+            var _versionMismatch = (_snapVer && _curVer && _snapVer !== _curVer);
+
+            if (!_lineValid || _versionMismatch) {
+                if (snapshot.nearestLabel) {
+                    var _labelLine = this.findLabelLine(snapshot.nearestLabel);
+                    if (_labelLine !== -1) {
+                        var _targetLine = _labelLine + 1;
+                        if (_targetLine < _storyLen) {
+                            console.log('[State Restore] nearestLabel "' + snapshot.nearestLabel +
+                                        '" located at line ' + _labelLine + ', jumping to ' + _targetLine +
+                                        (_lineValid ? ' (version mismatch fallback)' : ' (invalid lineIndex fallback)'));
+                            this.state.currentLine = _targetLine;
+                            _lineValid = true; // 标记已恢复
+                        } else {
+                            console.warn('[State Restore] nearestLabel "' + snapshot.nearestLabel +
+                                         '" at end of story');
+                        }
+                    } else {
+                        console.warn('[State Restore] nearestLabel "' + snapshot.nearestLabel +
+                                     '" not found in current scene');
+                    }
+                }
+                if (!_lineValid) {
+                    console.warn('[State Restore] lineIndex=' + _lineIdx +
+                                 ' invalid (storyLen=' + _storyLen + '), no nearestLabel fallback');
+                }
+            } else {
+                // lineIndex 有效且版本一致 → 精确恢复
+                console.log('[State Restore] lineIndex=' + _lineIdx + ' valid, precise restore');
+            }
+        }
+
         if (snapshot && pathMatch && startLine > 0) {
             console.log('[State Restore] Detected state snapshot, restoring full state...');
 
@@ -338,6 +448,14 @@ const gameEngine = {
                 this.state.affinity = snapshot.affinity;
                 console.log('[State Restore] Restored affinity:', snapshot.affinity);
             }
+
+            // 恢复 VarSpace.f. 变量空间（与 affinity 同步，跨文件/读档后保留好感度）
+            if (snapshot.fVars && typeof VarSpace !== 'undefined' && VarSpace && VarSpace.restoreF) {
+                try {
+                    VarSpace.restoreF(snapshot.fVars);
+                    console.log('[State Restore] Restored VarSpace.f.*:', snapshot.fVars);
+                } catch (e) {}
+            }
             
             // 恢复已完成的场景列表
             if (snapshot.completedScenes) {
@@ -385,8 +503,15 @@ const gameEngine = {
             if (snapshot.povActive !== undefined) this.state.povActive = snapshot.povActive;
             if (snapshot.isClickLocked !== undefined) this.state.isClickLocked = snapshot.isClickLocked;
             if (snapshot.activeChars) this.state.activeChars = snapshot.activeChars;
-            if (snapshot.affinity) this.state.affinity = snapshot.affinity;
+            // 经“场景入口快照”跳入时，f./affinity 已按该场景入口值恢复；
+            // 不再用同场景中途离开时的旧快照覆盖（避免好感度等重复累积）
+            if (!_entryJumpRestored && snapshot.affinity) this.state.affinity = snapshot.affinity;
             if (snapshot.completedScenes) this.state.completedScenes = snapshot.completedScenes;
+
+            // 恢复 VarSpace.f. 变量空间（与 affinity 同步，跨文件/读档后保留好感度）
+            if (!_entryJumpRestored && snapshot.fVars && typeof VarSpace !== 'undefined' && VarSpace && VarSpace.restoreF) {
+                try { VarSpace.restoreF(snapshot.fVars); } catch (e) {}
+            }
             
             sessionStorage.removeItem('gameStateSnapshot');
             sessionStorage.removeItem('archiveLoadTarget');
@@ -642,42 +767,19 @@ const gameEngine = {
             }
         });
         
-        // 右键点击事件：跳过视频或推进对话
+        // 右键点击事件：呼出/收起上下文菜单
+        // 播放视频时由 videoPlayer 自身的 oncontextmenu（跳过视频）处理，不会冒泡到这里
         document.body.addEventListener('contextmenu', (e) => {
-            // 如果上下文菜单正在显示，屏蔽右键事件
-            if (this.elements.contextMenu && this.elements.contextMenu.classList.contains('show')) {
-                e.preventDefault();
+            // 屏蔽浏览器默认右键菜单
+            e.preventDefault();
+            
+            // 无上下文菜单元素的页面（部分系统页）不响应
+            if (!this.elements.contextMenu || !this.elements.contextMenuBackdrop) {
                 return;
             }
             
-            // 如果背景转场正在进行，屏蔽右键事件（除非是Ctrl快进模式）
-            if (this.state.isBackgroundTransitioning && !this.state.fastForwardActive) {
-                e.preventDefault();
-                console.log('背景转场进行中，屏蔽右键事件');
-                return;
-            }
-            
-            // 如果鼠标点击被锁定，屏蔽右键事件（除非是Ctrl快进模式）
-            if (this.state.isClickLocked && !this.state.fastForwardActive) {
-                e.preventDefault();
-                console.log('[点击锁定] 右键被屏蔽，按住Ctrl键可强制快进');
-                return;
-            }
-            
-            // 如果点击的是右键菜单本身或其子元素，不处理
-            if (e.target.closest('#context-menu') || e.target.closest('#context-menu-backdrop')) {
-                return;
-            }
-            
-            if (this.elements.videoPlayer && this.elements.videoPlayer.style.display === 'block') {
-                // 视频播放时，右键跳过
-                e.preventDefault();
-                this.skipVideo();
-            } else if (!this.state.choicesActive && !this.isOptionElement(e.target)) {
-                // 非选项状态时，右键推进对话
-                e.preventDefault();
-                this.nextLine();
-            }
+            // 呼出/收起上下文菜单
+            this.toggleContextMenu();
         });
         
         // 键盘按下事件：ESC键切换菜单，Ctrl键快进，F5快速存档
@@ -699,8 +801,18 @@ const gameEngine = {
             const isContextMenuShowing = this.elements.contextMenu && this.elements.contextMenu.classList.contains('show');
             
             if (e.key === 'Escape') {
-                // ESC键切换右键菜单（无论菜单是否显示都响应）
                 e.preventDefault();
+                // 上下文菜单已显示：ESC 先收起菜单
+                if (isContextMenuShowing) {
+                    this.toggleContextMenu();
+                    return;
+                }
+                // 视频播放中：ESC 仅跳过视频，不呼出上下文菜单
+                if (this.elements.videoPlayer && this.elements.videoPlayer.style.display === 'block') {
+                    this.skipVideo();
+                    return;
+                }
+                // 普通剧情状态：ESC 呼出上下文菜单
                 this.toggleContextMenu();
                 return;
             }
@@ -821,9 +933,24 @@ const gameEngine = {
             this.handleEndOfScene();
             return;
         }
-        
+
+        // 记录执行前的 currentLine，用于结尾跳转检测
+        // 如果 action 执行中 currentLine 被改变（跳转），则不覆盖
+        var lineIndexBefore = this.state.currentLine;
+
         const line = this.sceneData.story[index];
-        
+
+        // ★ 追踪最近的标签锚点（command: "[xxx]" 形式，剧本更新后定位兜底）
+        // 仅追踪"纯名字标签"（不含空格、=），排除 [wait click] / [fadeout time=1000] 等控制指令
+        if (line.command && typeof line.command === 'string') {
+            var _cmdTrim = line.command.trim();
+            var _labelMatch = _cmdTrim.match(/^\[([^\]\s=]+)\]$/);
+            if (_labelMatch) {
+                this.state.nearestLabel = _labelMatch[1];
+                this.state.nearestLabelLine = index;
+            }
+        }
+
         // 在获取行数据后立即检测转场指令，尽早启动屏蔽
         let isTransitionEarly = false;
         let transitionTypeEarly = 'fade';
@@ -1090,15 +1217,25 @@ const gameEngine = {
         if (hasBlockingCommand && !hasWaitTimeCommand) {
             return;
         }
-        
+
+        // 跳转检测：nextScene action 执行后 currentLine 已被 jumpToLabel/goToScene 改变，
+        // 此时不能覆盖 currentLine，也不保存快照
+        if (line.action && line.action.type === 'nextScene' && this.state.currentLine !== lineIndexBefore) {
+            return;
+        }
+
         // 更新当前行号
         this.state.currentLine = index;
-        
+
         // 更新调试日志信息（如果系统模块已加载）
         if (typeof systemModule !== 'undefined' && systemModule.updateDebugInfo) {
             systemModule.updateDebugInfo();
         }
-        
+        // 同步刷新 F2 变量观察面板（如果可见）
+        if (typeof systemModule !== 'undefined' && systemModule.updateVarsInfo) {
+            systemModule.updateVarsInfo();
+        }
+
         // 自动保存游戏状态快照（用于存档功能）
         this.saveStateSnapshot();
     },
@@ -1331,31 +1468,159 @@ const gameEngine = {
     },
     
     /**
-     * 显示选项菜单
-     * @param {Array} choices - 选项数组，每个选项包含text和target属性
+     * 显示选项菜单（集成式分支 DSL）
+     * 支持两种模式：
+     * 1. 交互模式（默认）：choices 中 text 非空 → 显示按钮，点击后 applyAffinity + goTarget
+     * 2. 静默模式：action.silent === true 或 choices 的 text 全空 → 不显示按钮，
+     *    引擎按序求值（if/else-if），首个命中即 applyAffinity + goTarget
+     * @param {Array} choices - 选项数组，每项可含 { text, target, flag, add, when }
+     * @param {Object} action  - 可选，含 silent 标志
      */
-    showChoices: function(choices) {
+    showChoices: function(choices, action) {
+        // 判定是否为静默模式
+        var silent = (action && action.silent === true) || false;
+        if (!silent) {
+            // 检查 choices 的 text 是否全空
+            var allEmpty = choices.every(function(c) {
+                return !c.text || String(c.text).trim() === '';
+            });
+            if (allEmpty && choices.length > 0) silent = true;
+        }
+
+        if (silent) {
+            this.resolveSilentBranch(choices);
+            return;
+        }
+
+        // 交互模式：渲染按钮
         this.state.choicesActive = true;
         this.elements.optionsContainer.innerHTML = '';
-        
+
         choices.forEach((choice, index) => {
             const button = document.createElement('button');
             button.className = 'choice-btn';
             button.textContent = choice.text;
             button.dataset.target = choice.target;
-            
+
             // 设置选项按钮位置（由CSS Grid控制）
             button.style.gridArea = this.calculateChoicePosition(index, choices.length);
-            
+
             button.addEventListener('click', (e) => {
                 e.stopPropagation();
-                this.handleChoiceTarget(choice.target);
+                // 应用好感度变化（如有 flag + add）
+                if (choice.flag && choice.flag !== '#' && choice.add !== undefined && choice.add !== null) {
+                    this.applyAffinity(choice.flag, choice.add);
+                    // 触发演出（非阻塞，不调用 nextLine）
+                    this.playAffinityEffect(choice.flag, Number(choice.add));
+                }
+                // 跳转
+                this.handleChoiceTarget(choice.target, choice);
             });
-            
+
             this.elements.optionsContainer.appendChild(button);
         });
-        
+
         this.elements.optionsContainer.style.display = 'grid';
+    },
+
+    /**
+     * 静默条件分支：按序求值，首个命中即跳转
+     * 规则：
+     * 1. 若有 when：用 evaluateCondition 求值（支持 f.变量名 / sf. / tf.）
+     * 2. 否则若 flag === '#'：恒真（兜底，必须放最后）
+     * 3. 否则：VarSpace.get('f.'+flag) 为真即命中
+     * 命中后：若有 add 则 applyAffinity，然后 goTarget
+     * @param {Array} choices - 选项数组
+     */
+    resolveSilentBranch: function(choices) {
+        // 关闭选项菜单状态
+        this.state.choicesActive = false;
+        if (this.elements.optionsContainer) {
+            this.elements.optionsContainer.style.display = 'none';
+            this.elements.optionsContainer.innerHTML = '';
+        }
+
+        // 核心判定逻辑走 VarSpace.resolveBranch
+        var target = (typeof VarSpace !== 'undefined' && VarSpace && VarSpace.resolveBranch)
+            ? VarSpace.resolveBranch(choices)
+            : this._fallbackResolveBranch(choices);
+
+        if (target !== null && target !== undefined) {
+            console.log('[SilentBranch] 命中 → ' + target);
+            this.handleChoiceTarget(target, null);
+        } else {
+            console.warn('[SilentBranch] 全部未命中，继续下一行');
+            this.nextLine();
+        }
+    },
+
+    /**
+     * 回退实现：VarSpace 不可用时的静默分支判定
+     * @param {Array} choices
+     * @returns {string|null}
+     */
+    _fallbackResolveBranch: function(choices) {
+        if (!choices || !choices.length) return null;
+        for (var i = 0; i < choices.length; i++) {
+            var c = choices[i] || {};
+            var hit = false;
+            if (c.when) {
+                hit = this.evaluateCondition(c.when);
+            } else if (c.flag === '#' || c.target === '#') {
+                hit = true;
+            } else if (c.flag) {
+                var val = this.state.affinity ? (this.state.affinity[c.flag] || 0) : 0;
+                hit = !!val && val !== 0;
+            } else {
+                hit = true;
+            }
+            if (hit) {
+                if (c.flag && c.flag !== '#' && c.add !== undefined && c.add !== null) {
+                    this.applyAffinity(c.flag, c.add);
+                }
+                return (c.target !== undefined && c.target !== null) ? c.target : null;
+            }
+        }
+        return null;
+    },
+
+    /**
+     * 播放好感度变化演出（非阻塞版本，不调用 nextLine）
+     * 用于选项点击后的即时视觉反馈
+     * @param {string} flag - 变量名
+     * @param {number} add - 变化值
+     */
+    playAffinityEffect: function(flag, add) {
+        if (this.state.disableLVE) return;
+        var isUp = add > 0;
+        var effectDiv = document.createElement('div');
+        effectDiv.id = isUp ? 'affinity-up-effect' : 'affinity-down-effect';
+        effectDiv.textContent = isUp ? ('+' + add) : String(add);
+        effectDiv.style.position = 'fixed';
+        effectDiv.style.top = '50%';
+        effectDiv.style.left = '50%';
+        effectDiv.style.fontSize = '48px';
+        effectDiv.style.fontWeight = 'bold';
+        effectDiv.style.color = isUp ? '#ffcc00' : '#ff3333';
+        effectDiv.style.textShadow = '2px 2px 4px rgba(0,0,0,0.8)';
+        effectDiv.style.zIndex = '1000';
+        effectDiv.style.pointerEvents = 'none';
+        effectDiv.style.opacity = '1';
+        effectDiv.style.transform = 'translate(-50%, -50%)';
+        effectDiv.style.transition = 'all 1s ease-out';
+        document.body.appendChild(effectDiv);
+
+        this.playAffinitySound(isUp ? 'up' : 'down');
+
+        setTimeout(() => {
+            effectDiv.style.transform = isUp
+                ? 'translate(-50%, -100px)'
+                : 'translate(-50%, +100px)';
+            effectDiv.style.opacity = '0';
+        }, 50);
+        setTimeout(() => {
+            if (document.contains(effectDiv)) document.body.removeChild(effectDiv);
+        }, 1050);
     },
     
     /**
@@ -1374,8 +1639,8 @@ const gameEngine = {
     handleAction: function(action) {
         switch(action.type) {
             case 'choice':
-                // 显示选项菜单
-                this.showChoices(action.choices);
+                // 显示选项菜单（集成式分支 DSL，支持静默模式）
+                this.showChoices(action.choices, action);
                 break;
             case 'waitForTime':
                 // 等待指定时间后自动继续
@@ -1402,9 +1667,26 @@ const gameEngine = {
                 this.setNovelMode(false);
                 break;
             case 'nextScene':
-                // 跳转到下一个场景
+                // 跳转到下一个场景/标签（支持携带 flag/add 好感度变化）
+                // 使用 goTarget 统一识别：含 .html / 斜杠 → 跨文件 goToScene，否则 → 同文件 jumpToLabel
+                if (action.flag && action.add !== undefined && action.add !== null) {
+                    this.applyAffinity(action.flag, action.add);
+                }
                 if(action.target) {
-                    this.goToScene(action.target);
+                    // 场景入口快照（shiori_scene_entry_<目标文件>）与 f. 继承信号（shiori_next_scene_target）
+                    // 统一在 goToScene 中写入 —— 覆盖 nextScene / choice / 静默分支三条“正常流程”入口
+                    this.goTarget(action.target);
+                }
+                break;
+            case 'vars':
+                // 直接操作 VarSpace 变量空间
+                if (typeof VarSpace !== 'undefined' && VarSpace) {
+                    if (action.op === 'setSF')      VarSpace.setSF(action.name, action.value);
+                    else if (action.op === 'setF')  VarSpace.set('f.' + action.name, action.value);
+                    else if (action.op === 'setTF') VarSpace.set('tf.' + action.name, action.value);
+                    else if (action.op === 'clearF') VarSpace.clearF();
+                    else if (action.op === 'resetSystem') VarSpace.resetSystem();
+                    console.log('[vars action]', action.op, action.name, '=', action.value);
                 }
                 break;
             case 'fadeOut':
@@ -1528,24 +1810,6 @@ const gameEngine = {
                 break;
             case 'affinityDownShow':
                 this.affinityDownShow(action);
-                break;
-            case 'conditional':
-                // 条件判断开始
-                this.handleConditional(action);
-                break;
-            case 'conditionalElse':
-                // 条件判断else分支
-                this.handleConditionalElse();
-                break;
-            case 'conditionalEnd':
-                // 条件判断结束
-                this.handleConditionalEnd();
-                break;
-            case 'addSelection':
-                this.addSelection(action);
-                break;
-            case 'showSelections':
-                this.showSelections();
                 break;
             case 'returnToMenu':
                 this.returnToMenu();
@@ -2637,51 +2901,68 @@ const gameEngine = {
     },
     
     /**
-     * 处理选项的 target 跳转逻辑
+     * 处理选项的 target 跳转逻辑（统一走 goTarget）
      * 支持三种跳转方式：
      * 1. target: "#" — 不跳转，直接继续运行下一行
      * 2. target: "标签名" — 在本文件 story 数组中查找 [标签名] 并跳转
      * 3. target: "xxx.html" — 跳转到其他场景页面
      * @param {string} target - 选项的 target 值
+     * @param {Object} choice - 可选，原始选项对象（用于调试日志）
      */
-    handleChoiceTarget: function(target) {
+    handleChoiceTarget: function(target, choice) {
         // 关闭选项菜单
         this.state.choicesActive = false;
         if (this.elements.optionsContainer) {
             this.elements.optionsContainer.style.display = 'none';
-        }
-        
-        // 清除当前显示的选项按钮
-        if (this.elements.optionsContainer) {
             this.elements.optionsContainer.innerHTML = '';
         }
-        
+        // 统一走 goTarget
+        this.goTarget(target);
+    },
+    
+    /**
+     * 统一跳转入口：根据 target 形式决定跳转方式
+     * - target 含 .html / / / \  → 跨文件导航（goToScene）
+     * - target === "#"          → 不跳转，继续下一行
+     * - 否则                    → 本文件标签跳转（jumpToLabel）
+     * @param {string} target - 跳转目标
+     */
+    goTarget: function(target) {
         if (!target) {
-            // 没有 target，继续下一行
             this.nextLine();
             return;
         }
-        
-        // target === "#" — 不跳转，直接继续下一行
         if (target === '#') {
-            console.log('[ChoiceTarget] # 不跳转，继续运行下一行');
+            console.log('[goTarget] # 不跳转，继续运行下一行');
             this.nextLine();
             return;
         }
-        
-        // 判断是否为 URL（包含 .html、/ 或 \\）
         var isUrl = /\.html/i.test(target) || target.indexOf('/') !== -1 || target.indexOf('\\') !== -1;
-        
         if (isUrl) {
-            // URL 跳转 — 跳转到其他场景页面
             this.goToScene(target);
             return;
         }
-        
-        // 标签跳转 — 在当前 story 数组中查找 [标签名]
         this.jumpToLabel(target);
     },
-    
+
+    /**
+     * 应用好感度变化（走 VarSpace.f.<flag>）
+     * 同时同步到 state.affinity 以兼容旧调试面板/演出
+     * @param {string} flag - 变量名（不含 f. 前缀）
+     * @param {number} add - 变化值
+     */
+    applyAffinity: function(flag, add) {
+        if (!flag || flag === '#' || add === undefined || add === null) return;
+        // 核心逻辑走 VarSpace
+        var newVal = (typeof VarSpace !== 'undefined' && VarSpace && VarSpace.applyAffinity)
+            ? VarSpace.applyAffinity(flag, add)
+            : undefined;
+        // 同步旧 state.affinity（兼容 F1 调试面板/演出读取）
+        this.initAffinitySystem();
+        var old = this.state.affinity[flag] || 0;
+        this.state.affinity[flag] = (newVal !== undefined) ? newVal : (old + Number(add));
+    },
+
     /**
      * 跳转到当前场景 story 数组中的指定标签位置
      * 查找 command: "[标签名]" 的行，从该行的下一行开始执行
@@ -2693,10 +2974,10 @@ const gameEngine = {
             this.nextLine();
             return;
         }
-        
+
         var story = this.sceneData.story;
         var targetCommand = '[' + label + ']';
-        
+
         // 精确查找 command === "[标签名]" 的行
         for (var i = 0; i < story.length; i++) {
             var line = story[i];
@@ -2704,7 +2985,7 @@ const gameEngine = {
                 // 找到标签，从下一行开始
                 var nextLine = i + 1;
                 console.log('[ChoiceTarget] 找到标签 "' + label + '" 在第 ' + i + ' 行，跳转到第 ' + nextLine + ' 行');
-                
+
                 if (nextLine < story.length) {
                     this.state.currentLine = nextLine - 1; // nextLine 会自动 +1
                     this.nextLine();
@@ -2717,10 +2998,28 @@ const gameEngine = {
                 return;
             }
         }
-        
+
         // 未找到标签
         console.warn('[ChoiceTarget] 未找到标签 "' + label + '"（command: "' + targetCommand + '"），回退为继续下一行');
         this.nextLine();
+    },
+
+    /**
+     * 查找标签锚点在 story 数组中的行号
+     * （与 jumpToLabel 的查找逻辑一致：command.trim() === "[label]"）
+     * @param {string} label - 标签名（不含方括号）
+     * @returns {number} 行号；未找到返回 -1
+     */
+    findLabelLine: function(label) {
+        if (!this.sceneData || !this.sceneData.story || !label) return -1;
+        var target = '[' + label + ']';
+        for (var i = 0; i < this.sceneData.story.length; i++) {
+            var line = this.sceneData.story[i];
+            if (line && line.command && line.command.trim() === target) {
+                return i;
+            }
+        }
+        return -1;
     },
     
     /**
@@ -2741,12 +3040,35 @@ const gameEngine = {
                 isSystemPage = true;
             }
         }
-        
+
         if (isSystemPage && typeof systemModule !== 'undefined' && systemModule.stopAllAutoSkipModes) {
             // 导航到系统页面前，停止所有SKIP/AUTO模式，防止新页面恢复状态
             systemModule.stopAllAutoSkipModes();
         }
-        
+
+        // ★ 跳转到游戏场景（非系统页面）时，立即把 f. 写入 sessionStorage 并设置跳转信号，
+        // 确保新页面能正确继承 f.（不依赖 beforeunload，绕过 150ms 防抖）。
+        if (!isSystemPage) {
+            if (typeof VarSpace !== 'undefined' && VarSpace && VarSpace.flushF) {
+                VarSpace.flushF();
+            }
+            try {
+                sessionStorage.setItem('shiori_next_scene_target', JSON.stringify({
+                    target: sceneUrl,
+                    fromScene: decodeURIComponent(window.location.pathname.split('/').pop()),
+                    fromLine: this.state.currentLine,
+                    timestamp: Date.now()
+                }));
+            } catch (e) {}
+
+            // ★ 场景入口快照：所有“正常剧本流程离开本场景”的跨文件跳转
+            //   （nextScene / choice / 静默分支）最终都汇聚到 goToScene，
+            //   在此统一把当前 f. 记入目标场景的 shiori_scene_entry_<目标文件>（localStorage），
+            //   供 saves.html / flowchart.html / story.html 等“从该场景开头播放”的入口恢复 f.。
+            //   每次自然进入都会经过这里：f. 相同 → 不改动存档；不同 → 覆盖（可视为从不同选项/分支进入）。
+            this.writeSceneEntrySnapshot(sceneUrl);
+        }
+
         // 停止所有音频
         this.stopAllAudioWithBGM();
         // 清除POV状态
@@ -4030,23 +4352,21 @@ const gameEngine = {
     
     /**
      * 设置视频跳过功能
-     * 支持右键点击和ESC键跳过视频
+     * 右键点击跳过视频（事件自身处理，不冒泡到 body 的“呼出上下文菜单”逻辑）。
+     * ESC 跳过视频由 bindEvents 的主 keydown 统一处理（避免与呼出菜单重复触发）。
      */
     setupVideoSkip: function() {
         const self = this;
         
         // 右键点击跳过
+        // 注意：skipVideo 会同步隐藏播放器，若事件继续冒泡到 body，
+        // 会导致 body 的“右键呼出/收起上下文菜单”逻辑误判（以为非视频状态）。
+        // 因此这里阻止冒泡，右键跳过视频由本 handler 独立完成。
         this.elements.videoPlayer.oncontextmenu = function(e) {
             e.preventDefault();
+            e.stopPropagation();
             self.skipVideo();
         };
-        
-        // ESC键跳过
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && self.elements.videoPlayer.style.display === 'block') {
-                self.skipVideo();
-            }
-        });
     },
     
     /**
@@ -4988,17 +5308,14 @@ const gameEngine = {
     },
     
     /**
-     * 好感度变化
-     * 修改指定角色的好感度值，并显示相应的演出效果
+     * 好感度变化（向后兼容旧 action: {type:'affinityChange', flag, add} 写法）
+     * 内部转调 applyAffinity，走 VarSpace.f.<flag>
      * @param {Object} options - 包含flag（角色标识）、add（变化值）等参数
      */
     affinityChange: function(options) {
-        this.initAffinitySystem();
-        
-        // 获取当前好感度并累加
-        const currentValue = this.state.affinity[options.flag] || 0;
-        this.state.affinity[options.flag] = currentValue + options.add;
-        
+        // 走统一的 applyAffinity（VarSpace + state.affinity 同步）
+        this.applyAffinity(options.flag, options.add);
+
         // 根据变化值正负显示不同演出
         if (options.add > 0) {
             // 好感度上升
@@ -5018,8 +5335,14 @@ const gameEngine = {
      * @param {Object} options - 包含flag、add、time等参数
      */
     affinityUpShow: function(options) {
+        // ★ 好感度动画开关检测（vars.js 中的 AFFINITY_ANIM_ENABLED）
+        if (typeof VarSpace !== 'undefined' && VarSpace && VarSpace.isAffinityAnimEnabled && !VarSpace.isAffinityAnimEnabled()) {
+            this.nextLine();
+            return;
+        }
+
         this.playAffinitySound('up');
-        
+
         if (this.state.disableLVE) {
             return;
         }
@@ -5067,8 +5390,14 @@ const gameEngine = {
      * @param {Object} options - 包含flag、add、time等参数
      */
     affinityDownShow: function(options) {
+        // ★ 好感度动画开关检测（vars.js 中的 AFFINITY_ANIM_ENABLED）
+        if (typeof VarSpace !== 'undefined' && VarSpace && VarSpace.isAffinityAnimEnabled && !VarSpace.isAffinityAnimEnabled()) {
+            this.nextLine();
+            return;
+        }
+
         this.playAffinitySound('down');
-        
+
         if (this.state.disableLVE) {
             return;
         }
@@ -5125,20 +5454,22 @@ const gameEngine = {
     
     /**
      * 评估条件表达式
-     * 支持f.variableName语法访问好感度值
+     * 支持 f./sf./tf. 变量名语法，统一通过 VarSpace 求值
+     * 向后兼容：若无 VarSpace，回退到 state.affinity['varName']
      * @param {string} conditionStr - 条件表达式字符串，如 "f.love > 5"
      * @returns {boolean} - 条件评估结果
      */
     evaluateCondition: function(conditionStr) {
         try {
+            // 优先走 VarSpace.checkCondition（内部用 eval，支持 f./sf./tf.）
+            if (typeof VarSpace !== 'undefined' && VarSpace && VarSpace.checkCondition) {
+                return VarSpace.checkCondition(conditionStr);
+            }
+            // 回退：仅支持 f. → state.affinity
             let expr = conditionStr.trim();
-            
-            // 将f.variableName替换为实际的好感度值
             expr = expr.replace(/f\.([a-zA-Z0-9_]+)/g, (match, varName) => {
                 return `(this.state.affinity['${varName}'] || 0)`;
             });
-            
-            // 执行表达式并返回布尔结果
             const result = new Function('game', `return ${expr}`).call(null, this);
             return !!result;
         } catch (e) {
@@ -5146,141 +5477,14 @@ const gameEngine = {
             return false;
         }
     },
-    
-    /**
-     * 处理条件判断开始
-     * 评估条件并将结果压入栈中
-     * @param {Object} action - 包含condition属性的动作对象
-     */
-    handleConditional: function(action) {
-        const result = this.evaluateCondition(action.condition);
-        this.state.conditionalStack.push(result);
-        this.state.currentConditionResult = result;
-        
-        // 如果条件为假，跳过条件块
-        if (!result) {
-            this.skipConditionalBlock();
-        } else {
-            this.nextLine();
-        }
-    },
-    
-    /**
-     * 处理条件判断else分支
-     * 根据之前的条件结果决定是否跳过else块
-     */
-    handleConditionalElse: function() {
-        // 获取上一个条件的结果
-        const conditionResult = this.state.conditionalStack[this.state.conditionalStack.length - 1];
-        
-        if (conditionResult) {
-            // 如果之前条件为真，跳过else块
-            this.skipConditionalBlock();
-        } else {
-            // 如果之前条件为假，执行else块
-            this.nextLine();
-        }
-    },
-    
-    /**
-     * 处理条件判断结束
-     * 弹出条件栈并继续下一行
-     */
-    handleConditionalEnd: function() {
-        this.state.conditionalStack.pop();
-        this.nextLine();
-    },
-    
-    /**
-     * 跳过条件块
-     * 推进到下一行（实际跳过逻辑由shouldSkipLine处理）
-     */
-    skipConditionalBlock: function() {
-        this.nextLine();
-    },
-    
-    /**
-     * 添加选项到待显示列表
-     * 只在条件为真时添加
-     * @param {Object} action - 包含text和target的选项对象
-     */
-    addSelection: function(action) {
-        if (this.state.currentConditionResult !== false) {
-            // 将选项添加到待显示列表
-            this.state.pendingSelections.push({
-                text: action.text,
-                target: action.target
-            });
-        }
-        
-        this.nextLine();
-    },
-    
-    /**
-     * 显示所有待选选项
-     * 将pendingSelections转换为选项菜单
-     */
-    showSelections: function() {
-        if (this.state.pendingSelections.length > 0) {
-            // 显示选项菜单
-            this.showChoices(this.state.pendingSelections.map(sel => ({
-                text: sel.text,
-                target: sel.target
-            })));
-            
-            // 清空待选列表
-            this.state.pendingSelections = [];
-        }
-    },
-    
+
     /**
      * 检查当前行是否应该被跳过
-     * 基于条件判断栈的状态决定
+     * 重构后条件分支走静默分支 + 标签跳转，不再需要行级跳过逻辑
      * @param {number} index - 行索引
-     * @returns {boolean} - 是否应该跳过
+     * @returns {boolean} - 是否应该跳过（恒为 false）
      */
     shouldSkipLine: function(index) {
-        const line = this.sceneData.story[index];
-        
-        // 如果有活跃的条件判断
-        if (this.state.conditionalStack.length > 0) {
-            // 检查是否为条件命令
-            if (line.command) {
-                const parsedCommand = this.parseCommand(line.command);
-                
-                if (parsedCommand.type === 'conditional') {
-                    // 评估新条件
-                    const result = this.evaluateCondition(parsedCommand.condition);
-                    if (!result) {
-                        // 条件为假，压入false并跳过
-                        this.state.conditionalStack.push(false);
-                        return true;
-                    } else {
-                        // 条件为真，压入true并继续
-                        this.state.conditionalStack.push(true);
-                        return false;
-                    }
-                } else if (parsedCommand.type === 'conditionalElse') {
-                    // 检查上一个条件结果
-                    const prevResult = this.state.conditionalStack[this.state.conditionalStack.length - 1];
-                    // 如果上一个条件为真，跳过else块
-                    return prevResult === true;
-                } else if (parsedCommand.type === 'conditionalEnd') {
-                    // 条件块结束，弹出栈
-                    this.state.conditionalStack.pop();
-                    return false; 
-                }
-            }
-            
-            // 检查条件栈中是否有false，如果有则跳过当前行
-            for (let i = 0; i < this.state.conditionalStack.length; i++) {
-                if (!this.state.conditionalStack[i]) {
-                    // 外层条件为假，跳过此行
-                    return true;
-                }
-            }
-        }
-        
         return false;
     },
     
@@ -5629,18 +5833,115 @@ const gameEngine = {
 
             // 角色好感度数据
             affinity: this.state.affinity,
-            
+
+            // VarSpace.f. 变量空间快照（与 affinity 同步，供跨文件/读档恢复）
+            fVars: (typeof VarSpace !== 'undefined' && VarSpace && VarSpace.serializeF)
+                ? VarSpace.serializeF() : null,
+
+            // ★ 游戏版本号（读档时检测剧本更新兼容性）
+            gameVersion: (typeof ENGINE_VERSION !== 'undefined') ? ENGINE_VERSION : null,
+
+            // ★ 最近的标签锚点（command: "[xxx]" 形式，剧本更新后定位兜底）
+            nearestLabel: this.state.nearestLabel || null,
+
+            // ★ 标签对应行号（标签查找失败时回退用 lineIndex）
+            nearestLabelLine: (this.state.nearestLabelLine != null) ? this.state.nearestLabelLine : null,
+
             // 已完成的场景列表
             completedScenes: this.state.completedScenes,
-            
+
             // 时间戳
             timestamp: Date.now()
         };
-        
+
         sessionStorage.setItem('gameStateSnapshot', JSON.stringify(snapshot));
         console.log('[State Snapshot] Saved:', snapshot);
     },
-    
+
+    /**
+     * 写入场景入口快照（localStorage.shiori_scene_entry_<sceneFile>）
+     * 所有“正常剧本流程”跨文件跳转（nextScene / choice / 静默分支，均经 goToScene）
+     * 离开当前场景前统一调用，记录进入目标场景那一刻的 f.。
+     * 每个场景文件只保留一条记录：再次自然进入时 f. 相同 → 不改变；不同 → 覆盖。
+     * 该 json 被 saves.html / flowchart.html / story.html 等“从场景开头播放”的
+     * 存档系统读取（经 shiori_scene_entry_jump 信号 + engine.js init 恢复），
+     * 与 archive.html 的行级读档（archiveLoadTarget + snapshot.fVars）相互独立。
+     * @param {string} targetScene - 目标场景（含 .html / 路径）
+     */
+    writeSceneEntrySnapshot: function(targetScene) {
+        // 深比较辅助（键序无关）：判断两次进入同一场景的 f. 是否一致
+        function _stableClone(v) {
+            if (Array.isArray(v)) return v.map(_stableClone);
+            if (v && typeof v === 'object') {
+                var r = {};
+                Object.keys(v).sort().forEach(function(k) { r[k] = _stableClone(v[k]); });
+                return r;
+            }
+            return v;
+        }
+        try {
+            // 提取目标场景文件名（与 archiveLoadTarget 一致的格式：仅文件名）
+            var sceneFile = targetScene;
+            var slashIdx = sceneFile.lastIndexOf('/');
+            if (slashIdx !== -1) sceneFile = sceneFile.substring(slashIdx + 1);
+            var qIdx = sceneFile.indexOf('?');
+            if (qIdx !== -1) sceneFile = sceneFile.substring(0, qIdx);
+            var hIdx = sceneFile.indexOf('#');
+            if (hIdx !== -1) sceneFile = sceneFile.substring(0, hIdx);
+
+            var fVars = (typeof VarSpace !== 'undefined' && VarSpace && VarSpace.serializeF)
+                ? VarSpace.serializeF() : null;
+            var entry = {
+                fVars: fVars,
+                fromScene: decodeURIComponent(window.location.pathname.split('/').pop()),
+                fromLine: this.state.currentLine,
+                timestamp: Date.now(),
+                gameVersion: (typeof ENGINE_VERSION !== 'undefined') ? ENGINE_VERSION : null
+            };
+            var key = 'shiori_scene_entry_' + sceneFile;
+
+            // ★ 每个场景文件只保留一条入口记录；再次经正常流程进入时：
+            //   - 本次 f. 与已存记录相同 → 不改变存档（同一路径再次进入）
+            //   - 本次 f. 与已存记录不同 → 覆盖（可视为从不同选项 / 分支进入）
+            var _sameF = false;
+            try {
+                var _prevRaw = localStorage.getItem(key);
+                if (_prevRaw) {
+                    var _prev = JSON.parse(_prevRaw);
+                    _sameF = !!(_prev && _prev.fVars && fVars &&
+                        JSON.stringify(_stableClone(_prev.fVars)) === JSON.stringify(_stableClone(fVars)));
+                }
+            } catch (e) { _sameF = false; }
+
+            if (_sameF) {
+                console.log('[Scene Entry] f.* unchanged for', sceneFile, '- keep existing entry snapshot');
+                return;
+            }
+            localStorage.setItem(key, JSON.stringify(entry));
+            console.log('[Scene Entry] Wrote entry snapshot for', sceneFile, entry);
+        } catch (e) {
+            console.error('[Scene Entry] Failed to write entry snapshot:', e);
+        }
+    },
+
+    /**
+     * 读取场景入口快照中的 fVars
+     * @param {string} sceneFile - 当前场景文件名
+     * @returns {Object|null} - fVars 对象，不存在或解析失败返回 null
+     */
+    loadSceneEntryFvars: function(sceneFile) {
+        try {
+            var key = 'shiori_scene_entry_' + sceneFile;
+            var s = localStorage.getItem(key);
+            if (!s) return null;
+            var entry = JSON.parse(s);
+            return (entry && entry.fVars) ? entry.fVars : null;
+        } catch (e) {
+            console.error('[Scene Entry] Failed to load entry snapshot:', e);
+            return null;
+        }
+    },
+
     /**
      * 从sessionStorage加载状态快照
      * @returns {Object|null} - 状态快照对象,不存在则返回null
@@ -5768,12 +6069,24 @@ const gameEngine = {
             return;
         }
         
+        // F2 变量观察面板（z-index:9999，后插入 DOM，会盖住同层级的菜单）
+        // 呼出菜单时将其层级让给菜单（被遮挡），关闭时还原
+        var varsPanel = (typeof systemModule !== 'undefined' && systemModule.varsPanel)
+            ? systemModule.varsPanel
+            : document.getElementById('vars-panel');
+        
         if (this.elements.contextMenu.classList.contains('show')) {
             // 隐藏菜单
             this.elements.contextMenu.classList.remove('show');
             this.elements.contextMenuBackdrop.style.display = 'none';
+            if (varsPanel) {
+                varsPanel.style.zIndex = '9999'; // 还原 F2 层级
+            }
         } else {
-            // 显示菜单
+            // 显示菜单，先把 F2 压到菜单之下
+            if (varsPanel) {
+                varsPanel.style.zIndex = '9990';
+            }
             this.elements.contextMenu.classList.add('show');
             this.elements.contextMenuBackdrop.style.display = 'block';
         }
