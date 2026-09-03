@@ -26,6 +26,22 @@ const systemModule = {
     debugPanel: null,
     // 调试日志是否显示
     debugVisible: false,
+    // 变量观察面板DOM元素（F2，右侧）
+    varsPanel: null,
+    // 变量观察面板是否显示
+    varsVisible: false,
+    /* 硬编码：需要观察的 f. 变量名列表（只写名字，不含 f. 前缀）
+    * 面板会遍历此数组，读取 VarSpace.f.<name> 的当前值并显示
+    * 这些只是示例变量，可根据情况修改。
+    * 比如这里写的是'yn'，那么完整的变量名就是 f.yn
+    * */
+    WATCHED_F_VARS: [
+        'yn',    // 角色A好感度
+        'yn2',   // 角色A好感度（次级标记）
+        'yr',    // 角色B好感度
+        'trust', // 信任度
+        'mood'   // 心情值
+    ],
     // 状态持久化变量 - 追踪当前生效的状态
     lastActiveBgm: null,      // 最后激活的 BGM ID
     lastActiveBg: null,       // 最后激活的背景图片 ID
@@ -44,6 +60,8 @@ const systemModule = {
     VOICE_VOLUME_STORAGE_KEY: 'galgame_voice_volume',
     // 调试模式存储键名
     DEBUG_MODE_STORAGE_KEY: 'galgame_debug_mode',
+    // 变量观察面板存储键名（F2 持久化）
+    VARS_MODE_STORAGE_KEY: 'galgame_vars_panel',
     // 人物音频进度条相关
     voiceProgressBar: null,       // 进度条元素
     voiceProgressContainer: null, // 进度条容器
@@ -67,14 +85,17 @@ const systemModule = {
     init: function() {
         this.loadVolume();  // 从 localStorage 加载音量设置
         this.loadDebugMode();  // 从 localStorage 加载调试模式状态
+        this.loadVarsMode();  // 从 localStorage 加载变量观察面板状态
         this.loadAutoSettings();  // 从 localStorage 加载 AUTO 设置
         console.log('[AUTO] init called, autoDelaySeconds:', this.autoDelaySeconds);
         this.createVolumeOverlay();
         this.createDebugPanel();
+        this.createVarsPanel();
         this.bindVolumeControls();
         this.bindDebugToggle();
+        this.bindVarsToggle();
         this.bindFullscreenDetection();
-        
+
         // 如果之前调试模式是开启的，自动显示面板
         if (this.debugVisible && this.debugPanel) {
             this.debugPanel.style.display = 'block';
@@ -82,6 +103,12 @@ const systemModule = {
             if (typeof gameEngine !== 'undefined' && gameEngine.sceneData) {
                 this.updateDebugInfo();
             }
+        }
+
+        // 如果之前变量观察面板是开启的，自动显示
+        if (this.varsVisible && this.varsPanel) {
+            this.varsPanel.style.display = 'block';
+            this.updateVarsInfo();
         }
         
         // 延迟应用音量到所有音频元素，确保引擎已初始化
@@ -238,11 +265,44 @@ const systemModule = {
         try {
             localStorage.setItem(this.DEBUG_MODE_STORAGE_KEY, this.debugVisible.toString());
             console.log('[Debug Mode] Saved to localStorage:', this.debugVisible ? 'ON' : 'OFF');
-            
+
             // 通知 C# 启动器：调试模式已更新
             this.notifyStorageOperation('UPDATE', this.DEBUG_MODE_STORAGE_KEY, 'localStorage');
         } catch (e) {
             console.warn('[Debug Mode] Failed to save to localStorage:', e);
+        }
+    },
+
+    /**
+     * 从 localStorage 加载变量观察面板状态
+     */
+    loadVarsMode: function() {
+        try {
+            const saved = localStorage.getItem(this.VARS_MODE_STORAGE_KEY);
+            if (saved !== null) {
+                this.varsVisible = saved === 'true';
+                console.log('[Vars Panel] Loaded from localStorage:', this.varsVisible ? 'ON' : 'OFF');
+                return;
+            }
+        } catch (e) {
+            console.warn('[Vars Panel] Failed to load from localStorage:', e);
+        }
+        this.varsVisible = false;
+        console.log('[Vars Panel] Using default state: OFF');
+    },
+
+    /**
+     * 保存变量观察面板状态到 localStorage
+     */
+    saveVarsMode: function() {
+        try {
+            localStorage.setItem(this.VARS_MODE_STORAGE_KEY, this.varsVisible.toString());
+            console.log('[Vars Panel] Saved to localStorage:', this.varsVisible ? 'ON' : 'OFF');
+
+            // 通知 C# 启动器
+            this.notifyStorageOperation('UPDATE', this.VARS_MODE_STORAGE_KEY, 'localStorage');
+        } catch (e) {
+            console.warn('[Vars Panel] Failed to save to localStorage:', e);
         }
     },
     
@@ -357,6 +417,139 @@ const systemModule = {
                 this.toggleDebugPanel();
             }
         });
+    },
+
+    /**
+     * 创建变量观察面板DOM元素（F2，右侧）
+     * 显示 WATCHED_F_VARS 中所有 f. 变量的当前值，以及 sf. 中非零的变量
+     */
+    createVarsPanel: function() {
+        const panel = document.createElement('div');
+        panel.id = 'vars-panel';
+        panel.style.cssText = `
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: #00BFFF;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            z-index: 9999;
+            min-width: 200px;
+            max-width: 400px;
+            display: none;
+            user-select: text;
+            cursor: default;
+            border: 1px solid #00BFFF;
+            box-shadow: 0 0 10px rgba(0, 191, 255, 0.3);
+        `;
+        panel.innerHTML = `
+            <div style="font-weight: bold; margin-bottom: 10px; color: #FFFF00;">
+                变量观察（F2）
+            </div>
+            <div id="vars-content"></div>`;
+        document.body.appendChild(panel);
+        this.varsPanel = panel;
+    },
+
+    /**
+     * 绑定变量观察面板开关快捷键 (F2)
+     */
+    bindVarsToggle: function() {
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'F2') {
+                e.preventDefault();
+                this.toggleVarsPanel();
+            }
+        });
+    },
+
+    /**
+     * 切换变量观察面板显示/隐藏
+     */
+    toggleVarsPanel: function() {
+        this.varsVisible = !this.varsVisible;
+        if (this.varsVisible) {
+            this.varsPanel.style.display = 'block';
+            this.updateVarsInfo();
+        } else {
+            this.varsPanel.style.display = 'none';
+        }
+        this.saveVarsMode();  // 保存到 localStorage
+    },
+
+    /**
+     * 更新变量观察面板显示内容
+     * 遍历 WATCHED_F_VARS 显示 f.<name> 当前值
+     * 遍历 VarSpace.sf 显示所有非零/非空的 sf. 变量
+     */
+    updateVarsInfo: function() {
+        if (!this.varsVisible || !this.varsPanel) return;
+
+        const content = document.getElementById('vars-content');
+        if (!content) return;
+
+        let html = '';
+
+        // ===== f. 变量区 =====
+        html += '<div style="color: #00FF00; margin-bottom: 5px; font-weight: bold;">f. （游戏变量）</div>';
+
+        if (typeof VarSpace === 'undefined' || !VarSpace) {
+            html += '<div style="color: #888; margin-left: 10px;">VarSpace 不可用</div>';
+        } else {
+            const dump = VarSpace.dump ? VarSpace.dump() : { f: {}, sf: {}, tf: {} };
+
+            // 遍历硬编码的 WATCHED_F_VARS
+            this.WATCHED_F_VARS.forEach(function(name) {
+                const val = dump.f[name];
+                if (val === undefined || val === null) {
+                    html += '<div style="margin-left: 10px; color: #888;">f.' + name + ' = <span style="color: #666;">(未定义)</span></div>';
+                } else {
+                    html += '<div style="margin-left: 10px;">f.' + name + ' = <span style="color: #FFFFFF;">' + val + '</span></div>';
+                }
+            });
+
+            // 检查是否有 WATCHED_F_VARS 之外的 f. 变量（额外显示）
+            const watched = {};
+            this.WATCHED_F_VARS.forEach(function(n) { watched[n] = true; });
+            const extraF = Object.keys(dump.f).filter(function(k) { return !watched[k]; });
+            if (extraF.length > 0) {
+                html += '<div style="color: #888; margin-top: 5px; margin-left: 10px; font-size: 12px;">— 其他 f. 变量 —</div>';
+                extraF.forEach(function(name) {
+                    html += '<div style="margin-left: 10px; color: #aaa;">f.' + name + ' = <span style="color: #ddd;">' + dump.f[name] + '</span></div>';
+                });
+            }
+        }
+
+        // ===== sf. 变量区（sf.clear 始终显示，其他只显示非零/非空） =====
+        html += '<div style="color: #FFD700; margin-top: 10px; margin-bottom: 5px; font-weight: bold;">sf. （系统变量）</div>';
+
+        if (typeof VarSpace === 'undefined' || !VarSpace) {
+            html += '<div style="color: #888; margin-left: 10px;">VarSpace 不可用</div>';
+        } else {
+            const dump = VarSpace.dump ? VarSpace.dump() : { sf: {} };
+            const sfKeys = Object.keys(dump.sf);
+
+            // sf.clear 始终显示（0=未通关，1=通关）
+            const clearVal = (dump.sf.clear !== undefined && dump.sf.clear !== null) ? dump.sf.clear : 0;
+            html += '<div style="margin-left: 10px;">sf.clear = <span style="color: #FFFFFF;">' + clearVal + '</span></div>';
+
+            // 其他 sf. 变量：只显示非零/非空
+            const nonZeroSf = sfKeys.filter(function(k) {
+                if (k === 'clear') return false; // 已单独显示
+                const v = dump.sf[k];
+                return v !== undefined && v !== null && v !== 0 && v !== false && v !== '';
+            });
+
+            nonZeroSf.forEach(function(name) {
+                html += '<div style="margin-left: 10px;">sf.' + name + ' = <span style="color: #FFFFFF;">' + dump.sf[name] + '</span></div>';
+            });
+        }
+
+        content.innerHTML = html;
     },
     
     /**
