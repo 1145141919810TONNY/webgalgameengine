@@ -35,6 +35,62 @@
 
 **本readme文档不再存放更新日志，详细的更新日志请前往教学网站查看；由于引擎的内容已经变的非常的多，md文件也不再满足需求，因此详细的教学内容也请到教学网页中查看**
 
+## 目录结构
+
+```
+project/
+├── Shiori/                               # 启动器本体 (WPF, net8.0-windows)
+│   ├── ShioriC#.csproj                   # 工程文件，引用关系都定义在这里
+│   ├── *.cs / *.xaml                     # 31 个源码文件 (27 个 .cs + 4 个 .xaml)
+│   ├── ico/                              # 5 个图标 (16/32/64/128/256)
+│   ├── build_csharp.bat                  # 一键编译脚本
+│   └── 缺失依赖.txt                       # 离线 NuGet 包清单
+├── ScriptingCore/                        # DSL 编译核心 (netstandard2.1 类库)
+├── SHA256Tool/Shared/EmbeddedKeyCodec.cs # 密钥载荷的混淆编解码
+├── license.txt
+└── .gitignore
+```
+
+## 三者的关系
+
+```
+Shiori/ShioriC#.csproj
+├── ProjectReference ──> ScriptingCore/ScriptingCore.csproj
+└── Compile Include ───> SHA256Tool/Shared/EmbeddedKeyCodec.cs
+```
+
+| 部件 | 角色 | 被谁用 | 引用方式 |
+|---|---|---|---|
+| `Shiori/` | 启动器本体，负责起 HTTP 服务、托管网页、加载插件 | 直接编译为 `Shiori.exe` | 根工程 |
+| `ScriptingCore/` | 把 .ks / DSL 剧本编译成运行时 JSON 的共享类库 | `Shiori` | `ProjectReference` |
+| `SHA256Tool/Shared/EmbeddedKeyCodec.cs` | 内嵌密钥载荷的混淆解码（SplitMix64） | `Shiori` | `Compile Include` |
+
+两种引用的差别：`ProjectReference` 是工程级引用，`ScriptingCore` 会先编译成 `ScriptingCore.dll` 再被引用；`Compile Include` 是源码级引用，那个 `.cs` 被当成 `Shiori` 自己的一个文件，一起编进 `Shiori.exe`。这是为了让发布器、原生内核与启动器共用同一份源码。
+
+## 层级不能随手改
+
+两个引用都是相对 `Shiori/` 的路径，向上找一层：
+
+```
+..\ScriptingCore\ScriptingCore.csproj
+..\SHA256Tool\Shared\EmbeddedKeyCodec.cs
+```
+
+所以 `ScriptingCore/` 与 `SHA256Tool/` 必须与 `Shiori/` **同级**，且目录名不能改（改了就要同步改 csproj，否则报 CS2001 找不到源文件）。`ScriptingCore` 自身没有任何外部路径引用，随手放哪都行；有约束的只有上面这两条。
+
+
+## 怎么编译
+
+需要 .NET 8 SDK。在 `Shiori/` 目录下执行：
+
+```
+build_csharp.bat
+```
+
+脚本先还原 NuGet 包（本地 `nupkg/` 齐全时完全离线），再依次发布 Release 与 Debug 两个版本，产物在 `Shiori/dist/`，并自动清掉 `ico/`、`*.pdb` 等多余文件。
+
+注意：编译出的 exe 要跑起来，还需要同级放一份引擎网页目录 `shiori engine/`，否则只有窗口没有内容。
+
 程序底层框架：月が綺麗ですね_
 https://space.bilibili.com/87412647?spm_id_from=333.1007.0.0
 
