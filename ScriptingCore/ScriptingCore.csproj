@@ -1,0 +1,19 @@
+<!--
+  版权所有：bilibili月が綺麗ですね_
+  SPDX-License-Identifier: LicenseRef-Shiori-Engine
+  Shiori ScriptingCore — DSL M1 共享类库（netstandard，启动器/编辑器双引用）
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Shiori.Scripting</RootNamespace>
+    <AssemblyName>ScriptingCore</AssemblyName>
+    <Description>Shiori DSL Schema / Lexer / Parser / Compiler</Description>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+</Project>
