@@ -8,11 +8,13 @@
 
 如果要使用本模板，请根据license.txt中的指引进行修改本项目
 
-本引擎的教学网页：[https://1145141919810tonny.github.io/Shioriteaching/](https://1145141919810tonny.github.io/Shioriteaching/)，从2026年7月2日后，将移除README.MD文件中的可能过时的教程，详情请到教学网页中查看最新的内容
+本引擎的教学网页：[https://1145141919810tonny.github.io/Shioriteaching/](https://1145141919810tonny.github.io/Shioriteaching/)
 
-本引擎的一键式管理器：[https://github.com/1145141919810TONNY/Shiori-manager](https://github.com/1145141919810TONNY/Shiori-manager)，`验证引擎完整性.bat`文件虽可正常使用，但是已被全新的`SHA-256`编码校验完全替代，请到管理器releases页面中下载校验器。
+本引擎的一键式管理器：[https://github.com/1145141919810TONNY/Shiori-manager](https://github.com/1145141919810TONNY/Shiori-manager)
 
 本引擎专用可视化编辑器链接：[https://github.com/1145141919810TONNY/Shiori-editor](https://github.com/1145141919810TONNY/Shiori-editor)
+
+本引擎的插件仓库：[https://github.com/1145141919810TONNY/ShioriPlugin](https://github.com/1145141919810TONNY/ShioriPlugin)
 
 如果你在编译启动器时因网络问题编译失败时，可以前往release下载`离线编译依赖补丁`补丁包进行编译，
 
