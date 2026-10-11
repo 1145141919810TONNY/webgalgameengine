@@ -1,0 +1,75 @@
+把系统 UI 图放到本目录。命名 {名字}_{状态}.png（也认 webp / jpg）。
+
+━━━ 第一步：放图 ━━━
+
+状态：_normal 常态；_hover 高亮（可省，回退 normal）；_on 常亮（可省，回退 normal）。
+
+【游戏内部件】（剧本页自动注入，无需逐页配置）
+  textbox   对白文本框底图（容器，图 100% 铺满）
+            它的 _hover 不是鼠标悬停，由 TEXTBOX_HIGHLIGHT_MODE 驱动（wait/hover/read/off）
+  namebox   说话人姓名框（容器）；_on = 该说话人正在发声
+  novel     全屏小说模式容器；与对白框换肤互不影响
+  options   选项列表整块底图（#options-container）
+  choice    选项按钮；_on 同时表示「已选」与「已读」
+  btn       顶栏通用功能按钮（AUTO / SKIP 与下面 9 个按钮另有专属位）
+  auto      AUTO 自动播放按钮（三态）
+  skip1     SKIP 快进按钮·第一组（_on = 快进进行中）
+  skip2     SKIP 快进按钮·第二组（已读/未读切换）
+
+【顶栏 HUD 按钮组】默认共用 btn 的图，放了专属图才单独生效
+  save（#ui-save）/ dropdown（下拉容器，_on = 展开）/ dd_item（下拉里的 SCENES·MAP·STORY，
+  三条文案共用一张图，贴图后仍保留文字，请给无字底图）
+  option / system / log / help / back / quit（其余六个按钮）
+
+【浮层与提示】
+  log_panel（日志浮层底，整屏铺满，保留文字）
+  log_btn（日志里的语音播放按钮；贴图后引擎会自动藏掉 CSS 画的三角，别把三角画进图）
+  log_back（日志返回）/ toast（快捷保存提示，_normal/_success/_error，保留文字）
+  prompt（「点击继续」）/ pov（视角指示器，保留文字）
+  progbar（语音进度条轨道；填充条仍由 CSS 画）/ vol（音量浮层，保留文字）
+
+【标题页】index.html 菜单按钮
+  title_start（开始游戏）/ title_save（存档）/ title_progress（进度管理）/ title_flow（剧本流程图）
+  title_story（小故事）/ title_bgm / title_video / title_cg / title_copy
+
+【分页面通用】
+  sub_back（返回主菜单）/ sub_return（返回当前页面·智能返回）
+
+【右键菜单】游戏内点击右键弹出
+  ctx_backdrop（整屏遮罩）/ ctx_panel（面板底）/ ctx_item（菜单项）/ ctx_hint（快捷键提示区）/ ctx_sep（分隔线）
+
+【各分页面】
+  CG.html    cg_item（缩略图）/ cg_nav（翻页箭头）/ cg_close（关闭大图）
+  bgm.html   bgm_item（曲目，_on 播放中）/ bgm_ctrl（暂停·循环·停止，_on 已激活）
+  video.html video_item（视频）/ video_ctrl（退出播放）
+  story.html story_item（场景卡片）
+  saves.html prog_act（操作按钮）/ prog_jump（快速跳转卡片）
+  archive.html arc_act（操作按钮）/ arc_slot（存档卡片）/ arc_load（加载）/ arc_del（删除）/ arc_ow（覆盖）
+  flowchart(.debug).html flow_act（操作按钮）/ flow_node（场景节点，_on 当前游玩节点）
+  copy.html  copy_act（操作按钮）/ copy_nav（侧栏导航）/ copy_head（折叠标题）
+
+例：title_start_normal.png + title_start_hover.png → 标题页「开始游戏」换图。
+缺图 = 原样 CSS，不报错。
+
+有图时原文字会被隐藏（文字由图自带）。例外：choice / options 即使有图**也保留文字** ——
+选项内容来自剧本、图上不可能自带。所以这两个请提供**无字底图**，否则会「图上的字 + DOM 的字」双重叠加。
+
+━━━ 第二步：填尺寸（必须）━━━
+
+引擎运行时**不探测、不解图片、不扫目录**，只读 ui/ui_size.js 里的一张表。
+所以每张新图都要手填一次像素尺寸，否则该元素不会生效。
+
+  1) 读出真实像素（工具只跑一次，不进运行时）：
+         node tools/measure_ui.js            # 列出全部图与尺寸
+         node tools/measure_ui.js --fill     # 输出可直接粘贴的条目
+  2) 粘进 ui/ui_size.js：
+         title_start_normal: { sizex: 442, sizey: 64 },
+         title_bgm_normal:   { sizex: 442, sizey: 64, ext: 'webp' },   // webp/jpg 必须写 ext
+  3) 自检：
+         node tools/verify_ui_tables.js              # 有错误退出码 1
+         node tools/verify_ui_tables.js --release    # 发布门禁：启用条目=0 且本目录无图
+
+⚠ 表里有条目、本目录却没有对应图 → 该元素会隐形（透明底 + 图 404），且不报错。
+  这是「手填换性能」唯一的代价，靠上面的自检脚本兜底。
+
+完整槽位表与状态语义见引擎根 assets.md 第 7 节。

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>场景模板文件</title>
+
+	</head>
+	<body>
+
+		<script>
+			const sceneData = {
+				background: BG_CONFIG_SUB,
+				bgm: BGM_CONFIG_SUB,
+				audio: {},
+				videos: {},
+				story: [{
+						text: "",
+					},
+				]
+			};
+
+			document.addEventListener('DOMContentLoaded', () => {
+				const urlParams = new URLSearchParams(window.location.search);
+				const startLine = parseInt(urlParams.get('startLine')) || 0;
+				gameEngine.init(sceneData, startLine);
+			});
+		</script>
+	</body>
+</html>

@@ -1,0 +1,1049 @@
+/**
+ * 版权所有：bilibili月が綺麗ですね_
+ * SPDX-License-Identifier: LicenseRef-Shiori-Engine
+ * 作者：bilibili月が綺麗ですね_
+ * Shiori Engine - Open Source Visual Novel Engine
+ * 
+ * 本引擎采用宽松开源协议，允许用户根据项目需求自由修改、定制和发布衍生作品。
+ * 使用时请保留上述版权声明，具体授权条款详见 license.txt 文件。
+ * 
+ * 引擎主样式表：定义 1920×1080 基准分辨率下的全局布局、文本框、菜单、转场等样式。
+ * 可按需自由定制。
+ */
+ 
+/* 1920×1080 设计稿。--u/--v 把稿上像素换成视口比例。
+   流式：100vw=窗口宽 → 连续等比。
+   等比画布：宿主 ZoomFactor 把布局视口锁在 1920，--u=1px 再被 zoom 画回去。 */
+:root {
+    --u: calc(100vw / 1920);
+    --v: calc(100vh / 1080);
+}
+
+/* 全局重置：清除所有元素默认内外边距，盒模型统一为 border-box */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* 页面主体：占满视口、禁止滚动，基于 --u/--v 变量做等比缩放布局 */
+body {
+    font-family: 'Microsoft YaHei', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+}
+
+/* 背景容器 */
+#background-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #000; /* 黑色背景，用于信箱模式的黑边 */
+    background-size: contain; /* 信箱模式：保持图片完整显示 */
+    background-position: center; /* 居中显示 */
+    background-repeat: no-repeat; /* 防止重复 */
+    transition: opacity 1s ease, transform 1s cubic-bezier(0.4, 0.0, 0.2, 1); /* 增加 transform 过渡 */
+    z-index: 0;
+    overflow: hidden; /* 防止滑动时出现滚动条 */
+}
+
+/* 滑屏/扫描转场临时层 */
+.slide-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #000; /* 黑色背景，用于信箱模式的黑边 */
+    background-size: contain; /* 信箱模式：保持图片完整显示 */
+    background-position: center; /* 居中显示 */
+    background-repeat: no-repeat; /* 防止重复 */
+    z-index: 10; /* 确保在旧背景之上 */
+    will-change: transform, clip-path, mask-image;
+    transition: transform 1s cubic-bezier(0.4, 0.0, 0.2, 1), 
+                clip-path 1s cubic-bezier(0.4, 0.0, 0.2, 1),
+                mask-image 1s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* 扫描转场 - 左转场（使用 mask-image 消除锯齿） */
+.slide-layer.scan-left {
+    -webkit-mask-image: linear-gradient(to right, 
+        black 0%, 
+        black 85%, 
+        rgba(0, 0, 0, 0) 100%);
+    mask-image: linear-gradient(to right, 
+        black 0%, 
+        black 85%, 
+        rgba(0, 0, 0, 0) 100%);
+}
+
+/* 扫描转场 - 右转场（使用 mask-image 消除锯齿） */
+.slide-layer.scan-right {
+    -webkit-mask-image: linear-gradient(to left, 
+        black 0%, 
+        black 85%, 
+        rgba(0, 0, 0, 0) 100%);
+    mask-image: linear-gradient(to left, 
+        black 0%, 
+        black 85%, 
+        rgba(0, 0, 0, 0) 100%);
+}
+
+/* 角色立绘容器 */
+#character-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 75%; /* 立绘容器高度为屏幕的 75% */
+    pointer-events: none;
+    z-index: 1;
+    /* overflow: visible 允许放大的立绘完整显示 */
+}
+
+/* 单层 Canvas 舞台：幽灵 DOM 仍跑 WAAPI，可见合成走 #char-stage。
+   画布从容器底边向上铺满视口（JS 写 height），避免放大/上移立绘被 75% 盒子裁切。 */
+#char-stage {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 20;
+}
+.char-stage-on > .character-layered {
+    /* 盖过 updateCharDiff 的 inline visibility:visible；勿改 opacity，rAF 还要采样 */
+    visibility: hidden !important;
+}
+
+/* 新系统立绘分层容器（updateCharDiff 创建的 div） */
+.character-layered {
+    position: absolute;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+.character-layered .char-dress,
+.character-layered .char-face,
+.character-layered .char-composite {
+    position: absolute;
+    object-fit: contain;
+    image-rendering: -webkit-optimize-contrast;
+    will-change: opacity, transform;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+    /* 以底部中心为缩放原点，避免缩放时 Y 轴偏移导致 dress 与 face 错位 */
+    transform-origin: bottom center;
+}
+
+/* 动态立绘样式 */
+.character-img {
+    position: absolute;
+    bottom: 0;
+    height: 100%; /* 默认高度为容器高度的 100%，可通过 JS 动态设置 */
+    width: auto;
+    object-fit: contain;
+    object-position: bottom center;
+    transform-origin: bottom center; /* 以底部中心为缩放原点 */
+    transform: translateX(-50%);
+    transition: all 0.5s ease;
+    filter: drop-shadow(0 0 calc(5 * var(--u, 1px)) rgba(0, 0, 0, 0.3));
+    /* 禁止用户选中和拖拽 */
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: none;
+    /* GPU加速 */
+    will-change: opacity, transform;
+    transform: translateZ(0) translateX(-50%);
+    /* 图像渲染 */
+    image-rendering: -webkit-optimize-contrast;
+}
+
+/* 文本框容器 - 默认状态 */
+#text-box-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: calc(10 * var(--v, 1px)) calc(20 * var(--u, 1px)) calc(20 * var(--v, 1px));
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    z-index: 2;
+    /* 说话人小头像的**宽度**（同时也是头像框高所用的同一把尺子 --u 之外的另一基准）。
+       写在这里是为了让 #speaker-avatar 与下面的 .has-speaker-avatar 缩进共用同一个值
+       —— 自定义属性会向下继承。注意：x / y / z 不驱动任何 CSS（框与画布永远固定），
+       立绘的位移 / 缩放全在 JS 里通过平移 / 缩放取景框做，
+       详见 ui/speaker_avatar.js 的 applyTransformToCrop。 */
+    --speaker-avatar-size: calc(220 * var(--u, 1px));
+    /* 说话人小头像的**高度**：默认整个窗口（1920×1080 设计稿的 1080）。
+       头像框是竖长方形：底边固定贴窗口底边，高度往上长，所以「框越高，能完整显示的
+       立绘内容越多」—— 想只占半屏就写 calc(540 * var(--u, 1px))。
+       刻意与 --speaker-avatar-size 用同一把尺子 --u（而不是高度侧惯用的 --v）：
+       这样宽高比恒定，不随窗口形状变化，头像画布的等比缩放才有确定依据。 */
+    --speaker-avatar-height: calc(1080 * var(--u, 1px));
+    /* 头像形状圆角。默认 0 = 矩形，让头像的左边与下边都**真正贴住**容器左下角。
+       改成 100% 0 0 100% 会变成左半圆，但那个形状会同时切掉左上角（头顶缺一块）
+       与左下角（下边缘离开窗口底边）。 */
+    --speaker-avatar-radius: 0;
+    /* 头像框内的立绘指令（x / y / z），语义对标主舞台立绘的「[中 上] 方位 + x/y/z 偏移」：
+       画布与框永远不动，变的是画布里的立绘。三者都作用在**取景框**上：
+       - z = 取景缩放增量，0 = 原始大小，正 = 放大取景（脸更大、特写）、负 = 缩小取景（脸更小、露更多身体）；
+           换算同差分：(100 + z) / 100。改取景框的 w / h。
+       - x / y = 平移取景框，相对**头像框宽**的百分比，正 x = 立绘向右、正 y = 立绘向上；
+           只改位置、不改 w / h，所以上屏画布尺寸不变（那个 div 不会动）。
+       JS 在 applyTransformToCrop 里完成上述换算（越界部分留透明）。
+       这三个变量 CSS 不再消费（只留一份可读快照，供调试 / getTransform 读取）；
+       默认 0 表示「脚本没跑到 / 没配」时头像仍是中性基准（autoCrop 的头肩窗口原样）。 */
+    --speaker-avatar-x: 0;
+    --speaker-avatar-y: 0;
+    --speaker-avatar-z: 0;
+    /* 「有头像 / 无头像」两态的左缩进过渡 */
+    transition: padding-left 0.33s;
+}
+
+/* 有说话人小头像：文本框左缩进，给头像让位。
+   头像自身是绝对定位（left:0），不受 padding 影响，始终贴着容器左下角；
+   缩进只作用于名片与正文，所以两态切换时文字不会压到头像上。
+
+   缩进量按头像**完整宽度**算，不能按半径：
+   头像盒子横跨 [0, size]，border-radius 只是把左半裁成弧，右边缘仍是整条竖线，
+   所以在垂直中线上它从 x=0 一直实到 x=size —— 只让半径的话右半段会压住文字。
+   容器是全宽贴屏幕左边的，头像盒子无法向外推，只能整体让开。
+
+   头像框**永远固定尺寸、固定位置**：x / y / z 现在只改框内的取景（缩放 / 平移），
+   框本身与缩进量都不变，所以缩进就是「框完整宽度 + 一个固定间隙」，不随 x / z 变化。
+   最外层 max(0px, …) 是防御性写法（这里算出来恒为正）。 */
+#text-box-container.has-speaker-avatar {
+    padding-left: max(0px, calc(
+        var(--speaker-avatar-size)
+        + 30 * var(--u, 1px)
+    ));
+}
+
+/* 说话人小头像容器：贴在文本框（= 屏幕）左下角，是一个**竖向长方形**。
+   宽 = --speaker-avatar-size，高 = --speaker-avatar-height（默认整个窗口高）；
+   底边固定贴容器底边，高度往上长 —— 头像本身就是「从头顶往下」的一块立绘，
+   框够高才装得下，头发才不会被裁（画布比例见 ui/speaker_avatar.js 的 fitInto）。
+   形状由 --speaker-avatar-radius 控制，默认 0（矩形）——
+   只有矩形才能让左边与下边**同时真正贴住**容器边缘，并保住头顶不被切。
+   定位 / 命中放行在这里兜底（ui_layout.js 的内联只锁了同样的四个属性，
+   作者换布局或皮肤时不会丢）。显隐由 JS 写内联 display（关闭态 none，不占位）。 */
+#speaker-avatar {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    pointer-events: none;
+    width: var(--speaker-avatar-size, calc(220 * var(--u, 1px)));
+    height: var(--speaker-avatar-height, calc(1080 * var(--u, 1px)));
+    border-radius: var(--speaker-avatar-radius, 0);
+    /* 头像框：永远固定尺寸、固定位置（left:0 / bottom:0 / 宽高由上面两个变量定），
+       **绝不变** —— 框本身没有任何 transform，里面的画布也没有。
+       x / y / z 全部作用在**取景框**上（applyTransformToCrop）：
+         z = 改取景框 w / h（缩放，画面里就是脸变大 / 变小）；
+         x / y = 平移取景框（只改位置、不改 w / h ⇒ 上屏画布尺寸不变），
+                 画面里就是立绘在框内左右 / 上下移动（正 x = 右、正 y = 上，都以**框宽**为基准）。
+       所以框与画布都不动，动的只是画布里的立绘。overflow:hidden 仅作兜底。 */
+    overflow: hidden;
+    /* 投影挂在容器上：canvas 铺满整个盒子时阴影画在盒子外，
+       挂在 canvas 上会被裁掉，等于永远看不见。 */
+    filter: drop-shadow(calc(15 * var(--u, 1px)) 0 calc(3 * var(--u, 1px)) rgba(0, 0, 0, 0.5));
+    z-index: 3;
+}
+
+/* 头像画布 = 取景框的成品：宽度对齐框宽、高度按取景框比例（见 speaker_avatar.js 的 fitInto），
+   位置恒在框的 left:0 / bottom:0。
+   **尺寸只由取景框的 w / h 决定**：x / y 平移只改取景框位置、不改 w / h ⇒ 画布尺寸不变，
+   所以这块画布（以及它所在的框）永远不动，动的只是它里面被取景到的内容。
+     width:100%      → 上屏宽度恒等于框宽（头像宽度的唯一来源）；
+     height:auto     → 上屏高度按画布自带的宽高比推导（JS 会写内联 aspect-ratio 兜底）；
+     max-height:100% → 上限 = 框高，兜底防溢出。
+   因为是「取景框等比缩到框宽」，内容不会被压成方片，也不会被 220u 见方切掉下半截。 */
+#speaker-avatar > canvas {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: auto;
+    max-height: 100%;
+    display: block;
+}
+
+/* 姓名框 */
+#name-box {
+    background-color: rgba(0, 0, 0, 0.85);
+    padding: calc(8 * var(--v, 1px)) calc(15 * var(--u, 1px));
+    border-radius: calc(5 * var(--u, 1px)) calc(5 * var(--u, 1px)) 0 0;
+    max-width: calc(300 * var(--u, 1px));
+    font-weight: bold;
+    color: #FFD700;
+    font-size: calc(32 * var(--u, 1px));
+    font-weight: 900;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    cursor: default;
+}
+
+/* 姓名框和进度条的行容器 */
+#name-progress-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    align-self: flex-start;
+    margin-bottom: calc(5 * var(--v, 1px));
+    position: relative;
+    top: calc(-5 * var(--v, 1px));
+}
+
+/* AUTO倒计时显示 */
+.auto-countdown {
+    display: none;
+    font-size: calc(16 * var(--u, 1px));
+    font-weight: bold;
+    color: #FFD700;
+    margin-left: calc(10 * var(--u, 1px));
+    padding: calc(2 * var(--v, 1px)) calc(4 * var(--u, 1px));
+    background: transparent;
+    min-width: calc(35 * var(--u, 1px));
+    text-align: center;
+    text-shadow: 0 0 calc(10 * var(--u, 1px)) rgba(255, 215, 0, 0.8);
+    animation: countdown-pulse 1s infinite;
+}
+
+/* AUTO 倒计时脉冲动画：文字轻微放大并呼吸闪烁，提示自动模式运行中 */
+@keyframes countdown-pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.8;
+        transform: scale(1.05);
+    }
+}
+
+/* 人物音频进度条容器 - 与姓名框同一水平线 */
+#voice-progress-container {
+    display: flex;
+    align-items: center;
+    margin-left: calc(10 * var(--u, 1px));
+    height: calc(40 * var(--v, 1px));
+}
+
+/* 人物音频进度条轨道 */
+#voice-progress-bar {
+    width: calc(120 * var(--u, 1px));
+    height: calc(6 * var(--v, 1px));
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: calc(3 * var(--u, 1px));
+    overflow: hidden;
+    position: relative;
+}
+
+/* 人物音频进度条填充 */
+#voice-progress-fill {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(to right, #FFD700, #FFA500);
+    border-radius: calc(3 * var(--u, 1px));
+    transition: width 0.1s ease-out;
+}
+
+/* 文本框 */
+#text-box {
+    font-size: calc(25 * var(--u, 1px));
+    line-height: 1.6;
+    margin-top: calc(5 * var(--v, 1px)); /* 在姓名框下方一点 */
+    flex-grow: 1;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    cursor: default;
+}
+
+/* 常规模式下的注音样式 */
+#text-box ruby {
+    ruby-position: over;
+    -webkit-ruby-position: over;
+}
+
+#text-box rt {
+    font-size: 0.5em; /* 注音文字大小为主体文字的 50% */
+    line-height: 1.2;
+}
+
+/* 日志面板的注音样式 */
+#log-content ruby {
+    ruby-position: over;
+    -webkit-ruby-position: over;
+}
+
+#log-content rt {
+    font-size: 0.5em; /* 注音文字大小为主体文字的 50% */
+    line-height: 1.2;
+    color: #FFD700; /* 日志注音颜色与说话人颜色一致 */
+}
+
+/* 全屏小说模式容器 */
+#novel-mode-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, 
+        rgba(255, 255, 255, 0.7) 0%, 
+        rgba(255, 255, 255, 0.55) 10%, 
+        rgba(255, 255, 255, 0.35) 20%, 
+        rgba(255, 255, 255, 0.25) 35%, 
+        rgba(255, 255, 255, 0.2) 50%, 
+        rgba(255, 255, 255, 0.25) 65%, 
+        rgba(255, 255, 255, 0.35) 80%, 
+        rgba(255, 255, 255, 0.55) 90%, 
+        rgba(255, 255, 255, 0.7) 100%);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 50;
+    padding: 0;
+    text-align: center;
+}
+
+/* 全屏小说模式正文区：深色文字配多重白色光晕，保证在半透明白色渐变背景上可读 */
+#novel-text-box {
+    color: #1a1a1a;
+    font-size: calc(30 * var(--u, 1px));
+    line-height: 2.0;
+    max-width: min(calc(100% - calc(400 * var(--u, 1px))), calc(1200 * var(--u, 1px)));
+    width: min(calc(100% - calc(400 * var(--u, 1px))), calc(1200 * var(--u, 1px)));
+    padding: calc(40 * var(--v, 1px)) calc(20 * var(--u, 1px));
+    text-align: left;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    font-weight: 600;
+    letter-spacing: calc(0.5 * var(--u, 1px));
+    position: relative;
+    z-index: 51;
+    text-shadow: 0 0 calc(8 * var(--u, 1px)) rgba(255, 255, 255, 0.9),
+                 0 0 calc(16 * var(--u, 1px)) rgba(255, 255, 255, 0.6),
+                 1px 1px calc(2 * var(--u, 1px)) rgba(255, 255, 255, 0.8);
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    cursor: default;
+}
+
+/* 全屏小说模式下的注音样式 */
+#novel-text-box ruby {
+    ruby-position: over;
+    -webkit-ruby-position: over;
+}
+
+#novel-text-box rt {
+    font-size: 0.5em; /* 注音文字大小为主体文字的 50% */
+    line-height: 1.2;
+}
+
+/* 选项容器 */
+#options-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: none;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    gap: calc(15 * var(--u, 1px));
+    width: 100%;
+    height: auto;
+    z-index: 15;
+    max-width: none;
+    max-height: 80%;
+    overflow: hidden;
+    padding: calc(10 * var(--u, 1px));
+    box-sizing: border-box;
+}
+
+/* 选项按钮样式 */
+.choice-btn {
+    background-color: rgba(0, 0, 0, 0.5);
+    color: #FFD700;
+    border: calc(2 * var(--u, 1px)) solid #FFD700;
+    padding: calc(15 * var(--v, 1px)) calc(25 * var(--u, 1px));
+    font-size: calc(18 * var(--u, 1px));
+    border-radius: calc(10 * var(--u, 1px));
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-height: calc(60 * var(--v, 1px));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    width: calc(100% - calc(20 * var(--u, 1px)));
+    margin: 0 auto;
+}
+
+/* 选项按钮悬停态：金色半透明填充 + 橙色边框强调 */
+.choice-btn:hover {
+    background-color: rgba(255, 215, 0, 0.2);
+    color: #FFA500;
+    border: calc(2 * var(--u, 1px)) solid #FFA500;
+}
+
+/* 选项数量自适应网格：:has() 探测选项个数（1~6 个），
+   自动把网格切换为对应行数的单列布局，选项纵向等距居中排列 */
+#options-container:has(.choice-btn:nth-child(1):nth-last-child(1)) { grid-template-columns: 1fr; grid-template-rows: 1fr; place-items: center; }
+#options-container:has(.choice-btn:nth-child(1):nth-last-child(2)) { grid-template-columns: 1fr; grid-template-rows: repeat(2, 1fr); place-items: center; }
+#options-container:has(.choice-btn:nth-child(1):nth-last-child(3)) { grid-template-columns: 1fr; grid-template-rows: repeat(3, 1fr); place-items: center; }
+#options-container:has(.choice-btn:nth-child(1):nth-last-child(4)) { grid-template-columns: 1fr; grid-template-rows: repeat(4, 1fr); place-items: center; }
+#options-container:has(.choice-btn:nth-child(1):nth-last-child(5)) { grid-template-columns: 1fr; grid-template-rows: repeat(5, 1fr); place-items: center; }
+#options-container:has(.choice-btn:nth-child(1):nth-last-child(6)) { grid-template-columns: 1fr; grid-template-rows: repeat(6, 1fr); place-items: center; }
+
+/* 隐藏音频元素 */
+audio {
+    display: none;
+}
+
+/* 点击提示 */
+.click-prompt {
+    position: absolute;
+    bottom: calc(200 * var(--v, 1px));
+    right: calc(20 * var(--u, 1px));
+    font-size: calc(16 * var(--u, 1px));
+    color: white;
+    animation: blink 1s infinite;
+}
+
+/* 点击提示闪烁动画：等待玩家操作时反复明暗交替 */
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0.3; }
+}
+
+/* 震动动画 */
+@keyframes shake {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(calc(-5 * var(--u, 1px))); }
+    50% { transform: translateX(calc(5 * var(--u, 1px))); }
+    75% { transform: translateX(calc(-5 * var(--u, 1px))); }
+    100% { transform: translateX(0); }
+}
+
+/* 上下文菜单遮罩层 */
+.context-menu-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5); /* 半透明黑色背景 */
+    z-index: 9998;
+    display: none;
+}
+
+/* 上下文菜单样式 */
+.context-menu {
+    position: fixed;
+    top: 0;
+    right: calc(-300 * var(--u, 1px));
+    width: calc(250 * var(--u, 1px));
+    height: 100vh;
+    background: rgba(128, 128, 128, 0.5); /* 半透明灰色背景 */
+    z-index: 9999;
+    padding: calc(20 * var(--u, 1px));
+    box-sizing: border-box;
+    transition: right 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: calc(15 * var(--u, 1px));
+}
+
+/* 右键菜单展开状态：right 归零使面板从屏幕右侧滑入（配合上面的 right 过渡） */
+.context-menu.show {
+    right: 0; /* 显示时的位置 */
+}
+
+/* 右键菜单列表：清除默认列表样式 */
+.context-menu ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    width: 100%;
+}
+
+/* 右键菜单项：金色描边胶囊按钮 */
+.context-menu li {
+    display: block;
+    width: 100%;
+    padding: calc(15 * var(--u, 1px));
+    margin: calc(5 * var(--v, 1px)) 0;
+    background-color: transparent;
+    color: #FFD700;
+    border: calc(3 * var(--u, 1px)) solid #FFD700;
+    border-radius: calc(30 * var(--u, 1px));
+    font-size: calc(18 * var(--u, 1px));
+    font-weight: bold;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    box-sizing: border-box;
+}
+
+/* 右键菜单项悬停态：金色填充 + 轻微放大 */
+.context-menu li:hover {
+    background-color: rgba(255, 215, 0, 0.2);
+    color: #FFA500;
+    border: calc(3 * var(--u, 1px)) solid #FFA500;
+    transform: scale(1.05);
+}
+
+/* 视频播放器样式 */
+#video-player {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    display: none;
+    background-color: black;
+}
+
+/* 视频元素本体：铺满播放器容器并保持宽高比 */
+#video-player video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* POV视角指示器 */
+.pov-indicator {
+    position: fixed;
+    right: calc(10 * var(--u, 1px));
+    top: calc(100 * var(--v, 1px));
+    color: #FFD700;
+    font-size: calc(24 * var(--u, 1px));
+    font-weight: bold;
+    text-shadow: calc(2 * var(--u, 1px)) calc(2 * var(--u, 1px)) calc(4 * var(--u, 1px)) rgba(0, 0, 0, 0.8), 
+                calc(-2 * var(--u, 1px)) calc(-2 * var(--u, 1px)) calc(4 * var(--u, 1px)) rgba(0, 0, 0, 0.8),
+                calc(2 * var(--u, 1px)) calc(-2 * var(--u, 1px)) calc(4 * var(--u, 1px)) rgba(0, 0, 0, 0.8),
+                calc(-2 * var(--u, 1px)) calc(2 * var(--u, 1px)) calc(4 * var(--u, 1px)) rgba(0, 0, 0, 0.8);
+    z-index: 100; /* 确保高于小说模式遮罩层 (z-index: 50) */
+    pointer-events: none;
+    user-select: none;
+}
+
+/* 滑动转场工具类：enter（进入）/ leave（离开）× left / right 方向共 8 个组合，
+   由 JS 在转场开始/结束时切换类名，驱动背景层整屏 1s 推入/推出动画 */
+.slide-left-enter { transform: translateX(-100%); transition: transform 1s ease-in-out; }
+.slide-left-enter-active { transform: translateX(0); }
+.slide-left-leave { transform: translateX(0); transition: transform 1s ease-in-out; }
+.slide-left-leave-active { transform: translateX(100%); }
+.slide-right-enter { transform: translateX(100%); transition: transform 1s ease-in-out; }
+.slide-right-enter-active { transform: translateX(0); }
+.slide-right-leave { transform: translateX(0); transition: transform 1s ease-in-out; }
+.slide-right-leave-active { transform: translateX(-100%); }
+
+/* ========================================
+   Galgame UI 菜单样式
+   ======================================== */
+
+/* UI菜单容器 */
+#galgame-ui-menu {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    padding: calc(10 * var(--v, 1px)) calc(20 * var(--u, 1px));
+    z-index: 100;
+    pointer-events: none;
+}
+
+/* UI按钮容器 */
+#galgame-ui-buttons {
+    display: flex;
+    gap: calc(12 * var(--u, 1px));
+    pointer-events: auto;
+}
+
+/* UI按钮基础样式 */
+.galgame-ui-btn {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: calc(16 * var(--u, 1px));
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: calc(8 * var(--v, 1px)) calc(15 * var(--u, 1px));
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    text-shadow: 0 0 calc(5 * var(--u, 1px)) rgba(0, 0, 0, 0.5);
+}
+
+/* UI 按钮悬停态：金色文字 + 光晕 */
+.galgame-ui-btn:hover {
+    color: #FFD700;
+    text-shadow: 0 0 calc(10 * var(--u, 1px)) rgba(255, 215, 0, 0.5);
+}
+
+/* SKIP按钮高亮状态（快进中） */
+.galgame-ui-btn.skip-active {
+    color: #FFD700;
+    text-shadow: 0 0 calc(15 * var(--u, 1px)) rgba(255, 215, 0, 0.8);
+    animation: skip-pulse 1s infinite;
+}
+
+/* AUTO按钮激活状态 */
+.galgame-ui-btn.active {
+    color: #FFD700;
+    text-shadow: 0 0 calc(15 * var(--u, 1px)) rgba(255, 215, 0, 0.8);
+    animation: auto-pulse 1.5s infinite;
+}
+
+/* SKIP 快进中脉冲动画：较强的明暗闪烁 */
+@keyframes skip-pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+/* AUTO 自动模式脉冲动画：柔和的呼吸效果 */
+@keyframes auto-pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ========================================
+   LOG 日志遮罩层样式
+   ======================================== */
+
+/* 日志遮罩层 */
+#log-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* 使用半透明黑色背景作为遮罩 */
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 2000;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* 日志内容区域 */
+#log-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: calc(40 * var(--v, 1px)) calc(20 * var(--u, 1px)) calc(80 * var(--v, 1px));
+    color: #fff;
+    font-size: calc(22 * var(--u, 1px));
+    line-height: 1.6;
+    word-wrap: break-word;
+}
+
+/* 说话人样式 */
+.log-speaker {
+    color: #FFD700;
+    font-weight: bold;
+    margin-top: calc(16 * var(--v, 1px));
+    margin-bottom: calc(2 * var(--v, 1px));
+    position: relative;
+    z-index: 1;
+    line-height: 1.4;
+}
+
+/* 说话内容样式 */
+.log-text {
+    color: #fff;
+    margin-bottom: calc(16 * var(--v, 1px));
+    margin-top: 0;
+    line-height: 1.6;
+    display: block;
+}
+
+/* 无说话人的文本样式 */
+.log-text-no-speaker {
+    color: #fff;
+    margin-bottom: calc(16 * var(--v, 1px));
+    margin-top: 0;
+}
+
+/* 带音频按钮的日志文本容器 */
+.log-text-container {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: calc(10 * var(--u, 1px));
+    margin-top: 0;
+    margin-bottom: 0;
+    position: relative;
+    padding-left: 0;
+    z-index: 0;
+    line-height: 1.6;
+    border: none;
+    padding-top: 0;
+}
+
+/* 日志音频播放按钮容器 */
+.log-audio-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: calc(4 * var(--u, 1px));
+    margin-top: 0;
+    flex-shrink: 0;
+    padding-top: 0;
+    width: calc(24 * var(--u, 1px));
+    min-width: calc(24 * var(--u, 1px));
+    position: relative;
+    line-height: normal;
+}
+
+/* 日志音频播放按钮 */
+.log-audio-btn {
+    width: calc(22 * var(--u, 1px));
+    height: calc(22 * var(--v, 1px));
+    background: rgba(255, 215, 0, 0.2);
+    border: 1px solid rgba(255, 215, 0, 0.5);
+    border-radius: 50%;
+    color: #FFD700;
+    font-size: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    padding: 0;
+    line-height: 0;
+    box-sizing: border-box;
+    position: relative;
+    flex-shrink: 0;
+    margin: 0;
+    float: none;
+}
+
+/* 播放按钮内部三角形图标：用 CSS 边框绘制的播放符号，水平略偏移以修正视觉重心 */
+.log-audio-btn::before {
+    content: '';
+    width: 0;
+    height: 0;
+    border-top: calc(5 * var(--u, 1px)) solid transparent;
+    border-bottom: calc(5 * var(--u, 1px)) solid transparent;
+    border-left: calc(7 * var(--u, 1px)) solid #FFD700;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-38%, -50%);
+}
+
+/* 播放按钮悬停态：加深底色并放大 10% */
+.log-audio-btn:hover {
+    background: rgba(255, 215, 0, 0.4);
+    border-color: #FFD700;
+    transform: scale(1.1);
+}
+
+/* 播放按钮按下态：缩小反馈 */
+.log-audio-btn:active {
+    transform: scale(0.95);
+}
+
+/* 日志底部控制栏 */
+#log-bottom-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: calc(15 * var(--v, 1px)) calc(20 * var(--u, 1px));
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* 返回按钮（与SKIP按钮样式一致）*/
+#log-back-btn {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-family: inherit;
+    font-size: calc(14 * var(--u, 1px));
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: calc(4 * var(--v, 1px)) calc(10 * var(--u, 1px));
+    cursor: pointer;
+    transition: all 0.2s ease;
+    opacity: 0.8;
+}
+
+/* 返回按钮悬停态：恢复不透明并变金色 */
+#log-back-btn:hover {
+    opacity: 1;
+    color: #FFD700;
+    text-shadow: 0 0 calc(10 * var(--u, 1px)) rgba(255, 215, 0, 0.5);
+}
+
+/* 日志滚动条样式 */
+#log-content::-webkit-scrollbar {
+    width: calc(8 * var(--u, 1px));
+}
+
+#log-content::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+#log-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 215, 0, 0.5);
+    border-radius: calc(4 * var(--u, 1px));
+}
+
+/* 滚动条滑块悬停态：金色加深 */
+#log-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 215, 0, 0.7);
+}
+
+/* UI 按钮下拉子菜单：绝对定位在触发按钮正下方，默认隐藏 */
+.galgame-ui-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: calc(8 * var(--v, 1px));
+    flex-direction: column;
+    gap: calc(2 * var(--u, 1px));
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    min-width: 100%;
+    z-index: 200;
+}
+/* 下拉菜单展开状态：由 JS 切换 .show 类控制显示 */
+.galgame-ui-dropdown.show { display: flex; }
+/* 下拉菜单内按钮禁止换行，保持各菜单项宽度一致 */
+.galgame-ui-dropdown .galgame-ui-btn { white-space: nowrap; }
+
+/* 全屏 / 最大化：任务栏安全区（类开关，不是分辨率断点） */
+body.is-fullscreen #text-box-container,
+body.is-maximized #text-box-container {
+    padding: calc(10 * var(--v, 1px)) calc(20 * var(--u, 1px)) calc(45 * var(--v, 1px));
+}
+/* 全屏 / 最大化下同样要给说话人小头像让位。
+   上面那条 shorthand 的 padding-left 会盖掉 #text-box-container.has-speaker-avatar
+   （body.is-fullscreen #text-box-container 比 .has-speaker-avatar 更具体），
+   所以这里必须补一条更具体的选择器，否则全屏下头像会压住名片与正文。 */
+body.is-fullscreen #text-box-container.has-speaker-avatar,
+body.is-maximized #text-box-container.has-speaker-avatar {
+    padding-left: max(0px, calc(
+        var(--speaker-avatar-size, calc(220 * var(--u, 1px)))
+        + 30 * var(--u, 1px)
+    ));
+}
+body.is-fullscreen #name-box,
+body.is-maximized #name-box {
+    margin-bottom: calc(10 * var(--v, 1px));
+}
+body.is-fullscreen #novel-text-box,
+body.is-maximized #novel-text-box {
+    padding: calc(60 * var(--v, 1px)) calc(40 * var(--u, 1px));
+}
+body.is-fullscreen #voice-progress-container,
+body.is-maximized #voice-progress-container {
+    height: calc(50 * var(--v, 1px));
+}
+body.is-fullscreen #voice-progress-bar,
+body.is-maximized #voice-progress-bar {
+    width: calc(140 * var(--u, 1px));
+    height: calc(7 * var(--v, 1px));
+}
+body.is-fullscreen #options-container,
+body.is-maximized #options-container {
+    padding: calc(30 * var(--u, 1px));
+    max-height: 70%;
+}
+body.is-fullscreen .pov-indicator,
+body.is-maximized .pov-indicator {
+    top: calc(40 * var(--v, 1px));
+}
+body.is-maximized #menu-container,
+body.is-maximized #info-container {
+    padding-bottom: calc(50 * var(--v, 1px));
+}
+
+/* F1/F2 调试面板：不可选中，字号随布局缩放，AST 限制高度 */
+#debug-panel,
+#vars-panel {
+    user-select: none;
+    -webkit-user-select: none;
+    font-size: calc(14 * var(--u, 1px));
+    max-height: min(70vh, calc(720 * var(--v, 1px)));
+    overflow: auto;
+}
+#debug-panel {
+    min-width: min(calc(300 * var(--u, 1px)), 28vw);
+    max-width: min(calc(500 * var(--u, 1px)), 36vw);
+}
+#vars-panel {
+    min-width: min(calc(200 * var(--u, 1px)), 18vw);
+    max-width: min(calc(400 * var(--u, 1px)), 32vw);
+}
+#debug-panel .debug-ast,
+#debug-panel pre {
+    margin: 0 0 calc(6 * var(--v, 1px)) calc(15 * var(--u, 1px));
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: #9F9;
+    max-height: min(40vh, calc(360 * var(--v, 1px)));
+    overflow: auto;
+}

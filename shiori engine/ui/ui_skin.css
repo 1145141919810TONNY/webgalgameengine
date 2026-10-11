@@ -1,0 +1,417 @@
+/**
+ * 版权所有：bilibili月が綺麗ですね_
+ * SPDX-License-Identifier: LicenseRef-Shiori-Engine
+ * 作者：bilibili月が綺麗ですね_
+ * Shiori Engine - Open Source Visual Novel Engine
+ * 
+ * 本引擎采用宽松开源协议，允许用户根据项目需求自由修改、定制和发布衍生作品。
+ * 使用时请保留上述版权声明，具体授权条款详见 license.txt 文件。
+ * 
+ * UI 皮肤样式覆写：仅在 loadUISkin 探测到对应 part 图片时生效，无皮肤则保持 style.css 默认样式。
+ */
+
+/* ===== 文本框容器（textbox）皮肤覆写 =====
+   触发条件：ui_skin.js 的 applyPart() 读到 assets/ui/textbox_normal.* 后，
+   在 <html> 根元素写入 data-ui-part-textbox="on" 标记并注入 --ui-textbox-bg 变量。
+   生效后容器改用皮肤图作背景（100% 拉伸铺满），替换 style.css 的半透明黑底。 */
+html[data-ui-part-textbox="on"] #text-box-container {
+    background-color: transparent;
+    background-image: var(--ui-textbox-bg);
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+}
+
+/* 文本框高亮态：由 ui_skin.js 的 TEXTBOX_HIGHLIGHT_MODE 驱动 ——
+   在 <html> 上写 data-textbox-state="hl"，同时给容器加 .ui-hl 类（两种写法等价）。
+   为什么不用 :hover：文本框占屏底约 1/4，鼠标长期停留其中，:hover 会让高亮图事实上
+   变成常态、常态图反而永远看不到；且容器走 100% 铺满，按 hover 图尺寸改 vw/vh 会抖。
+   只放 textbox_normal 时 --ui-textbox-hover 已回退为 normal 图，本规则无可见差异。 */
+html[data-ui-part-textbox="on"][data-textbox-state="hl"] #text-box-container,
+html[data-ui-part-textbox="on"] #text-box-container.ui-hl {
+    background-image: var(--ui-textbox-hover);
+}
+
+/* 文本框常亮态（on）：保留给作者手动置位（容器加 .ui-on，或在 <html> 上写
+   data-textbox-state="on"）。引擎当前没有自动触发点。 */
+html[data-ui-part-textbox="on"][data-textbox-state="on"] #text-box-container,
+html[data-ui-part-textbox="on"] #text-box-container.ui-on {
+    background-image: var(--ui-textbox-on);
+}
+
+/* ===== 姓名框（namebox）皮肤覆写 =====
+   触发条件同上（data-ui-part-namebox="on" + --ui-namebox-bg 变量），
+   用皮肤图替换姓名框默认的深黑底圆角样式。 */
+html[data-ui-part-namebox="on"] #name-box {
+    background-color: transparent;
+    background-image: var(--ui-namebox-bg);
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+}
+
+/* 姓名框悬停态：姓名框体积小、不长期驻留鼠标，这里用 :hover 是合适的。
+   缺图时 --ui-namebox-hover 回退为 normal 图。 */
+html[data-ui-part-namebox="on"] #name-box:hover {
+    background-image: var(--ui-namebox-hover);
+}
+
+/* 姓名框 on 态 = **该说话人正在发声**（voice-player 播放中），由 system.js 的语音链路
+   通过 ShioriUISkin.nameboxSpeaking(true/false) 置位。无 speaker 时姓名框是
+   display:none，悬停无从谈起，所以高亮语义取"正在发声"。 */
+html[data-ui-part-namebox="on"] #name-box.ui-on {
+    background-image: var(--ui-namebox-on);
+}
+
+/* ===== 全屏小说模式容器（novel）皮肤覆写 =====
+   #novel-mode-container 与 #novel-text-box 是另一套容器（对白框换肤不影响它们）。
+   同属容器类：图按 100% 100% 拉伸铺满，不注入固定 vw/vh。 */
+html[data-ui-part-novel="on"] #novel-mode-container,
+html[data-ui-part-novel="on"] #novel-text-box {
+    background-color: transparent;
+    background-image: var(--ui-novel-bg);
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+}
+
+/* ===== 选项按钮（choice）皮肤覆写 =====
+   normal 态：探测到 choice_normal.* 时启用 --ui-choice-normal 皮肤图，
+   边框颜色置为透明，避免皮肤图外圈露出默认金色描边。 */
+html[data-ui-part-choice="on"] .choice-btn {
+    background-color: transparent;
+    background-image: var(--ui-choice-normal);
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    border-color: transparent;
+}
+
+/* 选项按钮悬停态：切换为 --ui-choice-hover 皮肤图（缺图时 JS 已回退为 normal 图） */
+html[data-ui-part-choice="on"] .choice-btn:hover {
+    background-image: var(--ui-choice-hover);
+}
+
+/* 选项按钮激活态（+ ）：两种语义共用 --ui-choice-on 一张图 ——
+     .choice-selected  点击后的跳转反馈（保持约 120ms 再跳页，让玩家看见选中）
+     .choice-read      二周目的已读标记（由 CHOICE_READ_MARK 开关控制是否打标）
+   这几个类名同时存在于 ui_skin.js 的 ON_STATE_SELECTORS 白名单里；
+   改动类名时两处都要改，否则 _on 图配了也不生效。 */
+html[data-ui-part-choice="on"] .choice-btn.choice-selected,
+html[data-ui-part-choice="on"] .choice-btn.choice-read,
+html[data-ui-part-choice="on"] .choice-btn.active,
+html[data-ui-part-choice="on"] .choice-btn.ui-on {
+    background-image: var(--ui-choice-on);
+}
+
+/* ===== 选项容器（options）皮肤覆写 =====
+   #options-container 是选项按钮的父容器，配 options_normal.* 时给整块列表换底图。
+   注意：本部件按 sizex/sizey 注入**固定尺寸**（不属于 100% 铺满的容器类），
+   请按整个选项列表区域的尺寸填表，不要填成单条选项的大小。
+   与 choice 同属 KEEP_TEXT_PARTS —— 贴图后选项文字仍然显示，请提供无字底图。 */
+html[data-ui-part-options="on"] #options-container {
+    background-color: transparent;
+    background-image: var(--ui-options-normal);
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+}
+
+/* ===== 通用 UI 按钮（btn）皮肤覆写 =====
+   应用于顶栏 .galgame-ui-btn（AUTO/SKIP 之外的功能按钮）。
+   normal 态：皮肤图居中 contain 显示，不拉伸变形。 */
+html[data-ui-part-btn="on"] .galgame-ui-btn {
+    background-color: transparent;
+    background-image: var(--ui-btn-normal);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+/* 通用 UI 按钮悬停态：切换为 --ui-btn-hover 皮肤图 */
+html[data-ui-part-btn="on"] .galgame-ui-btn:hover {
+    background-image: var(--ui-btn-hover);
+}
+
+/* ===== AUTO 自动播放按钮皮肤覆写（normal / hover / active 三态） =====
+   normal 态：--ui-auto-normal 皮肤图，居中 contain 显示。 */
+html[data-ui-part-auto="on"] #ui-auto.galgame-ui-btn {
+    background-color: transparent;
+    background-image: var(--ui-auto-normal);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+/* AUTO 按钮悬停态：--ui-auto-hover */
+html[data-ui-part-auto="on"] #ui-auto.galgame-ui-btn:hover {
+    background-image: var(--ui-auto-hover);
+}
+
+/* AUTO 按钮激活态（自动模式开启，元素带 .active 类）：--ui-auto-on */
+html[data-ui-part-auto="on"] #ui-auto.galgame-ui-btn.active {
+    background-image: var(--ui-auto-on);
+}
+
+/* ===== SKIP1 快进按钮皮肤覆写（normal / hover / skip-active 三态） =====
+   normal 态：--ui-skip1-normal 皮肤图，居中 contain 显示。 */
+html[data-ui-part-skip1="on"] #ui-skip1.galgame-ui-btn {
+    background-color: transparent;
+    background-image: var(--ui-skip1-normal);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+/* SKIP1 按钮悬停态：--ui-skip1-hover */
+html[data-ui-part-skip1="on"] #ui-skip1.galgame-ui-btn:hover {
+    background-image: var(--ui-skip1-hover);
+}
+
+/* SKIP1 按钮快进中状态（元素带 .skip-active 类）：--ui-skip1-on */
+html[data-ui-part-skip1="on"] #ui-skip1.galgame-ui-btn.skip-active {
+    background-image: var(--ui-skip1-on);
+}
+
+/* ===== SKIP2 快进按钮皮肤覆写（normal / hover / skip-active 三态） =====
+   与 SKIP1 结构相同，对应第二组快进按钮（已读/未读快进切换）。
+   normal 态：--ui-skip2-normal 皮肤图，居中 contain 显示。 */
+html[data-ui-part-skip2="on"] #ui-skip2.galgame-ui-btn {
+    background-color: transparent;
+    background-image: var(--ui-skip2-normal);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+/* SKIP2 按钮悬停态：--ui-skip2-hover */
+html[data-ui-part-skip2="on"] #ui-skip2.galgame-ui-btn:hover {
+    background-image: var(--ui-skip2-hover);
+}
+
+/* SKIP2 按钮快进中状态（元素带 .skip-active 类）：--ui-skip2-on */
+html[data-ui-part-skip2="on"] #ui-skip2.galgame-ui-btn.skip-active {
+    background-image: var(--ui-skip2-on);
+}
+
+/* ============================================================================
+   HUD 按钮组与浮层的独立皮肤位
+   ----------------------------------------------------------------------------
+   这 17 个部件**默认共用 `btn` 的图**（只配 btn 时行为与改造前完全一致）；
+   只有放了专属图（例如 `log_btn_normal.webp`）时才单独生效。
+
+   为什么这里的选择器都带 #id / 具体类：通用的 btn 规则是
+       html[data-ui-part-btn="on"] .galgame-ui-btn   →  特异性 (0,2,1)
+   而下面每条是
+       html[data-ui-part-xxx="on"] #ui-xxx.galgame-ui-btn  →  (1,2,1)
+   带 #id 所以**永远优先**，与书写顺序无关。改选择器时别把 #id 去掉。
+
+   浮层类（toast / vol / log_panel）的底是内联样式写的，所以必须 `!important`
+   才能压过元素的 style.cssText；`log_panel` 同时在 CONTAINER_PARTS 里，
+   图按 100% 铺满且不注入固定尺寸（它是整屏遮罩，钉成图片像素会废掉可用性）。
+   ============================================================================ */
+
+/* ===== SAVE 按钮（#ui-save）===== */
+html[data-ui-part-save="on"] #ui-save.galgame-ui-btn {
+    background-color: transparent;
+    background-image: var(--ui-save-normal);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+html[data-ui-part-save="on"] #ui-save.galgame-ui-btn:hover {
+    background-image: var(--ui-save-hover);
+}
+
+/* ===== SAVE 下拉容器（.galgame-ui-dropdown）=====
+   展开时容器带 .show 类；它属面板类，`_on` 图也可由 .show 触发。 */
+html[data-ui-part-dropdown="on"] .galgame-ui-dropdown {
+    background-color: transparent;
+    background-image: var(--ui-dropdown-normal);
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+}
+html[data-ui-part-dropdown="on"] .galgame-ui-dropdown.show {
+    background-image: var(--ui-dropdown-on);
+}
+
+/* ===== 下拉条目（.dd-item：SCENES / MAP / STORY）=====
+   三条文案不同、共用一张图，所以 dd_item 属 KEEP_TEXT_PARTS —— 这里显式把
+   文字色恢复成 style.css 里 .galgame-ui-btn 的原色，否则会被通用 btn 规则
+   的 color:transparent 吃掉。 */
+html[data-ui-part-dd-item="on"] .galgame-ui-dropdown .dd-item {
+    background-color: transparent;
+    background-image: var(--ui-dd-item-normal);
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    color: rgba(255, 255, 255, 0.7) !important;
+    text-shadow: 0 0 5px rgba(0, 0, 0, 0.5) !important;
+}
+html[data-ui-part-dd-item="on"] .galgame-ui-dropdown .dd-item:hover {
+    background-image: var(--ui-dd-item-hover);
+    color: #FFD700 !important;
+}
+
+/* ===== OPTION / SYSTEM / LOG / HELP / BACK / QUIT（HUD 其余按钮）=====
+   结构完全一致，逐个给独立位；与 btn 的关系同上。 */
+html[data-ui-part-option="on"] #ui-option.galgame-ui-btn {
+    background-color: transparent;
+    background-image: var(--ui-option-normal);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+html[data-ui-part-option="on"] #ui-option.galgame-ui-btn:hover {
+    background-image: var(--ui-option-hover);
+}
+
+html[data-ui-part-system="on"] #ui-system.galgame-ui-btn {
+    background-color: transparent;
+    background-image: var(--ui-system-normal);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+html[data-ui-part-system="on"] #ui-system.galgame-ui-btn:hover {
+    background-image: var(--ui-system-hover);
+}
+
+html[data-ui-part-log="on"] #ui-log.galgame-ui-btn {
+    background-color: transparent;
+    background-image: var(--ui-log-normal);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+html[data-ui-part-log="on"] #ui-log.galgame-ui-btn:hover {
+    background-image: var(--ui-log-hover);
+}
+
+html[data-ui-part-help="on"] #ui-help.galgame-ui-btn {
+    background-color: transparent;
+    background-image: var(--ui-help-normal);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+html[data-ui-part-help="on"] #ui-help.galgame-ui-btn:hover {
+    background-image: var(--ui-help-hover);
+}
+
+html[data-ui-part-back="on"] #ui-back.galgame-ui-btn {
+    background-color: transparent;
+    background-image: var(--ui-back-normal);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+html[data-ui-part-back="on"] #ui-back.galgame-ui-btn:hover {
+    background-image: var(--ui-back-hover);
+}
+
+html[data-ui-part-quit="on"] #ui-quit.galgame-ui-btn {
+    background-color: transparent;
+    background-image: var(--ui-quit-normal);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+html[data-ui-part-quit="on"] #ui-quit.galgame-ui-btn:hover {
+    background-image: var(--ui-quit-hover);
+}
+
+/* ===== 日志浮层（#log-overlay）=====
+   整屏遮罩 + 内部是**动态历史文本**，所以 log_panel 同时是 KEEP_TEXT_PARTS。 */
+html[data-ui-part-log-panel="on"] #log-overlay {
+    background-color: transparent !important;
+    background-image: var(--ui-log-panel-bg) !important;
+    background-size: 100% 100% !important;
+    background-repeat: no-repeat !important;
+}
+
+/* ===== 日志语音按钮（.log-audio-btn）=====
+   默认形态是「圆形底 + ::before 画的三角播放符」；贴图后必须把三角藏掉，
+   否则 CSS 三角会盖在皮肤图上。on = 该条语音正在播放。 */
+html[data-ui-part-log-btn="on"] .log-audio-btn {
+    background-color: transparent;
+    background-image: var(--ui-log-btn-normal);
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    border-color: transparent;
+}
+html[data-ui-part-log-btn="on"] .log-audio-btn::before {
+    display: none;
+}
+html[data-ui-part-log-btn="on"] .log-audio-btn:hover {
+    background-image: var(--ui-log-btn-hover);
+}
+html[data-ui-part-log-btn="on"] .log-audio-btn.active,
+html[data-ui-part-log-btn="on"] .log-audio-btn.playing {
+    background-image: var(--ui-log-btn-on);
+}
+
+/* ===== 日志返回按钮（#log-back-btn）=====
+   文字按钮：有图时由 buildPartsCss 自动隐藏原文字（log_back 不在 KEEP_TEXT_PARTS）。 */
+html[data-ui-part-log-back="on"] #log-back-btn {
+    background-color: transparent;
+    background-image: var(--ui-log-back-normal);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+html[data-ui-part-log-back="on"] #log-back-btn:hover {
+    background-image: var(--ui-log-back-hover);
+}
+
+/* ===== 快捷保存提示（.quick-save-message）=====
+   文字是**动态消息**，属 KEEP_TEXT_PARTS；底由内联样式写，故用 !important。
+   success / error 两种形态各有一张图。 */
+html[data-ui-part-toast="on"] .quick-save-message {
+    background-color: transparent !important;
+    background-image: var(--ui-toast-normal) !important;
+    background-size: 100% 100% !important;
+    background-repeat: no-repeat !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+html[data-ui-part-toast="on"] .quick-save-message.success {
+    background-image: var(--ui-toast-success) !important;
+}
+html[data-ui-part-toast="on"] .quick-save-message.error {
+    background-image: var(--ui-toast-error) !important;
+}
+
+/* ===== 点击提示（.click-prompt）===== */
+html[data-ui-part-prompt="on"] .click-prompt {
+    background-color: transparent !important;
+    background-image: var(--ui-prompt-normal) !important;
+    background-size: 100% 100% !important;
+    background-repeat: no-repeat !important;
+    border-color: transparent !important;
+}
+
+/* ===== POV 视角指示器（.pov-indicator）=====
+   显示的是**角色名**（动态），属 KEEP_TEXT_PARTS。 */
+html[data-ui-part-pov="on"] .pov-indicator {
+    background-color: transparent !important;
+    background-image: var(--ui-pov-normal) !important;
+    background-size: 100% 100% !important;
+    background-repeat: no-repeat !important;
+    border-color: transparent !important;
+}
+
+/* ===== 语音进度条轨道（#voice-progress-bar）=====
+   只换轨道底；填充条 #voice-progress-fill 仍由 style.css 的渐变绘制
+   （它是「进度」本身，用图片表达不了当前百分比）。 */
+html[data-ui-part-progbar="on"] #voice-progress-bar {
+    background-color: transparent;
+    background-image: var(--ui-progbar-normal);
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+}
+
+/* ===== 音量浮层（#volume-overlay）=====
+   显示的是**当前音量百分比**（动态），属 KEEP_TEXT_PARTS；底是内联样式，故 !important。 */
+html[data-ui-part-vol="on"] #volume-overlay {
+    background-color: transparent !important;
+    background-image: var(--ui-vol-normal) !important;
+    background-size: 100% 100% !important;
+    background-repeat: no-repeat !important;
+    border-color: transparent !important;
+    text-shadow: none !important;
+}

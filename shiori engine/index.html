@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shiori - 主菜单</title>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+            background-color: #2a2a32;
+            font-family: 'Microsoft YaHei', sans-serif;
+            display: flex;
+        }
+
+        #title-bg-img {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        #title-bg-dim {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* 菜单容器 - 占据右侧50% */
+        #menu-container {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 50%;
+            height: 100%;
+            background-color: transparent;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            padding: calc(20 * var(--u, 1px));
+            box-sizing: border-box;
+        }
+
+        /* 菜单标题 */
+        #menu-title {
+            color: white;
+            font-size: calc(32 * var(--u, 1px));
+            margin-bottom: calc(40 * var(--v, 1px));
+            text-align: center;
+            text-shadow: 0 0 calc(10 * var(--u, 1px)) rgba(255, 255, 255, 0.5);
+        }
+
+        /* 菜单按钮 */
+        .menu-btn {
+            display: block;
+            width: 80%;
+            padding: calc(15 * var(--u, 1px));
+            margin: calc(10 * var(--v, 1px)) 0;
+            background-color: transparent;
+            color: #FFD700;
+            border: calc(3 * var(--u, 1px)) solid #FFD700;
+            border-radius: calc(30 * var(--u, 1px));
+            font-size: calc(18 * var(--u, 1px));
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .menu-btn:hover {
+            background-color: rgba(255, 215, 0, 0.2);
+            color: #FFA500;
+            border: calc(3 * var(--u, 1px)) solid #FFA500;
+            transform: scale(1.05);
+        }
+
+        /* 隐藏游戏相关元素（!important：官方 style.css 后注入，否则 #text-box-container 的 flex 会露出底边黑条） */
+        #background-container,
+        #character-container,
+        #text-box-container,
+        #options-container,
+        #novel-mode-container {
+            display: none !important;
+        }
+
+        /* 音频播放器保持可见但透明以确保功能*/
+        audio {
+            display: none;
+        }
+
+        /* 信息容器内的链接样式 */
+        #info-container a {
+            color: pink;
+            text-decoration: none;
+        }
+
+        #info-container a:visited {
+            color: pink;
+        }
+
+        #info-container a:hover {
+            color: lightpink;
+            text-decoration: underline;
+        }
+
+        /* 信息容器基础样式 */
+        #info-container {
+            position: absolute;
+            bottom: calc(20 * var(--v, 1px));
+            left: calc(20 * var(--u, 1px));
+            color: gold;
+            font-family: 'Microsoft YaHei', sans-serif;
+            z-index: 10;
+            font-size: calc(16 * var(--u, 1px));
+            text-shadow: 1px 1px calc(2 * var(--u, 1px)) black;
+            line-height: 1.6;
+            max-width: 45%;
+            overflow-wrap: break-word;
+        }
+
+/* 右下角信息容器样式 */
+        #info-container-right {
+            position: absolute;
+            bottom: calc(20 * var(--v, 1px));
+            right: calc(20 * var(--u, 1px));
+            color: gold;
+            font-family: 'Microsoft YaHei', sans-serif;
+            z-index: 10;
+            font-size: calc(16 * var(--u, 1px));
+            text-shadow: 1px 1px calc(2 * var(--u, 1px)) black;
+            line-height: 1.6;
+            max-width: 45%;
+            overflow-wrap: break-word;
+            text-align: right;
+        }
+
+    </style>
+</head>
+<body>
+    <img id="title-bg-img" alt="" decoding="async" src="/assets/cg/bg.jpg">
+    <div id="title-bg-dim"></div>
+    <script>
+        (function () {
+            var img = document.getElementById('title-bg-img');
+            if (!img) return;
+            var base = '/assets/cg/bg.jpg';
+            var busted = false;
+            function retry() {
+                if (busted) return;
+                busted = true;
+                img.src = base + '?t=' + Date.now();
+            }
+            img.addEventListener('load', function () {
+                if (!img.naturalWidth) retry();
+            });
+            img.addEventListener('error', retry);
+            if (img.complete && !img.naturalWidth) retry();
+        })();
+    </script>
+    <!-- 背景容器 - 用作菜单背景 -->
+    <div id="background-container"></div>
+
+    <!-- 角色立绘容器 -->
+    <div id="character-container"></div>
+
+    <!-- 文本框区域-->
+    <div id="text-box-container">
+        <div id="name-box">[姓名]</div>
+        <div id="text-box">[文本]</div>
+    </div>
+
+    <!-- 选项容器 -->
+    <div id="options-container"></div>
+
+    <!-- 全屏文本模式 -->
+    <div id="novel-mode-container">
+        <div id="novel-text-box">[全屏文本]</div>
+    </div>
+
+    <!-- 音频播放器-->
+    <audio id="bgm-player" loop></audio>
+    <audio id="se-player"></audio>
+    <audio id="voice-player"></audio>
+
+    <!-- 视频播放器-->
+    <div id="video-player" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:100; background-color:black;">
+        <video id="main-video" style="width:100%; height:100%; object-fit:contain;" controls>
+            您的浏览器不支持视频播放。
+        </video>
+    </div>
+
+    <!-- 主菜单容器-->
+    <div id="menu-container">
+        <h1 id="menu-title">Shiori 引擎示例</h1>
+
+        <a href="scenes/scene1.html" id="new-game-btn" class="menu-btn" data-ui="title_start">开始游戏</a>
+        <a href="./html/archive.html" class="menu-btn" data-ui="title_save">存档</a>
+        <a id="progress-btn" href="./html/saves.html" class="menu-btn" data-ui="title_progress">进度管理</a>
+        <a href="./html/flowchart.html" class="menu-btn" data-ui="title_flow">剧本流程图</a>
+        <a href="./html/story.html" class="menu-btn" data-ui="title_story">小故事</a>
+        <a href="./html/bgm.html" class="menu-btn" data-ui="title_bgm">BGM 鉴赏</a>
+        <a href="./html/video.html" class="menu-btn" data-ui="title_video">视频鉴赏</a>
+        <a href="./html/CG.html" class="menu-btn" data-ui="title_cg">CG 鉴赏</a>
+        <a href="./html/copy.html" class="menu-btn" data-ui="title_copy">版权信息</a>
+
+    </div>
+
+    <div id="info-container">
+        主菜单任意点击一下播放背景音乐<br/>
+        <a href="https://space.bilibili.com/87412647" target="_blank">程序/引擎开发：bilibili @月が綺麗ですね_</a><br/>
+        <a href="#" target="_blank">配音/图片来源：请替换为你的素材署名</a><br />
+		引擎：Shiori（栞）Engine<br />
+        若要使用本引擎，请到<a href="https://github.com/1145141919810TONNY/webgalgameengine" target="_blank">github</a>下载该引擎模板<br />
+        本模板为示例工程，请替换为自己的游戏信息<br />
+        本引擎的官方教学<a href="https://1145141919810tonny.github.io/Shioriteaching/" target="_blank">Github Pages网页</a><br />
+        <!-- 插件入口（测试位置）：用于快速验证插件页；正式集成时请提升为正式 UI ——
+             把下面这行移入 #menu-container，改成与其它菜单项一致的 .menu-btn 按钮。 -->
+        <!--<a href="bilibili.html">B站粉丝牌等级插件（测试入口）</a><br />-->
+        Copyright 2026 &copy; 月が綺麗ですね_ All rights reserved. | Shiori Engine
+    </div>
+
+    <!--<div id="info-container-right">-->
+
+    <!--</div>-->
+
+    <script>
+        if (window.location.protocol === 'file:') {
+            // 禁用进度管理按钮
+            const progressBtn = document.getElementById('progress-btn');
+            if (progressBtn) {
+                progressBtn.href = "#";
+                progressBtn.textContent = "进度管理（file下无法使用该功能）";
+                progressBtn.style.opacity = "0.6";
+                progressBtn.style.cursor = "not-allowed";
+                progressBtn.onclick = function(e) {
+                    e.preventDefault();
+                    return false;
+                };
+            }
+
+            // 禁用存档按钮
+            const archiveLinks = document.querySelectorAll('a[href*="archive.html"]');
+            archiveLinks.forEach(function(link) {
+                link.href = "#";
+                link.textContent = "存档（file下无法使用该功能）";
+                link.style.opacity = "0.6";
+                link.style.cursor = "not-allowed";
+                link.onclick = function(e) {
+                    e.preventDefault();
+                    return false;
+                };
+            });
+
+            // 禁用剧本流程图按钮（依赖sessionStorage）
+            const flowchartLinks = document.querySelectorAll('a[href*="flowchart"]');
+            flowchartLinks.forEach(function(link) {
+                link.href = "#";
+                link.textContent = link.textContent.replace(/\(.*?\)/, '') + '（file下无法使用该功能）';
+                link.style.opacity = "0.6";
+                link.style.cursor = "not-allowed";
+                link.onclick = function(e) {
+                    e.preventDefault();
+                    return false;
+                };
+            });
+        }
+        const indexData = {
+            bgm: BGM_CONFIG,
+            story: [
+                {
+                    text: "",
+                    bgm: 'bgm1',
+                    action: null
+                }
+            ]
+        };
+        document.addEventListener('DOMContentLoaded', function() {
+            gameEngine.init(indexData);
+            setTimeout(function() {
+                gameEngine.playAudio('bgm1');
+            }, 100);
+
+            // 「开始游戏」按钮桥接：清空 f. 变量（新游戏）
+            // 不影响存档——存档独立存储在自己的槽位里
+            // sf. 不清，保留通关解锁等跨周目标记
+            // 开发者可自由修改按钮 href 指向任意场景，本逻辑只监听 id
+            var newGameBtn = document.getElementById('new-game-btn');
+            if (newGameBtn) {
+                newGameBtn.addEventListener('click', function (e) {
+                    if (typeof VarSpace !== 'undefined' && VarSpace && VarSpace.clearF) {
+                        VarSpace.clearF();
+                        console.log('[NewGame] VarSpace.f.* cleared (sf.* preserved)');
+                    }
+                    // 不阻止默认跳转，让 href 正常生效
+                });
+            }
+
+            // 启动即预热（前端灌池）：
+            // 标题画面停留的这几秒里，把 CG 缩略图的原始字节灌进 imgpool 的共享 Worker 缓存。
+            // 之后打开 CG 鉴赏页时，位图由 Worker 就地解码，**不再产生任何图片网络请求**。
+            // 只在空闲时段执行（requestIdleCallback），不与首帧、BGM 起播抢带宽。
+            // warmFromManifest 内部已做能力检测：未加载 ui/imgpool.js 或 Worker 不可用时静默跳过。
+            if (window.ShioriImgPool && typeof ShioriImgPool.warmFromManifest === 'function') {
+                ShioriImgPool.warmFromManifest().then(function (n) {
+                    if (n > 0) console.log('[ImgPool] 标题页预热完成：' + n + ' 张缩略图字节已入共享缓存');
+                }).catch(function () { /* 预热失败不影响标题页 */ });
+            }
+        });
+
+        // 说明：这里预热的是宿主动态生成的 **256px 缩略图字节**（几十 KB 级），
+        // 不是全尺寸 CG 原图 —— 全量预载原图仍然不做（跨页解码不保、全量下载拉长启动）。
+        // 点击放大时依旧按需加载原图。
+// 版权所有：bilibili月が綺麗ですね_
+// SPDX-License-Identifier: LicenseRef
+// 作者：bilibili月が綺麗ですね_
+    </script>
+
+</body>
+</html>

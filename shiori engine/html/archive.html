@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>游戏存档管理</title>
+    <link rel="icon" type="image/png" href="../icon/icon-32.png">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+            background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('../assets/cg/bg.jpg') center center/cover no-repeat;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 85%;
+            max-width: calc(1400 * var(--u, 1px));
+            margin-top: calc(70 * var(--v, 1px));
+            background: transparent;
+            padding: calc(20 * var(--u, 1px));
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - calc(70 * var(--v, 1px)));
+        }
+
+        h1 {
+            color: #FFD700;
+            text-align: center;
+            margin: calc(20 * var(--v, 1px)) auto calc(20 * var(--v, 1px)) auto;
+            font-size: calc(36 * var(--u, 1px));
+            text-shadow: 0 0 calc(15 * var(--u, 1px)) rgba(255, 215, 0, 0.6);
+            width: fit-content;
+            letter-spacing: calc(3 * var(--u, 1px));
+            flex-shrink: 0;
+        }
+
+        /* 顶部操作栏 */
+        .actions {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            text-align: center;
+            margin: 0;
+            padding: calc(12 * var(--u, 1px));
+            border: none;
+            border-bottom: calc(2 * var(--u, 1px)) solid #FFD700;
+            background-color: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(calc(5 * var(--u, 1px)));
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: calc(15 * var(--u, 1px));
+        }
+
+        button {
+            background-color: transparent;
+            color: #FFD700;
+            padding: calc(10 * var(--v, 1px)) calc(20 * var(--u, 1px));
+            border: calc(2 * var(--u, 1px)) solid #FFD700;
+            border-radius: calc(25 * var(--u, 1px));
+            cursor: pointer;
+            font-size: calc(14 * var(--u, 1px));
+            font-weight: bold;
+            transition: all 0.3s ease;
+            letter-spacing: 1px;
+        }
+
+        button:hover {
+            background-color: rgba(255, 215, 0, 0.2);
+            color: #FFA500;
+            border-color: #FFA500;
+            transform: translateY(calc(-2 * var(--u, 1px)));
+            box-shadow: 0 calc(4 * var(--u, 1px)) calc(12 * var(--u, 1px)) rgba(255, 215, 0, 0.3);
+        }
+
+        button.delete {
+            color: #f44336;
+            border-color: #f44336;
+        }
+
+        button.delete:hover {
+            background-color: rgba(244, 67, 54, 0.2);
+            color: #da190b;
+            border-color: #da190b;
+        }
+
+        button.primary {
+            background-color: rgba(33, 150, 243, 0.3);
+            border-color: #2196F3;
+            color: #fff;
+        }
+
+        button.primary:hover {
+            background-color: rgba(33, 150, 243, 0.5);
+            border-color: #1976D2;
+        }
+
+        /* 存档列表容器 - 可滚动 */
+        .archive-list-container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: calc(10 * var(--u, 1px));
+            margin-top: calc(10 * var(--v, 1px));
+        }
+
+        /* 存档网格布局 */
+        .archive-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(calc(320 * var(--u, 1px)), 1fr));
+            gap: calc(20 * var(--u, 1px));
+            padding: calc(10 * var(--u, 1px));
+        }
+
+        /* 存档卡片 */
+        .archive-card {
+            background: rgba(0, 0, 0, 0.6);
+            border: calc(2 * var(--u, 1px)) solid rgba(255, 215, 0, 0.4);
+            border-radius: calc(12 * var(--u, 1px));
+            padding: calc(18 * var(--u, 1px));
+            transition: all 0.3s ease;
+            position: relative;
+            backdrop-filter: blur(calc(8 * var(--u, 1px)));
+            min-height: calc(200 * var(--v, 1px));
+            display: flex;
+            flex-direction: column;
+            animation: fadeIn 0.4s ease;
+            overflow: hidden;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(calc(20 * var(--u, 1px)));
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .archive-card:hover {
+            border-color: #FFD700;
+            box-shadow: 0 0 calc(20 * var(--u, 1px)) rgba(255, 215, 0, 0.4);
+            transform: translateY(calc(-3 * var(--u, 1px)));
+        }
+
+        /* 缩略图：直接作为 .archive-card 的背景（占满整个卡片） */
+        /* 当存在缩略图时通过 .has-thumbnail 类启用背景图与黑色滤镜 */
+        .archive-card.has-thumbnail {
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-color: #000;
+        }
+
+        /* 黑色遮罩层：覆盖在背景图与立绘之上、卡片内容（序号/名称/按钮）之下，
+           提高对比度避免文字被画面遮挡。
+           透明度由 CSS 变量 --bg-mask-opacity 控制（0-1），由拖拽条实时设置：
+           0=不显示，1=全黑。默认 0.5（50%）。
+           层级：背景(0) → 立绘 .thumb-char-stage(2) → 黑色遮罩 ::before(3) → 文字(4) */
+        .archive-card.has-thumbnail::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #000;
+            pointer-events: none;
+            opacity: var(--bg-mask-opacity, 0.5);
+            z-index: 3;
+        }
+
+        /* 立绘迷你视口：镜像场景 #character-container（高 75%，宽 100%，bottom:0）。
+           这样引擎采集的百分比坐标在新容器内按卡片比例缩放，位置忠实还原。 */
+        .archive-card .thumb-char-stage {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 75%;
+            pointer-events: none;
+            overflow: visible;
+            z-index: 2; /* 在滤镜之上，使立绘可见 */
+        }
+
+        /* 缩略图分层立绘容器：镜像场景 .character-layered 的基础样式。
+           每个立绘组（新版 dress+face 或旧版单图）外面包一层这个容器，
+           其 style 中注入 parentCssText（含 left/bottom/transform/zIndex/width/height 等）。
+           场景中 .character-layered 有 width:100%; height: 100% 相对于 #character-container，
+           在缩略图中 .thumb-char-stage 就是"迷你 character-container"，所以容器的
+           100% 宽度/高度会自动相对于 stage 计算，保证百分比坐标在卡片中按比例还原。 */
+        .archive-card .thumb-char-layered {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: visible;
+        }
+
+        /* 缩略图立绘 img：只提供基础属性（position/object-fit/transform-origin），
+           transform/left/bottom/height 等全部由内联 style（cssText）决定，
+           避免硬写 transform:translateX(-50%) 覆盖新版立绘的 scale()。 */
+        .archive-card .thumb-char-img {
+            position: absolute;
+            object-fit: contain;
+            object-position: bottom center;
+            transform-origin: bottom center;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        /* 卡片内非缩略图内容（序号、名称、按钮等）需在遮罩之上 */
+        .archive-card > .save-index,
+        .archive-card > .save-name,
+        .archive-card > .save-info,
+        .archive-card > .preview-text,
+        .archive-card > .card-actions {
+            position: relative;
+            z-index: 4;
+        }
+
+        /* 存档序号 */
+        .save-index {
+            position: absolute;
+            top: calc(-12 * var(--v, 1px));
+            left: calc(15 * var(--u, 1px));
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #000;
+            padding: calc(4 * var(--v, 1px)) calc(15 * var(--u, 1px));
+            border-radius: calc(15 * var(--u, 1px));
+            font-size: calc(13 * var(--u, 1px));
+            font-weight: bold;
+            box-shadow: 0 calc(2 * var(--u, 1px)) calc(8 * var(--u, 1px)) rgba(0, 0, 0, 0.3);
+            z-index: 10;
+        }
+
+        /* 存档名称 */
+        .save-name {
+            color: #FFD700;
+            font-size: calc(18 * var(--u, 1px));
+            font-weight: bold;
+            margin: calc(10 * var(--v, 1px)) 0 calc(8 * var(--v, 1px)) 0;
+            padding: calc(5 * var(--u, 1px));
+            border-bottom: 1px solid rgba(255, 215, 0, 0.3);
+            cursor: text;
+            transition: all 0.2s;
+        }
+
+        .save-name:hover {
+            background: rgba(255, 215, 0, 0.1);
+            border-radius: calc(4 * var(--u, 1px));
+        }
+
+        .save-name[contenteditable="true"] {
+            outline: calc(2 * var(--u, 1px)) solid #2196F3;
+            background: rgba(33, 150, 243, 0.1);
+            border-radius: calc(4 * var(--u, 1px));
+        }
+
+        /* 存档信息 */
+        .save-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: calc(8 * var(--u, 1px));
+            margin-top: calc(5 * var(--v, 1px));
+        }
+
+        .info-row {
+            display: flex;
+            align-items: center;
+            gap: calc(8 * var(--u, 1px));
+            font-size: calc(13 * var(--u, 1px));
+        }
+
+        .info-label {
+            color: rgba(255, 215, 0, 0.7);
+            min-width: calc(60 * var(--u, 1px));
+            font-weight: bold;
+        }
+
+        .info-value {
+            color: #fff;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .preview-text {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: calc(12 * var(--u, 1px));
+            line-height: 1.6;
+            margin-top: calc(8 * var(--v, 1px));
+            padding: calc(8 * var(--u, 1px));
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: calc(6 * var(--u, 1px));
+            border-left: calc(3 * var(--u, 1px)) solid #FFD700;
+            max-height: calc(60 * var(--v, 1px));
+            overflow: hidden;
+        }
+
+        /* 操作按钮组 */
+        .card-actions {
+            display: flex;
+            gap: calc(8 * var(--u, 1px));
+            margin-top: calc(12 * var(--v, 1px));
+            padding-top: calc(12 * var(--v, 1px));
+            border-top: 1px solid rgba(255, 215, 0, 0.2);
+        }
+
+        .card-actions button {
+            flex: 1;
+            padding: calc(8 * var(--v, 1px)) calc(12 * var(--u, 1px));
+            font-size: calc(12 * var(--u, 1px));
+            border-width: calc(1.5 * var(--u, 1px));
+        }
+
+        .btn-load {
+            background-color: rgba(76, 175, 80, 0.3);
+            border-color: #4CAF50;
+            color: #fff;
+        }
+
+        .btn-load:hover {
+            background-color: rgba(76, 175, 80, 0.5);
+            border-color: #45a049;
+        }
+
+        .btn-delete {
+            background-color: rgba(244, 67, 54, 0.2);
+            border-color: #f44336;
+            color: #f44336;
+        }
+
+        .btn-delete:hover {
+            background-color: rgba(244, 67, 54, 0.4);
+            border-color: #da190b;
+            color: #da190b;
+        }
+
+        /* 空状态提示 */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: calc(400 * var(--v, 1px));
+            text-align: center;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .empty-icon {
+            font-size: calc(80 * var(--u, 1px));
+            margin-bottom: calc(20 * var(--v, 1px));
+            opacity: 0.4;
+        }
+
+        .empty-title {
+            color: #FFD700;
+            font-size: calc(24 * var(--u, 1px));
+            margin-bottom: calc(15 * var(--v, 1px));
+            font-weight: bold;
+        }
+
+        .empty-description {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: calc(16 * var(--u, 1px));
+            margin-bottom: calc(30 * var(--v, 1px));
+            line-height: 1.8;
+        }
+
+        /* 状态消息 */
+        .status-message {
+            position: fixed;
+            bottom: calc(30 * var(--v, 1px));
+            left: 50%;
+            transform: translateX(-50%);
+            padding: calc(12 * var(--v, 1px)) calc(30 * var(--u, 1px));
+            border-radius: calc(25 * var(--u, 1px));
+            font-size: calc(14 * var(--u, 1px));
+            font-weight: bold;
+            z-index: 2000;
+            animation: slideUp 0.3s ease;
+            box-shadow: 0 calc(4 * var(--u, 1px)) calc(15 * var(--u, 1px)) rgba(0, 0, 0, 0.3);
+        }
+
+        .status-success {
+            background: rgba(76, 175, 80, 0.9);
+            color: #fff;
+            border: calc(2 * var(--u, 1px)) solid #4CAF50;
+        }
+
+        .status-error {
+            background: rgba(244, 67, 54, 0.9);
+            color: #fff;
+            border: calc(2 * var(--u, 1px)) solid #f44336;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(calc(20 * var(--u, 1px)));
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        /* 滚动条美化 */
+        .archive-list-container::-webkit-scrollbar {
+            width: calc(10 * var(--u, 1px));
+        }
+
+        .archive-list-container::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: calc(5 * var(--u, 1px));
+        }
+
+        .archive-list-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 215, 0, 0.4);
+            border-radius: calc(5 * var(--u, 1px));
+        }
+
+        .archive-list-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 215, 0, 0.6);
+        }
+
+        /* 存档计数 */
+        .archive-count {
+            color: rgba(255, 215, 0, 0.8);
+            font-size: calc(14 * var(--u, 1px));
+            text-align: center;
+            margin: calc(10 * var(--v, 1px)) 0;
+            flex-shrink: 0;
+        }
+
+        /* 智能返回提示框 */
+        #smart-return-box {
+            position: fixed;
+            top: calc(80 * var(--v, 1px));
+            right: calc(30 * var(--u, 1px));
+            background: rgba(0, 0, 0, 0.85);
+            border: calc(2 * var(--u, 1px)) solid #2196F3;
+            border-radius: calc(12 * var(--u, 1px));
+            padding: calc(20 * var(--u, 1px));
+            z-index: 1500;
+            display: none;
+            min-width: calc(280 * var(--u, 1px));
+            backdrop-filter: blur(calc(10 * var(--u, 1px)));
+            box-shadow: 0 calc(4 * var(--u, 1px)) calc(20 * var(--u, 1px)) rgba(33, 150, 243, 0.3);
+            animation: slideInRight 0.3s ease;
+        }
+
+        /* 背景遮罩控制面板：与 #smart-return-box 对称，固定在左上角 */
+        #bg-mask-panel {
+            position: fixed;
+            top: calc(80 * var(--v, 1px));
+            left: calc(30 * var(--u, 1px));
+            background: rgba(0, 0, 0, 0.85);
+            border: calc(2 * var(--u, 1px)) solid #FFD700;
+            border-radius: calc(12 * var(--u, 1px));
+            padding: calc(14 * var(--v, 1px)) calc(18 * var(--u, 1px));
+            z-index: 1500;
+            min-width: calc(220 * var(--u, 1px));
+            backdrop-filter: blur(calc(10 * var(--u, 1px)));
+            box-shadow: 0 calc(4 * var(--u, 1px)) calc(20 * var(--u, 1px)) rgba(255, 215, 0, 0.3);
+            animation: slideInLeft 0.3s ease;
+        }
+
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(calc(-50 * var(--u, 1px)));
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        #bg-mask-label {
+            color: #FFD700;
+            font-size: calc(14 * var(--u, 1px));
+            font-weight: bold;
+            margin-bottom: calc(10 * var(--v, 1px));
+            text-align: center;
+        }
+
+        #bg-mask-row {
+            display: flex;
+            align-items: center;
+            gap: calc(10 * var(--u, 1px));
+        }
+
+        #bg-mask-slider {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: calc(6 * var(--v, 1px));
+            background: rgba(255, 215, 0, 0.3);
+            border-radius: calc(3 * var(--u, 1px));
+            outline: none;
+            cursor: pointer;
+        }
+
+        #bg-mask-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: calc(16 * var(--u, 1px));
+            height: calc(16 * var(--v, 1px));
+            background: #FFD700;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 calc(6 * var(--u, 1px)) rgba(255, 215, 0, 0.6);
+        }
+
+        #bg-mask-slider::-moz-range-thumb {
+            width: calc(16 * var(--u, 1px));
+            height: calc(16 * var(--v, 1px));
+            background: #FFD700;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 calc(6 * var(--u, 1px)) rgba(255, 215, 0, 0.6);
+        }
+
+        #bg-mask-value {
+            color: #FFD700;
+            font-size: calc(13 * var(--u, 1px));
+            font-weight: bold;
+            min-width: calc(42 * var(--u, 1px));
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(calc(50 * var(--u, 1px)));
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        #return-message {
+            color: #2196F3;
+            font-size: calc(16 * var(--u, 1px));
+            font-weight: bold;
+            margin-bottom: calc(15 * var(--v, 1px));
+            text-align: center;
+        }
+
+        #return-button {
+            width: 100%;
+            background: linear-gradient(135deg, rgba(33, 150, 243, 0.4), rgba(25, 118, 210, 0.4));
+            border: calc(2 * var(--u, 1px)) solid #2196F3;
+            color: #fff;
+            padding: calc(12 * var(--u, 1px));
+            border-radius: calc(8 * var(--u, 1px));
+            cursor: pointer;
+            font-size: calc(14 * var(--u, 1px));
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        #return-button:hover {
+            background: linear-gradient(135deg, rgba(33, 150, 243, 0.6), rgba(25, 118, 210, 0.6));
+            border-color: #1976D2;
+            transform: translateY(calc(-2 * var(--u, 1px)));
+            box-shadow: 0 calc(4 * var(--u, 1px)) calc(12 * var(--u, 1px)) rgba(33, 150, 243, 0.4);
+        }
+
+    </style>
+<script src="../config/illustration.js"></script>
+<script src="../api/progress_api.js"></script>
+<link rel="stylesheet" href="../ui/ui_skin.css">
+<script src="../ui/ui_skin.js"></script>
+</head>
+<body>
+    <!-- 背景遮罩透明度控制面板（与右上的 #smart-return-box 对称，固定在左上角） -->
+    <div id="bg-mask-panel">
+        <div id="bg-mask-label">背景遮罩</div>
+        <div id="bg-mask-row">
+            <input type="range" id="bg-mask-slider" min="0" max="100" step="1" value="50"
+                   oninput="ArchiveManager.onBgMaskChange(this.value)">
+            <span id="bg-mask-value">50%</span>
+        </div>
+    </div>
+
+    <div class="actions">
+        <button onclick="ArchiveManager.refreshArchives()" data-ui="arc_act">刷新存档</button>
+        <button onclick="location.href='saves.html'" class="primary" data-ui="arc_act">进度管理</button>
+        <button onclick="location.href='flowchart.html'" class="primary" data-ui="arc_act">剧本流程图</button>
+        <button onclick="ArchiveManager.exportAllArchives()" class="primary" data-ui="arc_act">导出所有存档</button>
+        <button onclick="ArchiveManager.importArchives()" class="primary" data-ui="arc_act">导入存档</button>
+        <button onclick="ArchiveManager.clearAllArchives()" class="delete" data-ui="arc_act">清空所有存档</button>
+        <button onclick="location.href='../index.html'" data-ui="sub_back">返回主菜单(ESC)</button>
+    </div>
+    
+    <div class="container">
+        <h1>游戏存档管理</h1>
+        
+        <!-- 智能返回提示框 -->
+        <div id="smart-return-box" style="display: none;">
+            <div id="return-message"></div>
+            <button id="return-button" onclick="SmartReturnManager.handleSmartReturn()" data-ui="sub_return"></button>
+        </div>
+        
+        <div id="archive-count" class="archive-count"></div>
+        
+        <div id="archive-list-container" class="archive-list-container">
+            <div id="archive-grid" class="archive-grid">
+                <!-- 动态生成存档卡片 -->
+            </div>
+        </div>
+    </div>
+    
+    <input type="file" id="import-file-input" accept=".json" style="display: none;" onchange="ArchiveManager.handleFileImport(event)">
+
+    <script>
+        /**
+         * 存档管理器 - 动态存档列表系统
+         */
+        const ArchiveManager = {
+            // localStorage 键名
+            STORAGE_KEY: 'galgame_archives',
+            
+            // 场景标题缓存（避免重复请求）
+            sceneTitleCache: {},
+            
+            // 场景名称映射（可选的覆盖配置）
+            sceneNames: {
+                // 'scene1': '自定义名称',
+                // 可以在这里手动配置特定场景的显示名称，会覆盖<title>标签
+            },
+            
+            /**
+             * 初始化存档系统
+             */
+            init: function() {
+                this.renderArchiveList();
+                // 从 API 加载持久化的背景遮罩透明度并应用到滑块与卡片
+                this.initBgMask();
+                console.log('[Archive Manager] Initialized with dynamic list');
+            },
+
+            /**
+             * 初始化背景遮罩透明度
+             * 优先从 GalgameProgressAPI 读取持久化值，API 不可用时直接读 localStorage，
+             * 同步滑块位置与卡片遮罩
+             */
+            initBgMask: function() {
+                const api = window.GalgameProgressAPI;
+                let opacity = 50;
+                if (api && typeof api.getBgMaskOpacity === 'function') {
+                    opacity = api.getBgMaskOpacity();
+                } else {
+                    // 回退：直接读取 localStorage
+                    try {
+                        const v = localStorage.getItem('archiveBgMaskOpacity');
+                        if (v !== null && v !== '') {
+                            const n = parseInt(v, 10);
+                            if (!isNaN(n)) opacity = Math.max(0, Math.min(100, n));
+                        }
+                    } catch (e) { /* 保持默认 50 */ }
+                }
+                this.applyBgMask(opacity);
+            },
+
+            /**
+             * 应用背景遮罩透明度
+             * @param {number} opacity - 0-100 的整数
+             */
+            applyBgMask: function(opacity) {
+                const n = Math.max(0, Math.min(100, parseInt(opacity, 10) || 0));
+                // 同步滑块与数值显示
+                const slider = document.getElementById('bg-mask-slider');
+                const valueEl = document.getElementById('bg-mask-value');
+                if (slider) slider.value = n;
+                if (valueEl) valueEl.textContent = n + '%';
+                // 通过 CSS 变量控制卡片遮罩透明度（0-1）
+                document.documentElement.style.setProperty('--bg-mask-opacity', (n / 100).toString());
+            },
+
+            /**
+             * 拖拽条变化回调
+             * 实时更新卡片遮罩并持久化（API + localStorage 双写 + 通知宿主）
+             * @param {string|number} value - 0-100 的整数值
+             */
+            onBgMaskChange: function(value) {
+                this.applyBgMask(value);
+                const n = Math.max(0, Math.min(100, parseInt(value, 10) || 0));
+                // 直接写 localStorage，保证即便 API 不可用也能持久化
+                try {
+                    localStorage.setItem('archiveBgMaskOpacity', String(n));
+                } catch (e) { /* 忽略 */ }
+                // 同时调用 API（若可用），保持与 progress_api.js 的一致性
+                const api = window.GalgameProgressAPI;
+                if (api && typeof api.setBgMaskOpacity === 'function') {
+                    api.setBgMaskOpacity(n);
+                }
+                // 通知 C# 宿主该键已更新（与存档操作一致），
+                // 确保 WebView2 环境下持久化
+                if (typeof this.notifyStorageOperation === 'function') {
+                    this.notifyStorageOperation('SAVE', 'archiveBgMaskOpacity', 'localStorage');
+                }
+            },
+            
+            /**
+             * 从 localStorage 加载所有存档
+             * @returns {Array} - 存档数组
+             */
+            loadArchives: function() {
+                try {
+                    const data = localStorage.getItem(this.STORAGE_KEY);
+                    return data ? JSON.parse(data) : [];
+                } catch (e) {
+                    console.error('[Archive Manager] Failed to load archives:', e);
+                    return [];
+                }
+            },
+            
+            /**
+             * 保存所有存档到 localStorage
+             * @param {Array} archives - 存档数组
+             */
+            saveArchives: function(archives) {
+                try {
+                    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(archives));
+                    console.log('[Archive Manager] Archives saved successfully');
+                } catch (e) {
+                    console.error('[Archive Manager] Failed to save archives:', e);
+                    this.showMessage('存档保存失败', 'error');
+                }
+            },
+            
+            /**
+             * 添加新存档
+             * @param {Object} saveData - 存档数据
+             * @returns {number} - 新存档的索引
+             */
+            addArchive: function(saveData) {
+                const archives = this.loadArchives();
+                
+                // 添加元数据
+                saveData.id = Date.now().toString();
+                saveData.timestamp = Date.now();
+                saveData.formattedTime = this.formatTimestamp(saveData.timestamp);
+                
+                // 添加到数组开头（最新的在前）
+                archives.unshift(saveData);
+                
+                this.saveArchives(archives);
+                this.showMessage('存档已创建', 'success');
+                this.renderArchiveList();
+                
+                return 0; // 返回新存档的索引
+            },
+            
+            /**
+             * 删除指定索引的存档
+             * @param {number} index - 存档在数组中的索引
+             */
+            deleteArchive: function(index) {
+                if (!confirm('确定要删除这个存档吗？此操作不可撤销。')) {
+                    return;
+                }
+                
+                const archives = this.loadArchives();
+                const deletedArchive = archives[index]; // 保存被删除的存档信息
+                archives.splice(index, 1);
+                this.saveArchives(archives);
+                
+                // 通知 C# 启动器：存档已删除
+                this.notifyStorageOperation('DELETE', 'galgame_archives', 'localStorage');
+                
+                this.showMessage('存档已删除', 'success');
+                this.renderArchiveList();
+            },
+            
+            /**
+             * 覆盖指定索引的存档（使用当前游戏进度）
+             * @param {number} index - 存档在数组中的索引
+             */
+            overwriteArchive: function(index) {
+                // 获取当前游戏状态快照
+                const snapshotStr = sessionStorage.getItem('gameStateSnapshot');
+                if (!snapshotStr) {
+                    this.showMessage('无法获取当前游戏状态', 'error');
+                    return;
+                }
+                
+                let snapshot;
+                try {
+                    snapshot = JSON.parse(snapshotStr);
+                } catch (e) {
+                    this.showMessage('游戏状态数据无效', 'error');
+                    return;
+                }
+                
+                const archives = this.loadArchives();
+                const archive = archives[index];
+                
+                if (!archive) {
+                    this.showMessage('存档不存在', 'error');
+                    return;
+                }
+                
+                // 二次确认
+                if (!confirm(`确定要覆盖存档 "${archive.saveName || '存档'}" 吗？`)) {
+                    return;
+                }
+                
+                if (!confirm('此操作将覆盖原有存档，确定继续？')) {
+                    return;
+                }
+                
+                // 更新存档数据
+                const parts = snapshot.pagePath.split('/');
+                archive.sceneFile = parts[parts.length - 1] || 'unknown.html';
+                archive.lineIndex = snapshot.currentLine || 0;
+                archive.snapshot = snapshot;
+                archive.previewText = snapshot.previewText || '当前进度存档';
+                // 更新缩略图为当前剧本画面（同样基于引擎保存的 snapshot）
+                archive.thumbnail = snapshot.thumbnail || null;
+                archive.timestamp = Date.now();
+                archive.formattedTime = this.formatTimestamp(archive.timestamp);
+                
+                this.saveArchives(archives);
+                this.showMessage('存档已覆盖', 'success');
+                this.renderArchiveList();
+            },
+            
+            /**
+             * 更新存档名称
+             * @param {number} index - 存档索引
+             * @param {string} newName - 新名称
+             */
+            updateArchiveName: function(index, newName) {
+                const archives = this.loadArchives();
+                if (archives[index]) {
+                    archives[index].saveName = newName.trim() || this.getDefaultSaveName(index);
+                    this.saveArchives(archives);
+                    console.log('[Archive Manager] Updated archive name:', newName);
+                }
+            },
+            
+            /**
+             * 加载指定索引的存档
+             * @param {number} index - 存档索引
+             */
+            loadArchive: function(index) {
+                const archives = this.loadArchives();
+                const archive = archives[index];
+                
+                if (!archive) {
+                    this.showMessage('存档不存在', 'error');
+                    return;
+                }
+                
+                // 保存加载目标到 sessionStorage（用于恢复完整状态）
+                sessionStorage.setItem('archiveLoadTarget', JSON.stringify({
+                    index: index,
+                    sceneFile: archive.sceneFile,
+                    lineIndex: archive.lineIndex,
+                    snapshot: archive.snapshot
+                }));
+                
+                // 跳转到对应的剧本页面，将 lineIndex 作为 URL 参数传递
+                const scenePath = '../scenes/' + archive.sceneFile + '?startLine=' + archive.lineIndex;
+                window.location.href = scenePath;
+            },
+            
+            /**
+             * 渲染存档列表
+             */
+            renderArchiveList: function() {
+                const grid = document.getElementById('archive-grid');
+                const countEl = document.getElementById('archive-count');
+                if (!grid) return;
+                
+                grid.innerHTML = '';
+                const archives = this.loadArchives();
+                
+                // 更新计数
+                if (countEl) {
+                    countEl.textContent = '共有 ' + archives.length + ' 个存档';
+                }
+                
+                // 检查是否从剧本页面进入（有游戏状态快照）
+                let isFromScene = false;
+                try {
+                    const snapshotStr = sessionStorage.getItem('gameStateSnapshot');
+                    if (snapshotStr) {
+                        const snapshot = JSON.parse(snapshotStr);
+                        isFromScene = snapshot.pagePath && snapshot.pagePath.includes('/scenes/');
+                    }
+                } catch (e) {}
+                
+                // 如果从剧本页面进入，在列表最前面添加"新建存档"按钮
+                if (isFromScene) {
+                    const newSaveCard = document.createElement('div');
+                    newSaveCard.className = 'archive-card';
+                    newSaveCard.innerHTML = `
+                        <div class="save-index">#NEW</div>
+                        <div class="save-name">保存当前存档</div>
+                        <div class="save-info" style="margin-bottom: 10px;">点击保存当前进度到新存档</div>
+                        <div class="card-actions">
+                            <button class="btn-load" onclick="ArchiveManager.createNewArchive()">保存</button>
+                            <button class="btn-delete disabled" disabled>删除</button>
+                        </div>
+                    `;
+                    grid.appendChild(newSaveCard);
+                }
+                
+                if (archives.length === 0) {
+                    // 如果没有存档且不是从剧本页面进入，显示空状态
+                    if (!isFromScene) {
+                        this.renderEmptyState(grid);
+                    }
+                } else {
+                    // 渲染存档卡片
+                    archives.forEach((archive, index) => {
+                        const card = this.createArchiveCard(index, archive, archives.length + (isFromScene ? 1 : 0));
+                        grid.appendChild(card);
+                    });
+                }
+            },
+            
+            /**
+             * 创建新存档（保存当前进度）
+             */
+            createNewArchive: function() {
+                try {
+                    const snapshotStr = sessionStorage.getItem('gameStateSnapshot');
+                    if (!snapshotStr) {
+                        this.showMessage('没有可保存的游戏状态', 'error');
+                        return;
+                    }
+                    
+                    const snapshot = JSON.parse(snapshotStr);
+                    
+                    // 创建存档数据
+                    const saveData = {
+                        id: Date.now().toString(),
+                        timestamp: Date.now(),
+                        formattedTime: this.formatTimestamp(Date.now()),
+                        sceneFile: snapshot.pagePath.split('/').pop(),
+                        lineIndex: snapshot.currentLine,
+                        previewText: snapshot.previewText || '当前进度存档',
+                        snapshot: snapshot,
+                        // 缩略图：剧本形态的画面数据（背景图+立绘），由引擎 captureThumbnail 采集
+                        // 当玩家在存档页保存时，snapshot 来自引擎跳转前保存的状态，
+                        // 因此缩略图反映的是剧本画面，而非 archive.html 自身画面。
+                        thumbnail: snapshot.thumbnail || null,
+                        saveName: this.getDefaultSaveName(0)
+                    };
+                    
+                    // 加载现有存档
+                    const archives = this.loadArchives();
+                    
+                    // 添加到数组开头（最新的在前）
+                    archives.unshift(saveData);
+                    
+                    // 保存到localStorage
+                    localStorage.setItem('galgame_archives', JSON.stringify(archives));
+                    this.showMessage('已创建新存档', 'success');
+                    
+                    // 刷新存档列表
+                    this.renderArchiveList();
+                } catch (e) {
+                    console.error('[Archive] Failed to create new archive:', e);
+                    this.showMessage('创建存档失败', 'error');
+                }
+            },
+            
+            /**
+             * 渲染空状态
+             * @param {HTMLElement} container - 容器元素
+             */
+            renderEmptyState: function(container) {
+                container.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <div class="empty-title">还没有存档</div>
+                        <div class="empty-description">
+                            在游戏中按 F5 或右键选择"快速保存"<br>
+                            即可创建第一个存档
+                        </div>
+                    </div>
+                `;
+            },
+            
+            /**
+             * 创建存档卡片
+             * @param {number} index - 存档索引
+             * @param {Object} archive - 存档数据
+             * @param {number} totalCount - 存档总数
+             * @returns {HTMLElement} - 卡片元素
+             */
+            createArchiveCard: function(index, archive, totalCount) {
+                const card = document.createElement('div');
+                card.className = 'archive-card';
+                card.setAttribute('data-ui', 'arc_slot');
+                const sceneId = archive.sceneFile ? archive.sceneFile.replace('.html', '') : '';
+                card.setAttribute('data-scene-id', sceneId);
+                
+                const sceneName = this.getSceneName(archive.sceneFile);
+                const previewText = this.truncateText(archive.previewText || '无文本预览', 50);
+                const saveName = archive.saveName || this.getDefaultSaveName(index);
+                const displayIndex = totalCount - index; // 显示序号（最新的在前）
+                // 生成缩略图数据：背景图作为卡片自身背景，立绘叠加其上
+                const thumbnail = this.buildThumbnail(archive.thumbnail);
+                // 将背景内联样式应用到卡片（覆盖默认半透明黑底）
+                if (thumbnail.bgCss) {
+                    card.style.cssText = (card.style.cssText || '') + ';' + thumbnail.bgCss;
+                    card.classList.add('has-thumbnail');
+                }
+                
+                // 检查是否从剧本页面进入（有游戏状态快照且包含场景路径）
+                let isFromScene = false;
+                try {
+                    const snapshotStr = sessionStorage.getItem('gameStateSnapshot');
+                    if (snapshotStr) {
+                        const snapshot = JSON.parse(snapshotStr);
+                        isFromScene = snapshot.pagePath && snapshot.pagePath.includes('/scenes/');
+                    }
+                } catch (e) {}
+                
+                // 覆盖按钮HTML（仅从剧本页面进入时显示）
+                const overwriteBtn = isFromScene ? `
+                    <button class="btn-load" data-ui="arc_ow" style="background: rgba(255, 165, 0, 0.3); border-color: #FFA500;" 
+                            onclick="ArchiveManager.overwriteArchive(${index})">覆盖</button>
+                ` : '';
+                
+                card.innerHTML = `
+                    ${thumbnail.charsHtml}
+                    <div class="save-index">#${displayIndex}</div>
+                    <div class="save-name" 
+                         contenteditable="false" 
+                         ondblclick="this.contentEditable=true; this.focus();"
+                         onblur="ArchiveManager.handleNameBlur(${index}, this)"
+                         onkeydown="if(event.key==='Enter'){event.preventDefault(); this.blur();}"
+                         title="双击编辑存档名称">${saveName}</div>
+                    
+                    <div class="save-info">
+                        <div class="info-row">
+                            <span class="info-label">场景:</span>
+                            <span class="info-value scene-name">${sceneName}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">时间:</span>
+                            <span class="info-value">${archive.formattedTime}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">进度:</span>
+                            <span class="info-value">第 ${archive.lineIndex + 1} 行</span>
+                        </div>
+                    </div>
+                    
+                    <div class="preview-text" title="${archive.previewText || ''}">
+                        "${previewText}"
+                    </div>
+                    
+                    <div class="card-actions">
+                        <button class="btn-load" data-ui="arc_load" onclick="ArchiveManager.loadArchive(${index})">加载</button>
+                        <button class="btn-delete" data-ui="arc_del" onclick="ArchiveManager.deleteArchive(${index})">删除</button>
+                        ${overwriteBtn}
+                    </div>
+                `;
+                
+                return card;
+            },
+
+            /**
+             * 构建缩略图数据
+             * 由引擎 captureThumbnail 采集的剧本画面数据（背景图+立绘），
+             * 供存档页重建"剧本形态"缩略图作为存档卡片自身的背景，
+             * 而非截取存档页自身画面。bg 与 CG 一视同仁——均通过 thumbnail.bg
+             * 中已解析的实际 URL 加载。
+             *
+             * 立绘定位修复：引擎采集的 left/bottom/height 是基于场景全屏视口
+             * （#character-container 宽 100vw、高 75vh）的百分比。直接套用到
+             * 存档卡片会偏移/出框。这里把存档卡片当作"迷你视口"——
+             * 在卡片内重建一个等比例的 .thumb-char-stage 容器（高 75%），
+             * 立绘 img 镜像场景 .character-img 的样式（position:absolute;
+             * bottom:0; height:容器高; object-fit:contain; transform:translateX(-50%)），
+             * 使百分比坐标在新容器内自动按卡片比例缩放，位置忠实还原剧本形态。
+             * @param {Object} thumbnail - 缩略图数据 {bg, bgCss, chars, capturedAt}
+             * @returns {Object} - { bgCss: 背景内联样式字符串, charsHtml: 立绘叠加 HTML }
+             *                     无数据时两者均为空串（卡片将保持默认背景）
+             */
+            buildThumbnail: function(thumbnail) {
+                const empty = { bgCss: '', charsHtml: '' };
+                if (!thumbnail || (!thumbnail.bg && !(thumbnail.chars && thumbnail.chars.length))) {
+                    return empty;
+                }
+
+                let bgCss = '';
+                if (thumbnail.bg) {
+                    const bgUrl = (window.ShioriHostConfig && typeof ShioriHostConfig.assetThumbUrl === 'function')
+                        ? ShioriHostConfig.assetThumbUrl(thumbnail.bg)
+                        : thumbnail.bg;
+                    bgCss = `background-image:url('${bgUrl}');${thumbnail.bgCss || ''};`;
+                }
+
+                let charsHtml = '';
+                if (thumbnail.chars && thumbnail.chars.length) {
+                    const groups = thumbnail.chars.map(function(c) {
+                        let parentCssText = c.parentCssText || '';
+                        let imgs;
+                        if (c.imgs) {
+                            imgs = c.imgs;
+                        } else {
+                            imgs = [{
+                                src: c.src,
+                                cssText: c.cssText || '',
+                                className: ''
+                            }];
+                        }
+                        const imgsHtml = imgs.map(function(img) {
+                            return `<img src="${img.src}" class="thumb-char-img" style="${img.cssText || ''}" alt="" draggable="false">`;
+                        }).join('');
+                        const containerStyle = parentCssText ? ` style="${parentCssText}"` : '';
+                        return `<div class="thumb-char-layered"${containerStyle}>${imgsHtml}</div>`;
+                    }).join('');
+                    charsHtml = `<div class="thumb-char-stage">${groups}</div>`;
+                }
+
+                return { bgCss: bgCss, charsHtml: charsHtml };
+            },
+
+            /**
+             * 处理存档名称编辑完成
+             * @param {number} index - 存档索引
+             * @param {HTMLElement} element - 编辑的元素
+             */
+            handleNameBlur: function(index, element) {
+                element.contentEditable = false;
+                const newName = element.textContent.trim();
+                this.updateArchiveName(index, newName);
+
+                // 更新显示
+                const archives = this.loadArchives();
+                element.textContent = archives[index].saveName;
+            },
+            
+
+            /**
+             * 获取默认存档名称
+             * @param {number} index - 可选的索引
+             * @returns {string} - 默认名称
+             */
+            getDefaultSaveName: function(index) {
+                const archives = this.loadArchives();
+                const number = index !== undefined ? archives.length - index : archives.length + 1;
+                return '存档 ' + number;
+            },
+            
+            /**
+             * 从页面路径提取场景文件名
+             * @param {string} pagePath - 页面路径
+             * @returns {string} - 场景文件名
+             */
+            extractSceneFileName: function(pagePath) {
+                const parts = pagePath.split('/');
+                return parts[parts.length - 1] || 'unknown.html';
+            },
+            
+            /**
+             * 获取当前文本预览
+             * @returns {string} - 文本预览
+             */
+            getCurrentPreviewText: function() {
+                try {
+                    const textBox = document.getElementById('text-box');
+                    if (textBox && textBox.textContent) {
+                        return textBox.textContent.trim();
+                    }
+                } catch (e) {
+                    console.warn('[Archive Manager] Could not get preview text:', e);
+                }
+                return '暂无文本预览';
+            },
+            
+            /**
+             * 获取场景显示名称
+             * @param {string} sceneFile - 场景文件名
+             * @returns {string} - 中文场景名称
+             */
+            getSceneName: function(sceneFile) {
+                const sceneId = sceneFile.replace('.html', '');
+                // 优先使用用户配置的名称
+                if (this.sceneNames[sceneId]) {
+                    return this.sceneNames[sceneId];
+                }
+                // 其次使用缓存的标题
+                if (this.sceneTitleCache[sceneId]) {
+                    return this.sceneTitleCache[sceneId];
+                }
+                // 触发异步获取（会更新缓存和UI）
+                this.fetchSceneTitle(sceneId);
+                // 返回文件名作为临时显示
+                return sceneId;
+            },
+            
+            /**
+             * 异步获取场景文件的<title>标签
+             * @param {string} sceneId - 场景ID（不含.html）
+             */
+            fetchSceneTitle: function(sceneId) {
+                if (this.sceneTitleCache[sceneId] || this.sceneNames[sceneId]) {
+                    return; // 已有缓存或用户配置
+                }
+                
+                const sceneFile = `${sceneId}.html`;
+                fetch(`../scenes/${encodeURIComponent(sceneFile)}`)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Network response was not ok');
+                        return response.text();
+                    })
+                    .then(html => {
+                        // 解析HTML获取<title>标签
+                        const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+                        const title = titleMatch ? titleMatch[1].trim() : sceneId;
+                        
+                        // 更新缓存
+                        this.sceneTitleCache[sceneId] = title;
+                        
+                        // 更新所有相关卡片的显示
+                        this.updateSceneNameDisplays(sceneId, title);
+                    })
+                    .catch(error => {
+                        console.warn(`[Archive Manager] Failed to fetch title for ${sceneFile}:`, error);
+                    });
+            },
+            
+            /**
+             * 更新所有显示指定场景名称的元素
+             * @param {string} sceneId - 场景ID
+             * @param {string} title - 新的显示名称
+             */
+            updateSceneNameDisplays: function(sceneId, title) {
+                const cards = document.querySelectorAll(`.archive-card[data-scene-id="${sceneId}"]`);
+                cards.forEach(card => {
+                    const nameEl = card.querySelector('.scene-name');
+                    if (nameEl) {
+                        nameEl.textContent = title;
+                    }
+                });
+            },
+            
+            /**
+             * 截断文本
+             * @param {string} text - 原始文本
+             * @param {number} maxLength - 最大长度
+             * @returns {string} - 截断后的文本
+             */
+            truncateText: function(text, maxLength) {
+                if (!text || text.length <= maxLength) {
+                    return text || '';
+                }
+                return text.substring(0, maxLength) + '...';
+            },
+            
+            /**
+             * 格式化时间戳
+             * @param {number} timestamp - 时间戳
+             * @returns {string} - 格式化后的时间字符串
+             */
+            formatTimestamp: function(timestamp) {
+                if (!timestamp) return '未知时间';
+                
+                const date = new Date(timestamp);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                const seconds = String(date.getSeconds()).padStart(2, '0');
+                
+                return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+            },
+            
+            /**
+             * 刷新存档显示
+             */
+            refreshArchives: function() {
+                this.renderArchiveList();
+                this.showMessage('存档列表已刷新', 'success');
+            },
+            
+            /**
+             * 导出所有存档
+             */
+            exportAllArchives: function() {
+                const archives = this.loadArchives();
+                
+                if (archives.length === 0) {
+                    this.showMessage('没有可导出的存档', 'error');
+                    return;
+                }
+                
+                const dataStr = JSON.stringify(archives, null, 2);
+                const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+                
+                const exportFileDefaultName = 'galgame_archives_' + new Date().toISOString().slice(0, 19) + '.json';
+                
+                const linkElement = document.createElement('a');
+                linkElement.setAttribute('href', dataUri);
+                linkElement.setAttribute('download', exportFileDefaultName);
+                linkElement.click();
+                
+                this.showMessage('已导出 ' + archives.length + ' 个存档', 'success');
+            },
+            
+            /**
+             * 导入存档
+             */
+            importArchives: function() {
+                document.getElementById('import-file-input').click();
+            },
+            
+            /**
+             * 处理文件导入
+             * @param {Event} event - 文件选择事件
+             */
+            handleFileImport: function(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const importedArchives = JSON.parse(e.target.result);
+                        
+                        if (!Array.isArray(importedArchives)) {
+                            throw new Error('无效的存档文件格式');
+                        }
+                        
+                        if (!confirm('将导入 ' + importedArchives.length + ' 个存档，与现有存档合并。是否继续？')) {
+                            return;
+                        }
+                        
+                        // 合并存档
+                        const currentArchives = this.loadArchives();
+                        const mergedArchives = [...importedArchives, ...currentArchives];
+                        
+                        this.saveArchives(mergedArchives);
+                        this.renderArchiveList();
+                        
+                        this.showMessage('成功导入 ' + importedArchives.length + ' 个存档', 'success');
+                    } catch (error) {
+                        console.error('[Archive Manager] Import failed:', error);
+                        this.showMessage('导入失败：文件格式错误', 'error');
+                    }
+                };
+                
+                reader.readAsText(file);
+                
+                // 重置文件输入
+                event.target.value = '';
+            },
+            
+            /**
+             * 清空所有存档
+             */
+            clearAllArchives: function() {
+                if (!confirm('警告：确定要清空所有存档吗？此操作不可撤销！')) {
+                    return;
+                }
+                
+                if (!confirm('再次确认：所有存档数据将被永久删除！')) {
+                    return;
+                }
+                
+                localStorage.removeItem(this.STORAGE_KEY);
+                
+                // 通知 C# 启动器：存档已清空
+                this.notifyStorageOperation('DELETE', 'galgame_archives (all)', 'localStorage');
+                
+                this.renderArchiveList();
+                this.showMessage('所有存档已清空', 'success');
+            },
+            
+            /**
+             * 显示状态消息
+             * @param {string} message - 消息内容
+             * @param {string} type - 消息类型 ('success' 或 'error')
+             */
+            showMessage: function(message, type) {
+                // 移除旧消息
+                const oldMessage = document.querySelector('.status-message');
+                if (oldMessage) {
+                    oldMessage.remove();
+                }
+                
+                const statusDiv = document.createElement('div');
+                statusDiv.className = 'status-message status-' + type;
+                statusDiv.textContent = message;
+                
+                document.body.appendChild(statusDiv);
+                
+                // 3秒后自动消失
+                setTimeout(() => {
+                    statusDiv.style.opacity = '0';
+                    statusDiv.style.transition = 'opacity 0.3s ease';
+                    setTimeout(() => statusDiv.remove(), 300);
+                }, 3000);
+            }
+        };
+        
+        /**
+         * 智能返回管理器
+         */
+        const SmartReturnManager = {
+            /**
+             * 初始化智能返回功能
+             */
+            init: function() {
+                console.log('[Smart Return] Initializing...');
+                this.checkAndDisplayReturnBox();
+            },
+            
+            /**
+             * 检查并显示返回提示框
+             */
+            checkAndDisplayReturnBox: function() {
+                // 从 sessionStorage 获取游戏状态快照
+                const snapshotStr = sessionStorage.getItem('gameStateSnapshot');
+                
+                if (!snapshotStr) {
+                    console.log('[Smart Return] No snapshot found');
+                    return;
+                }
+                
+                try {
+                    const snapshot = JSON.parse(snapshotStr);
+                    console.log('[Smart Return] Snapshot:', snapshot);
+                    
+                    // 只处理从剧情页进入的情况
+                    if (snapshot.pagePath && !snapshot.pagePath.includes('index.html') && snapshot.pagePath.includes('/scenes/')) {
+                        this.showCurrentPageReturn(snapshot);
+                    }
+                } catch (e) {
+                    console.error('[Smart Return] Failed to parse snapshot:', e);
+                }
+            },
+            
+            /**
+             * 显示返回当前页面提示框
+             */
+            showCurrentPageReturn: function(snapshot) {
+                const box = document.getElementById('smart-return-box');
+                const messageEl = document.getElementById('return-message');
+                const buttonEl = document.getElementById('return-button');
+                
+                if (!box || !messageEl || !buttonEl) {
+                    console.error('[Smart Return] DOM elements not found!');
+                    return;
+                }
+                
+                // 从剧情页进入
+                console.log('[Smart Return] From story page');
+                messageEl.textContent = '当前游玩页面';
+                buttonEl.textContent = '返回当前页面';
+                
+                // 保存场景信息用于返回
+                sessionStorage.setItem('returnTarget', JSON.stringify({
+                    type: 'current',
+                    url: snapshot.pageUrl,
+                    line: snapshot.currentLine
+                }));
+                
+                // 显示提示框
+                box.style.display = 'block';
+                console.log('[Smart Return] Showed return box');
+            },
+            
+            /**
+             * 处理智能返回
+             */
+            handleSmartReturn: function() {
+                const returnTargetStr = sessionStorage.getItem('returnTarget');
+                
+                if (!returnTargetStr) {
+                    console.error('[Smart Return] No return target found');
+                    return;
+                }
+                
+                try {
+                    const returnTarget = JSON.parse(returnTargetStr);
+                    console.log('[Smart Return] Return target:', returnTarget);
+                    
+                    if (returnTarget.type === 'current') {
+                        // 返回当前剧情页（带状态恢复）
+                        // 在URL中添加行号参数
+                        const url = new URL(returnTarget.url, window.location.origin);
+                        url.searchParams.set('startLine', returnTarget.line);
+                        console.log('[Smart Return] Returning to current scene:', url.toString());
+                        window.location.href = url.toString();
+                    }
+                } catch (e) {
+                    console.error('[Smart Return] Failed to process return:', e);
+                }
+            }
+        };
+        
+        /**
+         * 通知宿主层存储操作（通过 WebView2 桥接）
+         * @param {string} operation - 操作类型
+         * @param {string} key - localStorage 的键名
+         * @param {string} storageType - 存储类型
+         */
+        ArchiveManager.notifyStorageOperation = function(operation, key, storageType) {
+            try {
+                if (typeof window.shiori !== 'undefined' && 
+                    window.shiori.api && 
+                    typeof window.shiori.api.onStorageOperation === 'function') {
+                    const data = {
+                        operation: operation,
+                        key: key,
+                        storageType: storageType,
+                        timestamp: new Date().toISOString()
+                    };
+                    window.shiori.api.onStorageOperation(JSON.stringify(data));
+                    console.log(`[Storage Monitor] Notified Host: ${operation} ${key} (${storageType})`);
+                } else if (typeof ShioriAPI !== 'undefined' && ShioriAPI.onStorageOperation) {
+                    const data = {
+                        operation: operation,
+                        key: key,
+                        storageType: storageType,
+                        timestamp: new Date().toISOString()
+                    };
+                    ShioriAPI.onStorageOperation(JSON.stringify(data));
+                    console.log(`[Storage Monitor] Notified Host: ${operation} ${key} (${storageType})`);
+                }
+            } catch (e) {
+                console.warn('[Storage Monitor] Failed to notify Host:', e);
+            }
+        };
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('[Archive Page] DOMContentLoaded triggered');
+            ArchiveManager.init();
+            
+            // 延迟一点再初始化智能返回，确保DOM完全就绪
+            setTimeout(() => {
+                SmartReturnManager.init();
+                console.log('[Archive Page] SmartReturnManager initialized');
+            }, 100);
+        });
+        
+        // ESC键返回主菜单
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                window.location.href = '../index.html';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>场景模板</title>
+    <link rel="icon" type="image/png" href="../icon/icon-32.png">
+
+    <!-- 引入资源集中配置文件 -->
+
+</head>
+
+<body>
+<script>
+        // 场景数据
+        const sceneData = {
+            background: BG_CONFIG_SUB,  // 使用背景图片集中配置（子目录路径）
+            bgm: BGM_CONFIG_SUB,        // 使用 BGM 集中配置（子目录路径）
+
+            // 音频资源零配置管理（推荐）
+            // 无需在此定义映射，直接使用文件名即可
+            // 引擎会自动从 assets/audio/ 目录下查找对应文件
+            audio: {},
+
+            // 视频资源零配置管理（推荐）
+            // 无需在此定义映射，直接使用文件名即可
+            // 引擎会自动从 assets/video/ 目录下查找对应文件
+            videos: {},
+            story: [
+				{
+					text: "这是第一句对白，展示了所有可用的基础属性。",
+					speaker: "角色A", /* [可选] 说话人姓名，若不显示名字请删除此项 */
+					background: "bg_示例", /* [可选] 背景图 ID，引用自 bg_config.js；设为 null 则不改变当前背景 */
+					bgm: "bgm_示例", /* [可选] BGM ID，引用自 bgm_config.js；设为 null 则不改变当前 BGM */
+					audio: "audio_示例", /* [可选] 音频文件名（零配置），自动解析为 ../assets/audio/audio_示例.ogg */
+					se: "se_示例", /* [可选] 音效文件名（零配置），自动解析为 ../assets/se/se_示例.ogg */
+					chars: "[中 char_示例]", /* [可选] 立绘指令，支持位置、缩放等控制（详见 illustration.md） */
+					command: "[pov 视角示例]", /* [可选] 引擎指令，如 [pov], [wait], [fadeout] 等 */
+					action: null /* [可选] 动作对象，用于分支选项、场景跳转等 */
+				},
+				{
+					text: "这是第一句对白，展示了所有可用的基础属性。",
+					speaker: "角色A",   /* [可选] 说话人姓名，若不显示名字请删除此项 */
+					background: "bg_示例",     /* [可选] 背景图 ID，引用自 bg_config.js；设为 null 则不改变当前背景 */
+					bgm: "bgm_示例",           /* [可选] BGM ID，引用自 bgm_config.js；设为 null 则不改变当前 BGM */
+					audio: "audio_示例",       /* [可选] 音频文件名（零配置），自动解析为 ../assets/audio/audio_示例.ogg */
+					se: "se_示例",              /* [可选] 音效文件名（零配置），自动解析为 ../assets/se/se_示例.ogg */
+					chars: "[中 char_示例]",   /* [可选] 立绘指令，支持位置、缩放等控制（详见 illustration.md） */
+					command: "[pov 视角示例]", /* [可选] 引擎指令，如 [pov], [wait], [fadeout] 等 */
+					action: null               /* [可选] 动作对象，用于分支选项、场景跳转等 */
+				}
+			]
+        };
+
+        // 初始化游戏
+        document.addEventListener('DOMContentLoaded', () => {
+            // 检查URL中是否包含startLine参数
+            const urlParams = new URLSearchParams(window.location.search);
+            const startLine = parseInt(urlParams.get('startLine')) || 0;
+
+            // 使用起始行号初始化引擎
+            gameEngine.init(sceneData, startLine);
+        });
+
+    </script>
+</body>
+
+</html>

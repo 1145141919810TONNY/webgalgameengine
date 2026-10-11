@@ -1,0 +1,151 @@
+{
+  "version": 1,
+  "note": "官方装载清单。path 相对引擎根。C# 按 official 改写页面 script/link；engine.js 展开为 engine_* 序列。",
+  "official": [
+    {
+      "type": "css",
+      "path": "ui/style.css"
+    },
+    {
+      "type": "css",
+      "path": "ui/ui_skin.css"
+    },
+    {
+      "type": "js",
+      "path": "config/bgm_config.js"
+    },
+    {
+      "type": "js",
+      "path": "config/cg_config.js"
+    },
+    {
+      "type": "js",
+      "path": "config/bg_config.js"
+    },
+    {
+      "type": "js",
+      "path": "config/cg_load_strategy.js"
+    },
+    {
+      "type": "js",
+      "path": "config/illustration.js"
+    },
+    {
+      "type": "js",
+      "path": "api/progress_api.js"
+    },
+    {
+      "type": "js",
+      "path": "system/host_config.js"
+    },
+    {
+      "type": "js",
+      "path": "ui/ui_skin.js"
+    },
+    {
+      "type": "js",
+      "path": "ui/imgpool.js"
+    },
+    {
+      "type": "js",
+      "path": "system/system.js"
+    },
+    {
+      "type": "js",
+      "path": "system/vars.js"
+    },
+    {
+      "type": "js",
+      "path": "ui/ui_layout.js"
+    },
+    {
+      "type": "js",
+      "path": "ui/page-chrome.js"
+    },
+    {
+      "type": "js",
+      "path": "ui/speaker_avatar.js"
+    },
+    {
+      "type": "js",
+      "path": "macro/shiori_dsl.js"
+    },
+    {
+      "type": "js",
+      "path": "macro/rmb_hidebox_impl.js"
+    },
+    {
+      "type": "js",
+      "path": "engine/engine_core.js"
+    },
+    {
+      "type": "js",
+      "path": "engine/engine_tick.js"
+    },
+    {
+      "type": "js",
+      "path": "engine/engine_env.js"
+    },
+    {
+      "type": "js",
+      "path": "engine/engine_charparse.js"
+    },
+    {
+      "type": "js",
+      "path": "engine/chardiff_math.js"
+    },
+    {
+      "type": "js",
+      "path": "engine/char_runtime.js"
+    },
+    {
+      "type": "js",
+      "path": "engine/char_anim.js"
+    },
+    {
+      "type": "js",
+      "path": "engine/char_stage.js"
+    },
+    {
+      "type": "js",
+      "path": "engine/engine_chars.js"
+    },
+    {
+      "type": "js",
+      "path": "engine/engine_audio.js"
+    },
+    {
+      "type": "js",
+      "path": "engine/engine_bg.js"
+    },
+    {
+      "type": "js",
+      "path": "engine/engine_text.js"
+    },
+    {
+      "type": "js",
+      "path": "engine/engine_command.js"
+    },
+    {
+      "type": "js",
+      "path": "engine/engine_scene.js"
+    },
+    {
+      "type": "js",
+      "path": "engine/engine_affinity.js"
+    },
+    {
+      "type": "js",
+      "path": "engine/engine_save.js"
+    },
+    {
+      "type": "js",
+      "path": "engine/engine_boot.js"
+    },
+    {
+      "type": "js",
+      "path": "plugins/gallery_unlock.js"
+    }
+  ],
+  "developer": []
+}

@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shiori - 版权信息</title>
+    <link rel="icon" type="image/png" href="../icon/icon-32.png">
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+            position: relative;
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('../assets/cg/bg.jpg') center center/cover no-repeat fixed;
+            display: block;
+        }
+
+        .container {
+            width: 80%;
+            margin: calc(70 * var(--v, 1px)) auto calc(30 * var(--v, 1px)) auto; /* 为固定顶部菜单留出空间，底部也留出空间 */
+            background: transparent;
+            padding: calc(15 * var(--u, 1px));
+            border-radius: calc(8 * var(--u, 1px));
+            box-shadow: none;
+            min-height: calc(100vh - calc(100 * var(--v, 1px)));
+            display: flex;
+            gap: calc(20 * var(--u, 1px));
+        }
+
+        /* 左侧导航栏样式 */
+        .sidebar {
+            width: 22%;
+            background-color: rgba(0, 0, 0, 0.6);
+            border: 1px solid #FFD700;
+            border-radius: calc(10 * var(--u, 1px));
+            padding: calc(20 * var(--u, 1px));
+            height: fit-content;
+            position: sticky;
+            top: calc(90 * var(--v, 1px));
+        }
+
+        /* 顶部功能按钮区域 */
+        .top-buttons {
+            margin: calc(15 * var(--v, 1px)) 0 calc(20 * var(--v, 1px)) 0;
+        }
+
+        .top-buttons button {
+            background-color: rgba(255, 215, 0, 0.1);
+            color: #FFD700;
+            cursor: pointer;
+            padding: calc(18 * var(--u, 1px));
+            width: 100%;
+            border: 1px solid #FFD700;
+            border-radius: calc(8 * var(--u, 1px));
+            text-align: left;
+            outline: none;
+            font-size: calc(18 * var(--u, 1px));
+            font-weight: bold;
+            transition: all 0.3s ease;
+            margin: calc(10 * var(--v, 1px)) 0;
+        }
+
+        .top-buttons button:hover {
+            background-color: rgba(255, 215, 0, 0.2);
+        }
+
+        .sidebar h3 {
+            color: #FFD700;
+            text-align: center;
+            margin: 0 0 calc(20 * var(--v, 1px)) 0;
+            font-size: calc(18 * var(--u, 1px));
+            border-bottom: 1px solid #FFD700;
+            padding-bottom: calc(10 * var(--v, 1px));
+        }
+
+        .nav-item {
+            background-color: rgba(255, 215, 0, 0.1);
+            color: #FFD700;
+            padding: calc(12 * var(--v, 1px)) calc(15 * var(--u, 1px));
+            margin: calc(8 * var(--v, 1px)) 0;
+            border: 1px solid #FFD700;
+            border-radius: calc(6 * var(--u, 1px));
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: calc(14 * var(--u, 1px));
+            text-align: left;
+        }
+
+        .nav-item:hover {
+            background-color: rgba(255, 215, 0, 0.2);
+            transform: translateX(calc(5 * var(--u, 1px)));
+        }
+
+        .nav-item.active {
+            background-color: rgba(255, 215, 0, 0.3);
+            border: 1px solid #FFA500;
+            color: #FFA500;
+        }
+
+        /* 主内容区域 */
+        .main-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        h1 {
+            color: #FFD700;
+            text-align: center;
+            margin: calc(40 * var(--v, 1px)) auto calc(30 * var(--v, 1px)) auto;
+            font-size: calc(32 * var(--u, 1px));
+            text-shadow: 0 0 calc(10 * var(--u, 1px)) rgba(255, 215, 0, 0.5);
+            width: fit-content;
+        }
+
+        .content-section {
+            background-color: rgba(0, 0, 0, 0.6);
+            border: 1px solid #FFD700;
+            border-radius: calc(10 * var(--u, 1px));
+            padding: calc(25 * var(--u, 1px));
+            margin: calc(20 * var(--v, 1px)) 0;
+            color: white;
+        }
+
+        .content-section h2 {
+            color: #FFD700;
+            font-size: calc(24 * var(--u, 1px));
+            margin-bottom: calc(20 * var(--v, 1px));
+            text-shadow: 0 0 calc(5 * var(--u, 1px)) rgba(255, 215, 0, 0.8);
+            border-bottom: calc(2 * var(--u, 1px)) solid #FFD700;
+            padding-bottom: calc(10 * var(--v, 1px));
+        }
+
+        .content-section p {
+            line-height: 1.8;
+            margin: calc(15 * var(--v, 1px)) 0;
+            font-size: calc(16 * var(--u, 1px));
+        }
+
+        .content-section a {
+            color: pink;
+            text-decoration: none;
+        }
+
+        .content-section a:hover {
+            color: lightpink;
+            text-decoration: underline;
+        }
+
+        .actions {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            text-align: center;
+            margin: 0;
+            padding: calc(10 * var(--u, 1px));
+            border: none;
+            border-bottom: 1px solid #FFD700;
+            background-color: transparent;
+            box-shadow: 0 calc(2 * var(--u, 1px)) calc(5 * var(--u, 1px)) rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: calc(10 * var(--u, 1px));
+        }
+
+        button {
+            background-color: transparent;
+            color: #FFD700;
+            padding: calc(8 * var(--v, 1px)) calc(16 * var(--u, 1px));
+            border: calc(2 * var(--u, 1px)) solid #FFD700;
+            border-radius: calc(20 * var(--u, 1px));
+            cursor: pointer;
+            margin: 0 calc(5 * var(--u, 1px));
+            font-size: calc(14 * var(--u, 1px));
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background-color: rgba(255, 215, 0, 0.2);
+            color: #FFA500;
+            border: calc(2 * var(--u, 1px)) solid #FFA500;
+        }
+
+        .highlight {
+            color: #FFD700;
+            font-weight: bold;
+        }
+
+        .small-text {
+            font-size: calc(14 * var(--u, 1px));
+            color: #ccc;
+            margin-top: calc(10 * var(--v, 1px));
+        }
+
+        /* 折叠面板样式 */
+        .collapsible {
+            background-color: rgba(255, 215, 0, 0.1);
+            color: #FFD700;
+            cursor: pointer;
+            padding: calc(18 * var(--u, 1px));
+            width: 100%;
+            border: 1px solid #FFD700;
+            border-radius: calc(8 * var(--u, 1px));
+            text-align: left;
+            outline: none;
+            font-size: calc(18 * var(--u, 1px));
+            font-weight: bold;
+            transition: all 0.3s ease;
+            margin: calc(10 * var(--v, 1px)) 0;
+        }
+
+        .collapsible:hover {
+            background-color: rgba(255, 215, 0, 0.2);
+        }
+
+        .collapsible:after {
+            content: '+';
+            color: #FFD700;
+            font-weight: bold;
+            float: right;
+            margin-left: calc(5 * var(--u, 1px));
+            transition: transform 0.3s ease;
+        }
+
+        .collapsible.active:after {
+            content: '-';
+            transform: rotate(180deg);
+        }
+
+        .content {
+            padding: 0 calc(18 * var(--u, 1px));
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            background-color: rgba(0, 0, 0, 0.6);
+            border: 1px solid #FFD700;
+            border-top: none;
+            border-radius: 0 0 calc(8 * var(--u, 1px)) calc(8 * var(--u, 1px));
+            margin-bottom: calc(20 * var(--v, 1px));
+        }
+
+        .content.show {
+            max-height: calc(2000 * var(--v, 1px)); /* 足够大的值以容纳内容 */
+        }
+
+        .content pre {
+            margin: calc(15 * var(--v, 1px)) 0;
+            white-space: pre-wrap;
+            font-family: 'Microsoft YaHei', sans-serif;
+            color: #ccc;
+            line-height: 1.6;
+            background-color: rgba(0,0,0,0.3);
+            padding: calc(15 * var(--u, 1px));
+            border-radius: calc(5 * var(--u, 1px));
+            overflow-x: auto;
+        }
+
+        /* 隐藏游戏相关元素（!important：官方 style.css 后注入，否则对话框底边黑条） */
+        #background-container,
+        #character-container,
+        #text-box-container,
+        #options-container,
+        #novel-mode-container {
+            display: none !important;
+        }
+
+        /* 音频播放器保持隐藏 */
+        audio {
+            display: none;
+        }
+    </style>
+<link rel="stylesheet" href="../ui/ui_skin.css">
+<script src="../ui/ui_skin.js"></script>
+</head>
+<body>
+    <div class="container">
+
+        <!-- 左侧导航栏 -->
+        <div class="sidebar">
+            <h3>快速导航</h3>
+
+            <div class="top-buttons">
+                <button onclick="collapseAllAndScrollTop()" class="collapse-all" data-ui="copy_act">折叠全部并返回顶部</button>
+                <button onclick="location.href='../index.html'" class="back" data-ui="sub_back">返回主菜单(esc)</button>
+            </div>
+
+            <!-- 导航项由页面内的折叠面板自动生成，新增 / 删除面板无需改动此处 -->
+            <div id="nav-list"></div>
+        </div>
+
+        <!-- 主内容区域 -->
+        <div class="main-content">
+
+            <h1>版权信息</h1>
+
+            <div class="content-section">
+                <h2>项目信息</h2>
+                <p><span class="highlight">项目名称：</span></p>
+                <p><span class="highlight">开发引擎：</span>Shiori Engine</p>
+                <p><span class="highlight">引擎版本：</span></p>
+                <p><span class="highlight">授权协议：</span></p>
+            </div>
+
+            <div class="content-section">
+                <h2>开发者信息</h2>
+                <p><span class="highlight">程序 / 制作：</span></p>
+                <p><span class="highlight">联系方式：</span></p>
+            </div>
+
+            <div class="content-section">
+                <h2>内容创作</h2>
+                <p><span class="highlight">美术：</span></p>
+                <p><span class="highlight">音乐：</span></p>
+                <p><span class="highlight">配音：</span></p>
+            </div>
+
+            <div class="content-section">
+                <h2>使用声明</h2>
+                <p class="small-text">请在此填写使用声明、分发与商用限制等条款。</p>
+            </div>
+
+            <div class="content-section">
+                <h2>许可证信息</h2>
+                <p><span class="highlight">完整协议：</span>详见项目根目录下的 <a href="../license.txt" target="_blank">license.txt</a> 文件</p>
+                <p class="small-text">使用本项目前请仔细阅读完整的许可协议。</p>
+            </div>
+
+            <!-- 折叠面板：新增文档只需复制这一组 button + div，侧栏导航会自动同步 -->
+            <button id="project-docs" class="collapsible" data-ui="copy_head">项目说明文档</button>
+            <div class="content">
+                <pre>（此处填写项目说明文档内容）</pre>
+            </div>
+
+            <button id="license-agreement" class="collapsible" data-ui="copy_head">使用协议</button>
+            <div class="content">
+                <pre>（此处填写使用协议内容）</pre>
+            </div>
+
+        </div>
+        <!-- 主内容区域结束 -->
+    </div>
+
+    <script>
+        // ESC 键返回主菜单
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                window.location.href = '../index.html';
+            }
+        });
+
+        // 折叠面板：点击切换展开 / 收起
+        function bindCollapsible(btn) {
+            btn.addEventListener('click', function () {
+                var content = btn.nextElementSibling;
+                btn.classList.toggle('active');
+                if (content && content.classList.contains('show')) {
+                    content.style.maxHeight = null;
+                    content.classList.remove('show');
+                } else if (content) {
+                    content.style.maxHeight = content.scrollHeight + 'px';
+                    content.classList.add('show');
+                }
+                syncNavState(btn.id);
+            });
+        }
+
+        // 折叠全部并返回顶部
+        function collapseAllAndScrollTop() {
+            var buttons = document.getElementsByClassName('collapsible');
+            for (var i = 0; i < buttons.length; i++) {
+                var content = buttons[i].nextElementSibling;
+                buttons[i].classList.remove('active');
+                if (content) {
+                    content.style.maxHeight = null;
+                    content.classList.remove('show');
+                }
+            }
+            syncNavState('');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // 导航到指定章节并展开
+        function navigateToSection(sectionId, navEl) {
+            var target = document.getElementById(sectionId);
+            if (!target) return;
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (!target.classList.contains('active')) target.click();
+            syncNavState(sectionId);
+            if (navEl) navEl.classList.add('active');
+        }
+
+        // 同步侧栏导航高亮
+        function syncNavState(activeId) {
+            var items = document.querySelectorAll('.nav-item');
+            for (var i = 0; i < items.length; i++) {
+                items[i].classList.remove('active');
+                if (items[i].getAttribute('data-target') === activeId) {
+                    items[i].classList.add('active');
+                }
+            }
+        }
+
+        // 初始化：按页面内的折叠面板自动生成侧栏导航。
+        // 同步执行（脚本位于 body 末尾），确保在 DOMContentLoaded 之前就生成好
+        // data-ui="copy_nav" 元素，避免 UI 皮肤探测时元素尚未存在。
+        (function initPage() {
+            var navList = document.getElementById('nav-list');
+            var buttons = document.getElementsByClassName('collapsible');
+            for (var i = 0; i < buttons.length; i++) {
+                var btn = buttons[i];
+                var item = document.createElement('div');
+                item.className = 'nav-item';
+                item.setAttribute('data-ui', 'copy_nav');
+                item.setAttribute('data-target', btn.id);
+                item.textContent = btn.textContent;
+                item.addEventListener('click', function () {
+                    navigateToSection(this.getAttribute('data-target'), this);
+                });
+                navList.appendChild(item);
+                bindCollapsible(btn);
+            }
+        })();
+    </script>
+</body>
+</html>

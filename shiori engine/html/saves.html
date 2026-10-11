@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>游戏进度管理</title>
+		<link rel="icon" type="image/png" href="../icon/icon-32.png">
+		<style>
+			body {
+				font-family: Arial, sans-serif;
+				margin: 0;
+				padding: 0;
+				height: 100vh;
+				overflow: hidden;
+				position: relative;
+				background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('../assets/cg/bg.jpg') center center/cover no-repeat;
+				display: flex;
+				justify-content: center;
+			}
+
+			.container {
+				width: 75%;
+				margin-top: calc(70 * var(--v, 1px));
+				/* 为固定顶部菜单留出空间 */
+				margin-left: auto;
+				margin-right: auto;
+				background: transparent;
+				padding: calc(15 * var(--u, 1px));
+				border-radius: calc(8 * var(--u, 1px));
+				box-shadow: none;
+			}
+
+			h1 {
+				color: #FFD700;
+				text-align: center;
+				margin: calc(40 * var(--v, 1px)) auto calc(20 * var(--v, 1px)) auto;
+				font-size: calc(32 * var(--u, 1px));
+				text-shadow: 0 0 calc(10 * var(--u, 1px)) rgba(255, 215, 0, 0.5);
+				width: fit-content;
+			}
+
+			.jump-section {
+				margin: calc(15 * var(--v, 1px)) 0;
+			}
+
+			h2 {
+				margin: calc(20 * var(--v, 1px)) auto calc(15 * var(--v, 1px)) auto;
+				color: #FFD700;
+				font-size: calc(18 * var(--u, 1px));
+				text-shadow: 0 0 calc(5 * var(--u, 1px)) rgba(255, 215, 0, 0.8);
+				width: fit-content;
+				text-align: center;
+			}
+
+			.scene-grid {
+				display: grid;
+				grid-template-columns: repeat(3, 1fr);
+				gap: calc(10 * var(--u, 1px));
+				margin-bottom: calc(20 * var(--v, 1px));
+				justify-content: center;
+			}
+
+			.scene-card {
+				background-color: transparent;
+				color: #FFD700;
+				border: calc(2 * var(--u, 1px)) solid #FFD700;
+				border-radius: calc(20 * var(--u, 1px));
+				padding: calc(8 * var(--v, 1px)) calc(15 * var(--u, 1px));
+				text-align: center;
+				min-height: calc(40 * var(--v, 1px));
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				cursor: pointer;
+				transition: all 0.3s ease;
+				font-size: calc(16 * var(--u, 1px));
+				font-weight: bold;
+			}
+
+			.scene-card:hover {
+				background-color: rgba(255, 215, 0, 0.2);
+				color: #FFA500;
+				border: calc(2 * var(--u, 1px)) solid #FFA500;
+				transform: scale(1.03);
+			}
+
+
+
+			/* 当前游玩场景高亮样式 */
+			.current-playing-highlight {
+				border: calc(3 * var(--u, 1px)) solid #2196F3 !important;
+				box-shadow: 0 0 calc(15 * var(--u, 1px)) rgba(33, 150, 243, 0.6), inset 0 0 calc(10 * var(--u, 1px)) rgba(33, 150, 243, 0.2) !important;
+				background-color: rgba(33, 150, 243, 0.15) !important;
+				position: relative;
+				animation: pulse-blue 2s ease-in-out infinite;
+			}
+
+			.current-playing-highlight::before {
+				content: '当前位置';
+				position: absolute;
+				top: calc(-12 * var(--v, 1px));
+				right: calc(10 * var(--u, 1px));
+				background: linear-gradient(135deg, #2196F3, #1976D2);
+				color: #fff;
+				padding: calc(2 * var(--v, 1px)) calc(10 * var(--u, 1px));
+				border-radius: calc(10 * var(--u, 1px));
+				font-size: calc(11 * var(--u, 1px));
+				font-weight: bold;
+				box-shadow: 0 calc(2 * var(--u, 1px)) calc(5 * var(--u, 1px)) rgba(0, 0, 0, 0.3);
+				z-index: 10;
+			}
+
+			.current-playing-highlight:hover {
+				background-color: rgba(33, 150, 243, 0.25) !important;
+				border-color: #1976D2 !important;
+			}
+
+
+			/* 蓝色脉冲动画 */
+			@keyframes pulse-blue {
+
+				0%,
+				100% {
+					box-shadow: 0 0 calc(15 * var(--u, 1px)) rgba(33, 150, 243, 0.6), inset 0 0 calc(10 * var(--u, 1px)) rgba(33, 150, 243, 0.2);
+				}
+
+				50% {
+					box-shadow: 0 0 calc(25 * var(--u, 1px)) rgba(33, 150, 243, 0.9), inset 0 0 calc(15 * var(--u, 1px)) rgba(33, 150, 243, 0.4);
+				}
+			}
+
+			.actions {
+				position: fixed;
+				top: 0;
+				left: 0;
+				right: 0;
+				z-index: 1000;
+				text-align: center;
+				margin: 0;
+				padding: calc(10 * var(--u, 1px));
+				border: none;
+				border-bottom: 1px solid #FFD700;
+				background-color: transparent;
+				box-shadow: 0 calc(2 * var(--u, 1px)) calc(5 * var(--u, 1px)) rgba(0, 0, 0, 0.1);
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				gap: calc(10 * var(--u, 1px));
+			}
+
+			.container {
+				width: 75%;
+				margin-top: calc(70 * var(--v, 1px));
+				/* 为固定顶部菜单留出空间 */
+				margin-left: auto;
+				margin-right: auto;
+				background: transparent;
+				padding: calc(15 * var(--u, 1px));
+				border-radius: calc(8 * var(--u, 1px));
+				box-shadow: none;
+				overflow-y: auto;
+				/* 添加垂直滚动支持 */
+				max-height: calc(100vh - calc(90 * var(--v, 1px)));
+				/* 限制最大高度，留出顶部和底部空间 */
+			}
+
+			button {
+				background-color: transparent;
+				color: #FFD700;
+				padding: calc(8 * var(--v, 1px)) calc(16 * var(--u, 1px));
+				border: calc(2 * var(--u, 1px)) solid #FFD700;
+				border-radius: calc(20 * var(--u, 1px));
+				cursor: pointer;
+				margin: 0 calc(5 * var(--u, 1px));
+				font-size: calc(14 * var(--u, 1px));
+				font-weight: bold;
+				transition: all 0.3s ease;
+			}
+
+			button:hover {
+				background-color: rgba(255, 215, 0, 0.2);
+				color: #FFA500;
+				border: calc(2 * var(--u, 1px)) solid #FFA500;
+			}
+
+			button.delete {
+				color: #f44336;
+				border: calc(2 * var(--u, 1px)) solid #f44336;
+			}
+
+			button.delete:hover {
+				background-color: rgba(244, 67, 54, 0.2);
+				color: #da190b;
+				border: calc(2 * var(--u, 1px)) solid #da190b;
+			}
+
+			button.primary {
+				background-color: rgba(33, 150, 243, 0.3);
+				border-color: #2196F3;
+				color: #fff;
+			}
+
+			button.primary:hover {
+				background-color: rgba(33, 150, 243, 0.5);
+				border-color: #1976D2;
+			}
+
+			.status {
+				margin-top: calc(10 * var(--v, 1px));
+				padding: calc(8 * var(--u, 1px));
+				border-radius: calc(4 * var(--u, 1px));
+				text-align: center;
+				font-size: calc(14 * var(--u, 1px));
+			}
+
+			.success {
+				background-color: #d4edda;
+				color: #155724;
+				border: 1px solid #c3e6cb;
+			}
+
+			.error {
+				background-color: #f8d7da;
+				color: #721c24;
+				border: 1px solid #f5c6cb;
+			}
+
+			/* 隐藏游戏相关元素（!important：官方 style.css 后注入，否则对话框底边黑条） */
+			#background-container,
+			#character-container,
+			#text-box-container,
+			#options-container,
+			#novel-mode-container {
+				display: none !important;
+			}
+
+			/* 音频播放器保持隐藏 */
+			audio {
+				display: none;
+			}
+
+			
+			/* 智能返回提示框 */
+			#smart-return-box {
+				position: fixed;
+				top: calc(80 * var(--v, 1px));
+				right: calc(30 * var(--u, 1px));
+				background: rgba(0, 0, 0, 0.85);
+				border: calc(2 * var(--u, 1px)) solid #2196F3;
+				border-radius: calc(12 * var(--u, 1px));
+				padding: calc(20 * var(--u, 1px));
+				z-index: 1500;
+				display: none;
+				min-width: calc(280 * var(--u, 1px));
+				backdrop-filter: blur(calc(10 * var(--u, 1px)));
+				box-shadow: 0 calc(4 * var(--u, 1px)) calc(20 * var(--u, 1px)) rgba(33, 150, 243, 0.3);
+				animation: slideInRight 0.3s ease;
+			}
+
+			@keyframes slideInRight {
+				from {
+					opacity: 0;
+					transform: translateX(calc(50 * var(--u, 1px)));
+				}
+				to {
+					opacity: 1;
+					transform: translateX(0);
+				}
+			}
+
+			#return-message {
+				color: #2196F3;
+				font-size: calc(16 * var(--u, 1px));
+				font-weight: bold;
+				margin-bottom: calc(15 * var(--v, 1px));
+				text-align: center;
+			}
+
+			#return-button {
+				width: 100%;
+				background: linear-gradient(135deg, rgba(33, 150, 243, 0.4), rgba(25, 118, 210, 0.4));
+				border: calc(2 * var(--u, 1px)) solid #2196F3;
+				color: #fff;
+				padding: calc(12 * var(--u, 1px));
+				border-radius: calc(8 * var(--u, 1px));
+				cursor: pointer;
+				font-size: calc(14 * var(--u, 1px));
+				font-weight: bold;
+				transition: all 0.3s ease;
+			}
+
+			#return-button:hover {
+				background: linear-gradient(135deg, rgba(33, 150, 243, 0.6), rgba(25, 118, 210, 0.6));
+				border-color: #1976D2;
+				transform: translateY(calc(-2 * var(--u, 1px)));
+				box-shadow: 0 calc(4 * var(--u, 1px)) calc(12 * var(--u, 1px)) rgba(33, 150, 243, 0.4);
+			}
+		</style>
+	<script src="../config/illustration.js"></script>
+	<link rel="stylesheet" href="../ui/ui_skin.css">
+	<script src="../ui/ui_skin.js"></script>
+</head>
+	<body>
+		<!-- 背景容器 - 用作菜单背景 -->
+		<div id="background-container"></div>
+
+		<!-- 角色立绘容器 -->
+		<div id="character-container"></div>
+
+		<!-- 文本框区域 -->
+		<div id="text-box-container">
+			<div id="name-box">
+				<span>[姓名]</span>
+			</div>
+			<div id="text-box">[文本]</div>
+		</div>
+
+		<!-- 选项容器 -->
+		<div id="options-container"></div>
+
+		<!-- 全屏文本模式 -->
+		<div id="novel-mode-container">
+			<div id="novel-text-box">[全屏文本]</div>
+		</div>
+
+		<!-- 音频播放器 -->
+		<audio id="bgm-player" loop></audio>
+		<audio id="se-player"></audio>
+		<audio id="voice-player"></audio>
+
+
+		<div class="container">
+
+			<div class="actions">
+				<button onclick="loadProgress()" data-ui="prog_act">刷新进度</button>
+				<button onclick="location.href='archive.html'" class="primary" data-ui="prog_act">多存档位管理</button>
+				<button onclick="location.href='flowchart.html'" class="primary" data-ui="prog_act">剧本流程图</button>
+				<button onclick="exportSave()" class="export" data-ui="prog_act">导出存档</button>
+				<button onclick="resetProgress()" class="delete" data-ui="prog_act">重置进度</button>
+				<button onclick="location.href='../index.html'" class="back" data-ui="sub_back">返回主菜单(esc)</button>
+			</div>
+
+			<h1 id="page-title">游戏进度管理</h1>
+
+			<!-- 智能返回提示框 -->
+			<div id="smart-return-box" style="display: none;">
+				<div id="return-message"></div>
+				<button id="return-button" onclick="handleSmartReturn()" data-ui="sub_return"></button>
+			</div>
+
+			<div class="jump-section">
+				<h2>快速跳转</h2>
+				<div id="quick-jump-grid" class="scene-grid">
+					<!-- 动态加载可跳转的场景按钮 -->
+				</div>
+			</div>
+
+			<div id="status-message" class="status" style="display: none;"></div>
+		</div>
+
+		<script>
+			// 存档管理器
+			const SaveManager = {
+				// 加载进度数据
+				loadProgress: function() {
+					const progressData = localStorage.getItem('gameProgress');
+					if (progressData) {
+						try {
+							return JSON.parse(progressData);
+						} catch (e) {
+							console.error('加载进度失败:', e);
+							this.showMessage('加载进度失败', 'error');
+							return null;
+						}
+					}
+					return null;
+				},
+
+				// 显示进度信息
+				displayProgress: function() {
+					const progressData = this.loadProgress();
+
+					// 显示快速跳转按钮
+					this.displayQuickJumpButtons(progressData);
+				},
+
+				// 导出存档
+				exportSave: function() {
+					const progressData = this.loadProgress();
+					if (!progressData) {
+						this.showMessage('没有可导出的进度数据', 'error');
+						return;
+					}
+
+					// 创建下载链接
+					const dataStr = JSON.stringify(progressData, null, 2);
+					const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+
+					const exportFileDefaultName = `galgame_save_${new Date().toISOString().slice(0, 19)}.json`;
+
+					const linkElement = document.createElement('a');
+					linkElement.setAttribute('href', dataUri);
+					linkElement.setAttribute('download', exportFileDefaultName);
+					linkElement.click();
+
+					this.showMessage('存档已导出', 'success');
+				},
+
+				// 重置进度
+				resetProgress: function() {
+					if (confirm('确定要重置所有游戏进度吗？此操作不可撤销。')) {
+						localStorage.removeItem('gameProgress');
+						this.displayProgress();
+						this.showMessage('进度已重置', 'success');
+					}
+				},
+
+				// 显示状态消息
+				showMessage: function(message, type) {
+					const statusDiv = document.getElementById('status-message');
+					statusDiv.textContent = message;
+					statusDiv.className = `status ${type}`;
+					statusDiv.style.display = 'block';
+
+					// 3秒后自动隐藏
+					setTimeout(() => {
+						statusDiv.style.display = 'none';
+					}, 3000);
+				},
+
+			// 显示快速跳转按钮
+		displayQuickJumpButtons: function(progressData) {
+			const self = this;
+			const jumpGrid = document.getElementById('quick-jump-grid');
+			jumpGrid.innerHTML = '';
+
+			const showEmptyHint = function() {
+				jumpGrid.innerHTML = '<p style="text-align: center; color: #666;">还没有可以跳转的场景</p>';
+			};
+
+			if (!progressData || !progressData.sceneMarkers) {
+				showEmptyHint();
+				return;
+			}
+
+			const markers = progressData.sceneMarkers;
+			const markerKeys = Object.keys(markers);
+
+			// 过滤出已访问的场景(兼容新旧格式)
+			const visitedScenes = markerKeys.filter(marker => {
+				const value = markers[marker];
+				// 新格式: {visited: 1, lastAccessTime: ...}
+				// 旧格式: 1
+				return (typeof value === 'object' && value.visited === 1) || value === 1;
+			});
+
+			if (visitedScenes.length === 0) {
+				showEmptyHint();
+				return;
+			}
+
+			// 跟踪异步校验结果：仅在 scenes/ 目录内真实存在的文件才会保留卡片，
+			// 历史/脏数据（如曾误存的 CG、archive 等系统页面）会因 fetch 404 被自动移除
+			let pending = visitedScenes.length;
+			let validCount = 0;
+
+			const onCheckDone = function(exists) {
+				if (exists) validCount++;
+				pending--;
+				if (pending === 0 && validCount === 0) {
+					showEmptyHint();
+				}
+			};
+
+			visitedScenes.forEach(sceneId => {
+				const sceneFileName = `${sceneId}.html`;
+
+				// 先创建卡片，标题与有效性通过异步 fetch 校验
+				const cardDiv = document.createElement('div');
+				cardDiv.className = 'scene-card';
+				cardDiv.setAttribute('data-ui', 'prog_jump');
+				cardDiv.setAttribute('data-scene', sceneFileName);
+				cardDiv.setAttribute('data-scene-id', sceneId);
+				cardDiv.onclick = function() {
+					SaveManager.jumpToScene(sceneFileName);
+				};
+				cardDiv.innerHTML = `
+					<div class="scene-name">加载中...</div>
+				`;
+				jumpGrid.appendChild(cardDiv);
+
+				// 异步获取场景标题；若 scenes/ 内不存在该文件则移除卡片
+				self.fetchSceneTitle(sceneId, cardDiv, onCheckDone);
+			});
+		},
+
+		// 异步获取场景文件的<title>标签
+		// 同时用于校验该文件是否真实存在于 scenes/ 目录内
+		fetchSceneTitle: function(sceneId, cardDiv, onComplete) {
+			const sceneFileName = `${sceneId}.html`;
+			fetch(`../scenes/${encodeURIComponent(sceneFileName)}`)
+				.then(response => {
+					if (!response.ok) throw new Error('Scene not found: ' + response.status);
+					return response.text();
+				})
+				.then(html => {
+					// 解析HTML获取<title>标签
+					const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+					const title = titleMatch ? titleMatch[1].trim() : sceneId;
+					// 更新卡片显示
+					const nameDiv = cardDiv.querySelector('.scene-name');
+					if (nameDiv) {
+						nameDiv.textContent = title;
+					}
+					if (onComplete) onComplete(true);
+				})
+				.catch(error => {
+					console.warn(`[SaveManager] scenes/ 内未找到 ${sceneFileName}，移除该卡片:`, error);
+					// 文件不存在（如历史脏数据），从 DOM 移除卡片
+					if (cardDiv.parentNode) {
+						cardDiv.parentNode.removeChild(cardDiv);
+					}
+					if (onComplete) onComplete(false);
+				});
+		},
+
+		// 跳转到指定场景
+		// 所有场景文件均位于 scenes/ 目录下（由 engine.js 保证仅记录 scenes/ 内的页面）
+		jumpToScene: function(sceneFileName) {
+			// ★ 场景入口跳入信号：目标场景加载后，engine.js 会读取
+			// localStorage['shiori_scene_entry_' + sceneFileName] 中的 f.（该场景最近一次
+			// 经 nextScene / choice 正常流程进入时的变量），实现“从头播放但变量接续”。
+			// 同时清除可能残留的 nextScene 信号，避免被误判为跨场景续玩。
+			try {
+				sessionStorage.removeItem('shiori_next_scene_target');
+				sessionStorage.setItem('shiori_scene_entry_jump', '1');
+			} catch (e) {}
+			window.location.href = '../scenes/' + sceneFileName;
+		}
+	};
+
+			/**
+			 * 智能返回功能管理器
+			 */
+			const SmartReturnManager = {
+				/**
+				 * 初始化智能返回功能
+				 */
+				init: function() {
+					this.checkAndDisplayReturnBox();
+				},
+
+				/**
+				 * 检查并显示返回提示框
+				 */
+				checkAndDisplayReturnBox: function() {
+					console.log('[Smart Return] checkAndDisplayReturnBox called');
+
+					const snapshot = this.loadStateSnapshot();
+					console.log('[Smart Return] Snapshot:', snapshot);
+
+					const box = document.getElementById('smart-return-box');
+					const messageEl = document.getElementById('return-message');
+					const buttonEl = document.getElementById('return-button');
+
+					if (!box || !messageEl || !buttonEl) {
+						console.error('[Smart Return] DOM elements not found!');
+						return;
+					}
+
+					// 只处理从剧情页进入的情况
+					if (snapshot && !snapshot.pagePath.includes('index.html') && snapshot.pagePath.includes(
+						'/scenes/')) {
+						// 从剧情页进入
+						console.log('[Smart Return] From story page');
+						messageEl.textContent = '当前游玩页面';
+						buttonEl.textContent = '返回当前页面';
+
+						// 保存场景信息用于返回
+						sessionStorage.setItem('returnTarget', JSON.stringify({
+							type: 'current',
+							url: snapshot.pageUrl,
+							line: snapshot.currentLine
+						}));
+
+						// 显示提示框
+						box.style.display = 'block';
+						console.log('[Smart Return] Showed return box');
+
+						// 高亮当前游玩的场景卡片
+						this.highlightCurrentScene(snapshot);
+					} else {
+						// 从主菜单进入或没有snapshot,隐藏提示框
+						console.log('[Smart Return] From main menu or no snapshot, hiding box');
+						box.style.display = 'none';
+					}
+				},
+
+				/**
+				 * 从sessionStorage加载状态快照
+				 */
+				loadStateSnapshot: function() {
+					try {
+						const snapshotStr = sessionStorage.getItem('gameStateSnapshot');
+						if (snapshotStr) {
+							return JSON.parse(snapshotStr);
+						}
+					} catch (e) {
+						console.error('[Smart Return] Failed to load snapshot:', e);
+					}
+					return null;
+				},
+
+
+
+				/**
+				 * 高亮当前游玩的场景卡片
+				 * @param {Object} snapshot - 状态快照对象
+				 */
+				highlightCurrentScene: function(snapshot) {
+					// 移除所有高亮类,避免冲突
+					this.clearAllHighlights();
+
+					// 从pagePath中提取场景文件名
+					const pathParts = snapshot.pagePath.split('/');
+					const sceneFileName = pathParts[pathParts.length - 1];
+
+					// 查找对应的场景卡片（通过data-scene属性匹配）
+					const cards = document.querySelectorAll('.scene-card');
+					cards.forEach(card => {
+						const cardScene = card.getAttribute('data-scene');
+						if (cardScene === sceneFileName) {
+							card.classList.add('current-playing-highlight');
+							console.log('[Smart Return] Highlighted current playing scene:', sceneFileName,
+								'at line', snapshot.currentLine);
+						}
+					});
+				},
+
+				/**
+				 * 清除所有高亮类
+				 */
+				clearAllHighlights: function() {
+					const cards = document.querySelectorAll('.scene-card');
+					cards.forEach(card => {
+						card.classList.remove('current-playing-highlight');
+					});
+				}
+			};
+
+			/**
+			 * 处理智能返回按钮点击
+			 */
+			function handleSmartReturn() {
+				const returnTargetStr = sessionStorage.getItem('returnTarget');
+				if (!returnTargetStr) {
+					console.warn('[Smart Return] No return target found');
+					return;
+				}
+
+				try {
+					const returnTarget = JSON.parse(returnTargetStr);
+					console.log('[Smart Return] Return target:', returnTarget);
+
+					if (returnTarget.type === 'current') {
+						// 返回当前剧情页(带状态恢复)
+						// 在URL中添加行号参数
+						const url = new URL(returnTarget.url, window.location.origin);
+						url.searchParams.set('startLine', returnTarget.line);
+						console.log('[Smart Return] Returning to current scene:', url.toString());
+						window.location.href = url.toString();
+					}
+				} catch (e) {
+					console.error('[Smart Return] Failed to process return:', e);
+				}
+			}
+
+			// 页面加载完成后初始化
+			document.addEventListener('DOMContentLoaded', function() {
+				console.log('[Saves Page] DOMContentLoaded triggered');
+
+				// 先渲染场景列表
+				SaveManager.displayProgress();
+				console.log('[Saves Page] Scene list rendered');
+
+				// 延迟一点再初始化智能返回,确保DOM完全就绪
+				setTimeout(() => {
+					SmartReturnManager.init();
+					console.log('[Saves Page] SmartReturnManager initialized');
+				}, 100);
+			});
+
+			// 全局函数
+			function loadProgress() {
+				SaveManager.displayProgress();
+			}
+
+			function exportSave() {
+				SaveManager.exportSave();
+			}
+
+			function resetProgress() {
+				SaveManager.resetProgress();
+			}
+
+			// ESC键返回主菜单
+			document.addEventListener('keydown', (e) => {
+				if (e.key === 'Escape') {
+					window.location.href = '../index.html';
+				}
+			});
+		</script>
+	</body>
+</html>

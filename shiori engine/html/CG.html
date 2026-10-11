@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CG 鉴赏</title>
+    <link rel="icon" type="image/png" href="../icon/icon-32.png">
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('../assets/cg/bg.jpg') center center/cover no-repeat;
+            font-family: 'Microsoft YaHei', sans-serif;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* CG列表容器 */
+        #cg-container {
+            position: absolute;
+            right: 0;
+            top: calc(80 * var(--v, 1px)); /* 留出标题空间 */
+            width: 100%;
+            height: calc(100% - calc(150 * var(--v, 1px))); /* 减去标题和返回按钮的空间 */
+            background-color: transparent;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(calc(200 * var(--u, 1px)), 1fr));  /* 自适应列数 */
+            grid-auto-rows: auto;
+            gap: calc(15 * var(--u, 1px));
+            justify-content: center;
+            align-content: start; /* 内容从顶部开始排列 */
+            z-index: 10;
+            padding: calc(20 * var(--u, 1px));
+            box-sizing: border-box;
+            overflow-y: auto; /* 添加垂直滚动 */
+            overflow-x: hidden; /* 防止水平滚动 */
+        }
+
+        /* CG标题 */
+        #cg-title {
+            color: white;
+            font-size: calc(32 * var(--u, 1px));
+            margin-bottom: calc(40 * var(--v, 1px));
+            text-align: center;
+            text-shadow: 0 0 calc(10 * var(--u, 1px)) rgba(255, 255, 255, 0.5);
+        }
+
+        /* CG图片缩略图样式 */
+        .cg-thumbnail {
+            width: 100%;
+            height: calc(150 * var(--v, 1px));
+            object-fit: cover;
+            border-radius: calc(10 * var(--u, 1px));
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: calc(2 * var(--u, 1px)) solid transparent;
+            box-shadow: 0 calc(4 * var(--u, 1px)) calc(8 * var(--u, 1px)) rgba(0, 0, 0, 0.3);
+        }
+
+        .cg-thumbnail:hover {
+            transform: scale(1.05);
+            border: calc(2 * var(--u, 1px)) solid #FFD700;
+            box-shadow: 0 0 calc(15 * var(--u, 1px)) rgba(255, 215, 0, 0.7);
+        }
+
+        /* 放大图片的模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: calc(10 * var(--u, 1px));
+            box-shadow: 0 0 calc(20 * var(--u, 1px)) rgba(255, 255, 255, 0.3);
+        }
+
+        .close {
+            position: absolute;
+            top: calc(20 * var(--v, 1px));
+            right: calc(35 * var(--u, 1px));
+            color: #fff;
+            font-size: calc(40 * var(--u, 1px));
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 2001;
+        }
+
+        .close:hover {
+            color: #FFD700;
+        }
+
+        /* 导航按钮 */
+        .nav-button {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            font-size: calc(30 * var(--u, 1px));
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 2001;
+            padding: calc(20 * var(--u, 1px));
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            user-select: none;
+        }
+
+        .prev-nav {
+            left: calc(20 * var(--u, 1px));
+        }
+
+        .next-nav {
+            right: calc(20 * var(--u, 1px));
+        }
+
+        .nav-button:hover {
+            background-color: rgba(255, 215, 0, 0.8);
+            color: white;
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        /* 图片计数器 */
+        .image-counter {
+            position: absolute;
+            bottom: calc(20 * var(--v, 1px));
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: calc(18 * var(--u, 1px));
+            font-weight: bold;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: calc(5 * var(--v, 1px)) calc(15 * var(--u, 1px));
+            border-radius: calc(20 * var(--u, 1px));
+            z-index: 2001;
+        }
+
+        /* 返回按钮 */
+        .back-btn {
+            position: absolute;
+            bottom: calc(20 * var(--v, 1px));
+            right: calc(20 * var(--u, 1px));
+            padding: calc(10 * var(--v, 1px)) calc(20 * var(--u, 1px));
+            background-color: transparent;
+            color: #FFD700;
+            border: calc(2 * var(--u, 1px)) solid #FFD700;
+            border-radius: calc(20 * var(--u, 1px));
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+
+        .back-btn:hover {
+            background-color: rgba(255, 215, 0, 0.2);
+            color: #FFA500;
+            border: calc(2 * var(--u, 1px)) solid #FFA500;
+        }
+
+        /* 页面标题 */
+        #page-title {
+            position: absolute;
+            top: calc(20 * var(--v, 1px));
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: #FFD700;
+            font-size: calc(32 * var(--u, 1px));
+            margin: 0;
+            text-shadow: 0 0 calc(10 * var(--u, 1px)) rgba(255, 255, 255, 0.5);
+            z-index: 20;
+        }
+
+        /* 隐藏游戏相关元素（!important：官方 style.css 后注入，否则对话框底边黑条） */
+        #background-container,
+        #character-container,
+        #text-box-container,
+        #options-container,
+        #novel-mode-container {
+            display: none !important;
+        }
+
+        /* 音频播放器保持隐藏 */
+        audio {
+            display: none;
+        }
+
+        /* CG 滚动/合成优化（覆盖规则，置于样式末尾确保生效）：
+           离屏缩略图跳过渲染；hover 只过渡合成属性，不再 transition:all */
+        .cg-thumbnail {
+            content-visibility: auto;
+            contain-intrinsic-size: auto calc(150 * var(--v, 1px));
+            transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        /* ===== canvas 网格（覆盖规则，置于样式末尾确保生效）=====
+           CG 缩略图用 <canvas>：位图由 ShioriImgPool（Worker 解码 + 字节上限 LRU）
+           直接 drawImage 到画布，不再经过浏览器的网络与解码管线。
+           canvas 的位图尺寸由脚本按格子实测盒子的宽高比分配，因此两处 CSS 的
+           width/height 必须保持一致（脚本据此做 cover 裁切）。 */
+        .cg-cell {
+            display: block;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .cg-thumbnail {
+            display: block;
+            /* canvas 不支持 object-fit：等比裁切由脚本按实测宽高比 drawImage 完成 */
+        }
+
+        /* 未就绪格子：统一占位底（构造即 32×32 占位位图，解码在后台填） */
+        .cg-thumbnail[data-cg-ready="0"] {
+            background-color: rgba(255, 255, 255, 0.05);
+            background-image: linear-gradient(135deg,
+                rgba(255, 255, 255, 0.07) 25%, transparent 25%,
+                transparent 50%, rgba(255, 255, 255, 0.07) 50%,
+                rgba(255, 255, 255, 0.07) 75%, transparent 75%);
+            background-size: calc(24 * var(--u, 1px)) calc(24 * var(--u, 1px));
+        }
+
+        /* 原图缺失/解码失败：明示不可点（保留"不存在跳过"的语义，但不再整格塌掉） */
+        .cg-cell[data-cg-missing="1"] .cg-thumbnail {
+            opacity: 0.35;
+            cursor: default;
+        }
+
+    </style>
+
+</head>
+<body>
+    <!-- 背景容器 - 用作菜单背景 -->
+    <div id="background-container"></div>
+
+    <!-- 角色立绘容器 -->
+    <div id="character-container"></div>
+
+    <!-- 文本框区域 -->
+    <div id="text-box-container">
+        <div id="name-box"><span>[姓名]</span></div>
+        <div id="text-box">[文本]</div>
+    </div>
+
+    <!-- 选项容器 -->
+    <div id="options-container"></div>
+
+    <!-- 全屏文本模式 -->
+    <div id="novel-mode-container">
+        <div id="novel-text-box">[全屏文本]</div>
+    </div>
+
+    <!-- 音频播放器 -->
+    <audio id="bgm-player" loop></audio>
+    <audio id="se-player"></audio>
+    <audio id="voice-player"></audio>
+
+    <!-- 引擎脚本 -->
+
+    <!-- 页面标题 -->
+    <h1 id="page-title">CG鉴赏</h1>
+
+    <!-- CG列表容器 -->
+    <div id="cg-container">
+        <!-- CG图片将通过JavaScript动态加载 -->
+    </div>
+
+    <!-- 放大图片的模态框 -->
+    <div id="imageModal" class="modal">
+        <span class="close" data-ui="cg_close">&times;</span>
+        <img class="modal-content" id="modalImage">
+        <div class="nav-button prev-nav" data-ui="cg_nav">&#10094;</div>
+        <div class="nav-button next-nav" data-ui="cg_nav">&#10095;</div>
+        <div class="image-counter">1 / 1</div>
+    </div>
+
+    <!-- 返回主菜单按钮 -->
+    <a href="../index.html" class="back-btn" data-ui="sub_back">返回主菜单(esc)</a>
+
+    <script>
+        const indexData = {
+            bgm: BGM_CONFIG_SUB,
+            story: [
+                {
+                    text: "",
+                    bgm: 'bgm1', // 播放BGM
+                    action: null
+                }
+            ]
+        };
+
+        // CG图片管理器
+        const CGManager = {
+            // 当前显示的图片索引
+            currentImageIndex: 0,
+
+            // 单元格画布位图尺寸（backing store 像素）；同一 grid 内每格等宽等高，只测一次
+            cw: 0,
+            ch: 0,
+            // 单元格记录：[{ canvas, ctx, key, ready }]
+            _cells: [],
+            // 本批在途请求的 AbortController（翻页/关闭时取消）
+            _inflight: null,
+
+            // 初始化CG列表
+            init: function() {
+                this.loadCGList();
+                this.bindEvents();
+            },
+
+            // 加载CG列表
+            loadCGList: function() {
+                const container = document.getElementById('cg-container');
+                container.innerHTML = '';
+                this._cells = [];
+                this._inflight = null;
+
+                let paths = Object.values(CG_CONFIG_SUB);
+                this._thumbPaths = paths;
+
+                const pool = window.ShioriImgPool;
+                if (!pool || typeof pool.request !== 'function') {
+                    // 位图池不可用（未加载 ui/imgpool.js）→ 回落 <img src> 路径
+                    console.warn('[CG] ShioriImgPool 不可用，回落 <img> 缩略图');
+                    this._loadCGListAsImg(container, paths);
+                    return;
+                }
+
+                // 1) 先建满全部格子：只画占位底，不发请求、不产生布局抖动
+                //    每格包一层 .cg-cell 作为皮肤位（data-ui="cg_item"）
+                paths.forEach((path, index) => {
+                    const canvas = document.createElement('canvas');
+                    canvas.className = 'cg-thumbnail';
+                    canvas.dataset.cgReady = '0';
+                    canvas.dataset.fullPath = path;
+                    canvas.dataset.index = index;
+                    canvas.addEventListener('click', (e) => {
+                        const host = e.target.parentElement;
+                        if (host && host.dataset.cgMissing === '1') return;  // 缺失项不可点
+                        this.currentImageIndex = parseInt(e.target.dataset.index, 10);
+                        const src = String(this._thumbPaths[this.currentImageIndex] || '');
+                        this.showFullImage(src.split('?')[0]);
+                    });
+                    const cell = document.createElement('span');
+                    cell.className = 'cg-cell';
+                    cell.dataset.ui = 'cg_item';
+                    cell.appendChild(canvas);
+                    container.appendChild(cell);
+                    this._cells.push({
+                        canvas: canvas,
+                        ctx: canvas.getContext('2d'),
+                        key: path,
+                        ready: false
+                    });
+                });
+
+                // 2) 按格子实测盒子分配画布位图尺寸（cover 裁切据此进行）
+                this._syncCanvasSize(true);
+
+                // 3) 先挂就绪回调再发起请求：池已命中时 request 会同步回调，
+                //    顺序反了会导致"命中却不绘制"。每张位图就绪即增量重绘该格。
+                this._cells.forEach((cell) => {
+                    pool.ready(cell.key, (bmp) => {
+                        if (!bmp) return;
+                        cell.ready = true;
+                        this._drawCell(cell, bmp);
+                    });
+                });
+
+                // 4) 一次批量取回全部缩略图（HTTP 往返从 N 次压到 1~2 次）
+                const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+                this._inflight = ctrl;
+                const t0 = (window.performance && performance.now) ? performance.now() : Date.now();
+                pool.request(paths, ctrl ? { signal: ctrl.signal } : undefined).then((r) => {
+                    const t1 = (window.performance && performance.now) ? performance.now() : Date.now();
+                    console.log('[CG] 批量取图 请求 ' + r.requested + ' 张 → 就绪 ' + r.loaded +
+                        ' 张，耗时 ' + Math.round(t1 - t0) + 'ms，池占用 ' + r.bytes + ' 字节');
+                    // 5) 池里最终仍无位图的格子：标记缺失（保留占位框，不再整格塌陷）
+                    this._markMissing();
+                });
+            },
+
+            // 每格一个独立 <img>、各自发起自己的请求、不共享任何缓存。
+            // 位图池不可用（未加载 ui/imgpool.js）时回落到这里，行为与改造前一致。
+            _loadCGListAsImg: function(container, paths) {
+                const thumbUrl = (p) => {
+                    if (window.ShioriHostConfig && typeof ShioriHostConfig.assetThumbUrl === 'function')
+                        return ShioriHostConfig.assetThumbUrl(p);
+                    const raw = String(p);
+                    const q = raw.indexOf('?');
+                    const base = q >= 0 ? raw.slice(0, q) : raw;
+                    const query = q >= 0 ? raw.slice(q) : '';
+                    const m = base.match(/(?:^|\/)assets\/(.+)$/);
+                    return m ? '/cg-thumb/' + m[1] + query : p;
+                };
+                paths.forEach((path, index) => {
+                    const img = document.createElement('img');
+                    img.alt = 'CG ' + (index + 1);
+                    img.className = 'cg-thumbnail';
+                    img.decoding = 'async';
+                    img.dataset.fullPath = path;
+                    img.dataset.index = index;
+                    img.addEventListener('click', (e) => {
+                        this.currentImageIndex = parseInt(e.target.dataset.index, 10);
+                        const src = String(this._thumbPaths[this.currentImageIndex] || '');
+                        this.showFullImage(src.split('?')[0]);
+                    });
+                    img.addEventListener('error', () => {
+                        const cell = img.parentElement && img.parentElement.classList
+                            && img.parentElement.classList.contains('cg-cell')
+                            ? img.parentElement : img;
+                        cell.style.display = 'none';
+                        console.log('CG图片不存在: ' + path);
+                    });
+                    img.src = thumbUrl(path);
+                    const cell = document.createElement('span');
+                    cell.className = 'cg-cell';
+                    cell.dataset.ui = 'cg_item';
+                    cell.appendChild(img);
+                    container.appendChild(cell);
+                });
+            },
+
+            /**
+             * 度量并同步全部画布的位图尺寸。
+             * 同一 grid 内每格等宽等高，因此只需测首格；但 content-visibility:auto 会让
+             * 离屏元素的盒子退化为 intrinsic size，测量时临时关掉再恢复。
+             * @param {boolean} force 尺寸未变时也强制重设（初次建格用）。
+             */
+            _syncCanvasSize: function(force) {
+                const probe = this._cells.length ? this._cells[0].canvas : null;
+                if (!probe) return;
+                const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+                const prevCv = probe.style.contentVisibility;
+                probe.style.contentVisibility = 'visible';
+                const rect = probe.getBoundingClientRect();
+                probe.style.contentVisibility = prevCv;
+
+                const w = Math.max(1, Math.round((rect.width || 200) * dpr));
+                const h = Math.max(1, Math.round((rect.height || 150) * dpr));
+                if (!force && w === this.cw && h === this.ch) return;
+                this.cw = w;
+                this.ch = h;
+                // 改变 canvas.width/height 会清空画布，必须紧接一次重绘
+                this._cells.forEach((c) => { c.canvas.width = w; c.canvas.height = h; });
+                this._redrawAll();
+            },
+
+            // 用池内位图重绘全部格子（尺寸变化后调用；池命中时零网络零解码）
+            _redrawAll: function() {
+                const pool = window.ShioriImgPool;
+                if (!pool) return;
+                this._cells.forEach((c) => {
+                    const bmp = pool.get(c.key);
+                    if (bmp) this._drawCell(c, bmp);
+                    else this._drawPlaceholder(c);
+                });
+            },
+
+            // 未就绪格子的占位底（32×32 透明占位位图）
+            _drawPlaceholder: function(cell) {
+                const ctx = cell.ctx, cv = cell.canvas;
+                if (!ctx || !cv.width || !cv.height) return;
+                ctx.clearRect(0, 0, cv.width, cv.height);
+                cv.dataset.cgReady = '0';
+            },
+
+            // 把位图按 cover 语义画进格子：等比放大到铺满，超出部分居中裁掉
+            _drawCell: function(cell, bmp) {
+                const ctx = cell.ctx, cv = cell.canvas;
+                const w = cv.width, h = cv.height;
+                if (!ctx || !w || !h || !bmp || !bmp.width || !bmp.height) { this._drawPlaceholder(cell); return; }
+                const scale = Math.max(w / bmp.width, h / bmp.height);
+                const dw = bmp.width * scale;
+                const dh = bmp.height * scale;
+                ctx.clearRect(0, 0, w, h);
+                ctx.drawImage(bmp, (w - dw) / 2, (h - dh) / 2, dw, dh);
+                cv.dataset.cgReady = '1';
+            },
+
+            /**
+             * 批量取图结束后仍无位图的格子：标记为缺失（半透明、不可点），
+             * 但**保留占位框**——直接 display:none 会让网格在加载失败时整体塌陷。
+             */
+            _markMissing: function() {
+                const pool = window.ShioriImgPool;
+                this._cells.forEach((c) => {
+                    if (c.ready) return;
+                    const bmp = pool ? pool.get(c.key) : null;
+                    if (bmp) { c.ready = true; this._drawCell(c, bmp); return; }
+                    const host = c.canvas.parentElement;
+                    if (host) host.dataset.cgMissing = '1';
+                    console.log('CG图片不存在: ' + c.canvas.dataset.fullPath);
+                });
+            },
+
+            // 显示全尺寸图片
+            showFullImage: function(imageSrc) {
+                const modal = document.getElementById('imageModal');
+                const modalImg = document.getElementById('modalImage');
+                modalImg.onerror = function onCgFullError() {
+                    if (modalImg.dataset.shioriRetried === '1') return;
+                    modalImg.dataset.shioriRetried = '1';
+                    const sep = imageSrc.indexOf('?') >= 0 ? '&' : '?';
+                    modalImg.src = imageSrc + sep + 'r=' + Date.now();
+                };
+                modalImg.dataset.shioriRetried = '';
+                modalImg.src = imageSrc;
+                modal.style.display = 'flex';
+
+                // 更新图片计数器
+                this.updateImageCounter();
+            },
+
+            // 更新图片计数器
+            updateImageCounter: function() {
+                const counter = document.querySelector('.image-counter');
+                if (counter) {
+                    counter.textContent = (this.currentImageIndex + 1) + ' / ' + Object.keys(CG_CONFIG_SUB).length;
+                }
+            },
+
+            // 显示上一张图片
+            showPrevImage: function() {
+                const paths = Object.values(CG_CONFIG_SUB);
+                this.currentImageIndex--;
+                if (this.currentImageIndex < 0) {
+                    this.currentImageIndex = paths.length - 1; // 首尾循环
+                }
+                this.showFullImage(paths[this.currentImageIndex]);
+            },
+
+            // 显示下一张图片
+            showNextImage: function() {
+                const paths = Object.values(CG_CONFIG_SUB);
+                this.currentImageIndex++;
+                if (this.currentImageIndex >= paths.length) {
+                    this.currentImageIndex = 0; // 首尾循环
+                }
+                this.showFullImage(paths[this.currentImageIndex]);
+            },
+
+            // 绑定事件
+            bindEvents: function() {
+                // 关闭模态框
+                document.querySelector('.close').addEventListener('click', () => {
+                    document.getElementById('imageModal').style.display = 'none';
+                });
+
+                // 点击模态框外部关闭
+                document.getElementById('imageModal').addEventListener('click', (e) => {
+                    if (e.target === document.getElementById('imageModal')) {
+                        e.target.style.display = 'none';
+                    }
+                });
+
+                // 上一张图片按钮
+                document.querySelector('.prev-nav').addEventListener('click', () => {
+                    CGManager.showPrevImage();
+                });
+
+                // 下一张图片按钮
+                document.querySelector('.next-nav').addEventListener('click', () => {
+                    CGManager.showNextImage();
+                });
+
+                // 键盘事件：左箭头键上一张，右箭头键下一张
+                document.addEventListener('keydown', (e) => {
+                    if (document.getElementById('imageModal').style.display === 'flex' ||
+                        document.getElementById('imageModal').style.display === 'block') {
+                        if (e.key === 'ArrowLeft') {
+                            e.preventDefault();
+                            CGManager.showPrevImage();
+                        } else if (e.key === 'ArrowRight') {
+                            e.preventDefault();
+                            CGManager.showNextImage();
+                        }
+                    }
+                });
+
+                // ESC键功能：如果模态框打开则关闭，否则返回主页
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        const modal = document.getElementById('imageModal');
+                        if (modal.style.display === 'flex' || modal.style.display === 'block') {
+                            // 如果模态框是打开的，关闭它
+                            modal.style.display = 'none';
+                        } else {
+                            // 如果模态框是关闭的，返回主页
+                            window.location.href = '../index.html';
+                        }
+                    }
+                });
+
+                // 窗口尺寸变化 → 重算画布位图尺寸（等比裁切依赖实测盒子）；防抖避免连续重绘
+                let _resizeTimer = 0;
+                window.addEventListener('resize', () => {
+                    clearTimeout(_resizeTimer);
+                    _resizeTimer = setTimeout(() => this._syncCanvasSize(false), 120);
+                });
+
+                // 页面卸载 → 取消在途批量请求并释放本页位图（取消路径）
+                window.addEventListener('beforeunload', () => {
+                    if (this._inflight) {
+                        try { this._inflight.abort(); } catch (err) { }
+                    }
+                    if (window.ShioriImgPool && typeof ShioriImgPool.drop === 'function') {
+                        ShioriImgPool.drop(this._thumbPaths || []);
+                    }
+                });
+            }
+        };
+
+        // 初始化引擎并播放BGM，以及CG管理器
+        document.addEventListener('DOMContentLoaded', function() {
+            gameEngine.init(indexData);
+
+            // 播放BGM
+            setTimeout(function() {
+                gameEngine.playAudio('bgm1');
+            }, 100);
+
+            // 初始化CG管理器
+            CGManager.init();
+        });
+    </script>
+
+    <!-- 可选插件：CG 极限压测（默认不加载）。
+         需要时把下面这行取消注释即可启用；插件文件位于 ../plugins/cg_stress_patch.js，
+         用法与参数见该文件头部注释。 -->
+    <!-- <script src="../plugins/cg_stress_patch.js"></script> -->
+</body>
+</html>
