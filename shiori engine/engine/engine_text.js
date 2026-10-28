@@ -29,8 +29,30 @@
      * @returns {boolean} - 该元素或其任一祖先为 #options-container 时返回 true。
      */
 gameEngine.isOptionElement = function(element) {
-        return element.closest('#options-container') !== null;
-    };
+    return element.closest('#options-container') !== null;
+};
+
+
+    /**
+     * 回放标记的识别正则（严格形）。
+     * 仅当整行 command 只有这一句、无 ? 条件、无其它语句时才算标记；
+     * 混入其它内容时该行退化为普通 $ 语句（标记语句在解析层被丢弃）→ 什么都不发生。
+     * 这样可避免「条件分支里的标记被误判为已到达」造成假解锁。
+     * 存档页检查器用同一口径校验，两边不会出现「检查器说能识别、运行时不认」的错位。
+     */
+    var REPLAY_MARK_RE = /^\$\s*tf\.isReplay(Begin|End)\s*=\s*1\s*;?$/;
+
+    /**
+     * 取当前剧本文件名（不含 .html），用于回放解锁键
+     * 与 engine_boot / engine_save 的口径保持一致。
+     * @returns {string} 形如 "1"；取不到时返回空串
+     */
+    function currentSceneFileBase() {
+        try {
+            var name = decodeURIComponent(window.location.pathname.split('/').pop() || '');
+            return name.replace(/\.html?$/i, '');
+        } catch (e) { return ''; }
+    }
 
 
     
@@ -68,6 +90,14 @@ gameEngine.displayLine = function(index) {
         var lineIndexBefore = this.state.currentLine;
 
         const line = this.sceneData.story[index];
+
+        // ── 回放标记识别 ───────────────────────────────────────────
+        // 必须用局部 index：state.currentLine 在本函数尾部才被赋值，
+        // 命令执行期间读它会拿到上一行，标记定位就会偏掉。
+        // 识别放在 shouldSkipLine 之前：纯标记行即便被判为「条件跳过」也照样生效。
+        var _replayMark = this.handleReplayMarker(line, index);
+        if (_replayMark === 'exit-now') { this.returnFromReplay(); return; }
+        if (_replayMark === 'exit-after') this.state._replayExitPending = true;
 
         // ★ 追踪最近的标签锚点（command: "[xxx]" 形式，剧本更新后定位兜底）
         // 仅追踪"纯名字标签"（不含空格、=），排除 [wait click] / [fadeout time=1000] 等控制指令
@@ -343,7 +373,9 @@ gameEngine.displayLine = function(index) {
         let hasBlockingCommand = false;
         let hasWaitTimeCommand = false;
         if (line.command) {
-            const shouldAutoNext = !line.action;
+            // 回放终点标记行（带内容时）不自动推进：等玩家点一下再返回存档页，
+            // 否则 100ms 的自动换行会让该行文本一闪而过。
+            const shouldAutoNext = !line.action && !this.state._replayExitPending;
             const cmdNodes = typeof this.resolveDslNodes === 'function'
                 ? this.resolveDslNodes(line.command, line)
                 : [];
@@ -442,6 +474,64 @@ gameEngine.displayLine = function(index) {
     };
 
 
+    /**
+     * 回放标记识别与分派（displayLine 开头调用）。
+     *
+     * 只认严格形：整行 command 就是 `$tf.isReplayBegin = 1` / `$tf.isReplayEnd = 1`。
+     * 命中后按「正片 / 回放 × Begin / End × allclear」分派：
+     *  - 正片 + Begin → 什么都不做（纯范围起点）
+     *  - 正片 + End   → 写该回放的解锁记录（allclear 开启时跳过，绝不写存档）
+     *  - 回放 + Begin → 什么都不做（起点由存档页算出的 ?startLine 决定）
+     *  - 回放 + End   → 返回存档页，不回写解锁
+     * 运行期一律静默：识别不到就当作普通 $ 语句，绝不打断推进。
+     *
+     * @param {Object} line - 当前行对象
+     * @param {number} index - 该行在 sceneData.story 中的下标（局部值，勿用 state.currentLine）
+     * @returns {string} 'none' = 此行无需特殊处理；'exit-now' = 立即返回存档页；
+     *                   'exit-after' = 先正常显示该行，推进时再返回存档页
+     */
+gameEngine.handleReplayMarker = function(line, index) {
+        if (!line || !line.command || typeof line.command !== 'string') return 'none';
+        var m = REPLAY_MARK_RE.exec(line.command.trim());
+        if (!m) return 'none';
+
+        // 起点标记：正片与回放都只是范围边界，不写任何东西
+        if (m[1] === 'Begin') return 'none';
+
+        // —— 终点标记 ——
+        if (this.isReplayMode()) {
+            // 回放跑到终点：结束回放。解锁由正片负责，这里不写。
+            // 纯标记行（除 command 外没有可见内容）直接返回，避免空文本框一闪；
+            // 带内容的标记行先显示，等玩家推进后再返回。
+            var bare = true;
+            var keys = ['text', 'name', 'background', 'bgm', 'se', 'chars',
+                        'video', 'action', 'voice', 'affinity', 'pov', 'wait'];
+            for (var i = 0; i < keys.length; i++) {
+                var k = keys[i];
+                if (!Object.prototype.hasOwnProperty.call(line, k)) continue;
+                var v = line[k];
+                if (v === undefined || v === null || v === '') continue;
+                if (Array.isArray(v) && !v.length) continue;
+                bare = false;
+                break;
+            }
+            return bare ? 'exit-now' : 'exit-after';
+        }
+
+        // 正片跑到终点：解锁该回放入口。
+        // 硬性前提：allclear 开启时一律不写 —— allclear 只改显示，绝不改存档。
+        if (this.isAllClear()) {
+            console.log('[Replay] allclear 开启中，跳过回放解锁写入: ' + currentSceneFileBase());
+            return 'none';
+        }
+        try {
+            if (typeof VarSpace !== 'undefined' && VarSpace && VarSpace.unlockReplay)
+                VarSpace.unlockReplay(currentSceneFileBase());
+        } catch (e) { /* 解锁失败静默，不影响推进 */ }
+        return 'none';
+    };
+
+
     
     /* ===== 选项的状态反馈与"已读"标记=================================
        CHOICE_READ_MARK 开关：作者可在引入 engine_text.js 之前设
@@ -514,8 +604,9 @@ gameEngine.showChoices = function(choices, action) {
         }
 
         if (silent) {
-            // 开发者全开：不静默求值，把每条选项列成按钮，点哪条走哪条
-            if (this.isAllClear()) {
+            // 开发者全开：不静默求值，把每条选项列成按钮，点哪条走哪条。
+            // 回放期必须旁路这条：回放要靠正常控制流自动走完，按钮会停下来等人点。
+            if (this.isAllClear() && !this.isReplayMode()) {
                 this.showSilentChoicesAllClear(choices);
                 return;
             }
@@ -808,6 +899,14 @@ gameEngine.showTextBox = function() {
      * @returns {void}
      */
 gameEngine.handleEndOfScene = function() {
+        // 回放兜底：进了末文件却没先撞上终点标记（跳转链断了 / 标记被改坏）时，
+        // 场景结束就直接返回存档页 —— 不写解锁、不留「点击继续」。
+        if (this.isReplayMode()) {
+            console.log('[Replay] 回放中场景结束，直接返回存档页');
+            this.returnFromReplay();
+            return;
+        }
+
         // 标记当前场景为已完成
         this.markSceneCompleted();
         
@@ -1376,6 +1475,15 @@ gameEngine.processRubyText = function(text) {
      * @returns {void}
      */
 gameEngine.nextLine = function() {
+        // 回放收尾：终点标记行的这一次推进就是回放终点。
+        // 排除「正在打字」与「等待分段点击」两种中间态，与下面两段点击的语义保持一致，
+        // 避免第一次点击（补全文字）就把回放收掉。
+        if (this.state._replayExitPending && !this.state.typingActive && !this.state.waitingForSegmentClick) {
+            this.state._replayExitPending = false;
+            this.returnFromReplay();
+            return;
+        }
+
         // 竞态修复：如果背景转场正在进行，强制重置转场状态。
         // 这确保了用户快速点击推进剧情时，能够中断旧转场并同步最新状态；
         // 但快进（fastForwardActive）模式下不打断，交由快进逻辑自行处理。
