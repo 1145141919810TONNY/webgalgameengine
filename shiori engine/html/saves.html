@@ -295,6 +295,44 @@
 				transform: translateY(calc(-2 * var(--u, 1px)));
 				box-shadow: 0 calc(4 * var(--u, 1px)) calc(12 * var(--u, 1px)) rgba(33, 150, 243, 0.4);
 			}
+
+			/* ===== 指定内容回放 ===== */
+
+			/* 回放卡片的标题与去向（卡片本体沿用 .scene-card 样式） */
+			.replay-name {
+				font-size: calc(16 * var(--u, 1px));
+				font-weight: bold;
+			}
+
+			.replay-path {
+				margin-top: calc(4 * var(--v, 1px));
+				font-size: calc(11 * var(--u, 1px));
+				font-weight: normal;
+				opacity: 0.75;
+			}
+
+			#replay-hint {
+				text-align: center;
+				color: #bbb;
+				font-size: calc(13 * var(--u, 1px));
+				margin: calc(6 * var(--v, 1px)) 0;
+			}
+
+			#replay-report {
+				margin-top: calc(10 * var(--v, 1px));
+				padding: calc(10 * var(--u, 1px));
+				border: 1px solid #FFD700;
+				border-radius: calc(6 * var(--u, 1px));
+				background: rgba(0, 0, 0, 0.55);
+				color: #eee;
+				font-family: Consolas, Menlo, monospace;
+				font-size: calc(12 * var(--u, 1px));
+				white-space: pre-wrap;
+				word-break: break-all;
+				max-height: calc(320 * var(--v, 1px));
+				overflow: auto;
+				display: none;
+			}
 		</style>
 	<script src="../config/illustration.js"></script>
 	<link rel="stylesheet" href="../ui/ui_skin.css">
@@ -353,6 +391,22 @@
 				<div id="quick-jump-grid" class="scene-grid">
 					<!-- 动态加载可跳转的场景按钮 -->
 				</div>
+			</div>
+
+			<!-- 指定内容回放（内容由 ReplayManager 渲染；REPLAY_ENABLED=false 时整块保持隐藏） -->
+			<div class="jump-section" id="replay-section" style="display: none;">
+				<h2>指定内容回放</h2>
+				<div id="replay-grid" class="scene-grid">
+					<!-- 动态加载回放条目 -->
+				</div>
+				<div id="replay-hint"></div>
+				<div id="replay-status" class="status" style="display: none;"></div>
+				<div id="replay-tools" style="display: none; text-align: center; margin-top: calc(10 * var(--v, 1px));">
+					<button onclick="ReplayManager.runCheck()" data-ui="prog_act">检查回放配置</button>
+					<button onclick="ReplayManager.copyReport()" data-ui="prog_act">复制报告</button>
+					<button onclick="ReplayManager.downloadReport()" data-ui="prog_act">导出 log</button>
+				</div>
+				<pre id="replay-report"></pre>
 			</div>
 
 			<div id="status-message" class="status" style="display: none;"></div>
@@ -709,6 +763,978 @@
 					window.location.href = '../index.html';
 				}
 			});
+		</script>
+
+		<!-- ============================================================
+		     指定内容回放
+		     ------------------------------------------------------------
+		     入口：在本页点一条回放 → 引擎从剧本的 $tf.isReplayBegin 处开始播放
+		           → 跑到 $tf.isReplayEnd 处自动回到本页。
+		     解锁：条目由「正片跑到 isReplayEnd」写入解锁记录，玩家先正常玩到那段
+		           结尾，条目才会出现（先玩到、才能重看）。tf.allclear 只是显示开关：
+		           它开启时不写任何存档、不解锁任何进度。
+		     依赖：本页不加载 vars.js（页面上没有 VarSpace / gameEngine），
+		           所以一切读写都走 storage 键，键名与 vars.js 保持一致。
+		     ============================================================ -->
+		<script>
+			// 功能开关：false 时下面全部逻辑旁路，页面行为与旧版逐字一致
+			const REPLAY_ENABLED = true;
+
+			// 回放条目表。两种写法都支持：
+			//   对象形式：  { id: 'r1', title: '标题', begin: '1', again: ['2','3'], end: '4' }
+			//   紧凑字符串：'id:r1;title:标题;begin:1;again:2;3;end:4'
+			// 字段：title 必填；begin 必填；again 可选（单个或数组）；
+			//       end 可选（缺省 = begin，同时是解锁键）；id 可选（缺省按 title 生成）
+			// 下面给出三种标准用法的通用示例（文件名为占位，正式接入时替换成
+			// 自己的剧本文件名即可：只写 scenes/ 下的裸名，不含 .html、不含路径）。
+			const REPLAY_RECORDS = [
+				// 情况 1 · 单文件回放：起止标记在同一个文件里，end 缺省即等于 begin
+				{ id: 'case1', title: '单文件回放', begin: 'replay_begin' },
+				// 情况 2 · 两个文件直跳：开始文件末尾无条件跳到结束文件
+				{ id: 'case2', title: '两个文件直跳', begin: 'replay_begin', end: 'replay_end' },
+				// 情况 3 · 跨三个文件：中间文件写在 again 里（只写文件名，不含 .html）
+				{ id: 'case3', title: '跨三个文件', begin: 'replay_begin',
+					again: ['replay_mid'], end: 'replay_end' },
+				// 情况 4 · 跨四个文件：多个中间文件按顺序写进 again 数组（逗号分隔）
+				{ id: 'case4', title: '跨四个文件', begin: 'replay_begin',
+					again: ['replay_mid_a', 'replay_mid_b'], end: 'replay_end' },
+			];
+
+			const REPLAY_KEYS = {
+				isReplay: 'shiori_tf_isreplay',      // 回放模式载荷（sessionStorage）
+				unlocked: 'shiori_replay_unlocked',  // 解锁记录（localStorage，键 = 条目的 end）
+				allclear: 'shiori_tf_allclear'       // 全部鉴赏开关（sessionStorage，宿主维护）
+			};
+
+			// 标记的严格形：整行 command 只有这一句、无 ? 条件、无其它语句
+			const REPLAY_MARK_STRICT = /^\$\s*tf\.isReplay(Begin|End)\s*=\s*1\s*;?$/;
+			// 松散形：只要出现这两个名字就记为「疑似标记」，用来报「不是严格形」。
+			// 故意不要求前面带 $ —— 这样「漏了 $ 引导」「写在 ? 条件分支里」这些
+			// 运行时识别不到的写法，检查器也能发现。
+			const REPLAY_MARK_LOOSE = /tf\.isReplay(Begin|End)\b/g;
+
+			const ReplayManager = {
+				// ============ 基础存取 ============
+
+				readJSON: function (storage, key, def) {
+					try {
+						const s = storage.getItem(key);
+						if (!s) return def;
+						const v = JSON.parse(s);
+						return (v === null || v === undefined) ? def : v;
+					} catch (e) { return def; }
+				},
+
+				// 「全部鉴赏」是否开启：宿主注入 JS 直接写 sessionStorage，本页直读即可
+				isAllClearOn: function () {
+					try { return sessionStorage.getItem(REPLAY_KEYS.allclear) === '1'; }
+					catch (e) { return false; }
+				},
+
+				readUnlocked: function () {
+					const o = this.readJSON(localStorage, REPLAY_KEYS.unlocked, {});
+					return (o && typeof o === 'object') ? o : {};
+				},
+
+				// ============ 记录归一化 ============
+
+				diag: function (level, scope, index, line, code, message, hint) {
+					return {
+						level: level, scope: scope,
+						index: (index === undefined) ? null : index,
+						line: (line === undefined) ? null : line,
+						code: code, message: message, hint: hint || ''
+					};
+				},
+
+				// 去后缀 + 越界检查：文件名只允许裸名（不含路径分隔符与 ..）
+				normFileName: function (v, field, idx, diags) {
+					if (v === undefined || v === null) return '';
+					let s = String(v).trim();
+					if (!s) return '';
+					s = s.replace(/\.html?$/i, '');
+					if (/[\/\\]/.test(s) || s.indexOf('..') !== -1 || /^[A-Za-z]:/.test(s)) {
+						diags.push(this.diag('error', 'REPLAY_RECORDS', idx, null,
+							'E-FILE-INVALID（文件名非法）',
+							field + ' 含路径分隔符或越界片段：' + v,
+							'这里只写 scenes/ 下的文件名（不含 .html），例如 ' + field + ': "1"'));
+						return '';
+					}
+					return s;
+				},
+
+				// 紧凑字符串 → 对象；again 之后的裸段继续并入 again 列表
+				parseCompact: function (text, idx, diags) {
+					const rec = {};
+					const segs = String(text).replace(/；/g, ';').split(';');
+					let lastKey = null;
+					for (let k = 0; k < segs.length; k++) {
+						const seg = segs[k].trim();
+						if (!seg) continue;
+						const m = seg.match(/^([A-Za-z_]+)\s*[:：]\s*(.*)$/);
+						if (m) {
+							const key = m[1].toLowerCase();
+							if (key === 'again') {
+								rec.again = [];
+								lastKey = 'again';
+								if (m[2].trim()) rec.again.push(m[2].trim());
+							} else {
+								rec[key] = m[2].trim();
+								lastKey = key;
+							}
+						} else if (lastKey === 'again') {
+							rec.again.push(seg);
+						} else {
+							diags.push(this.diag('error', 'REPLAY_RECORDS', idx, null,
+								'E-FIELD-MISSING（字段缺失）',
+								'紧凑字符串里有无法识别的段："' + seg + '"',
+								'每段写成 key:value，例如 title:标题;begin:1;end:4'));
+						}
+					}
+					return rec;
+				},
+
+				slug: function (title) {
+					return String(title).trim().replace(/\s+/g, '-').replace(/[^\w\u4e00-\u9fff\-]/g, '') || 'replay';
+				},
+
+				normalizeOne: function (rec, idx, diags) {
+					const title = (rec.title === undefined || rec.title === null) ? '' : String(rec.title).trim();
+					if (!title) {
+						diags.push(this.diag('error', 'REPLAY_RECORDS', idx, null,
+							'E-FIELD-MISSING（字段缺失）',
+							'第 ' + idx + ' 条缺 title',
+							'标题是必填项，用于在页面上显示条目名'));
+						return null;
+					}
+
+					const begin = this.normFileName(rec.begin, 'begin', idx, diags);
+					if (!begin) {
+						diags.push(this.diag('error', 'REPLAY_RECORDS', idx, null,
+							'E-FIELD-MISSING（字段缺失）',
+							'第 ' + idx + ' 条（' + title + '）缺 begin 或 begin 非法',
+							'begin 是回放起点所在的剧本文件名（不含 .html），如 begin: "1"'));
+						return null;
+					}
+
+					let again = [];
+					if (rec.again !== undefined && rec.again !== null && String(rec.again).trim() !== '') {
+						const arr = Array.isArray(rec.again) ? rec.again : [rec.again];
+						again = arr.map(a => this.normFileName(a, 'again', idx, diags)).filter(Boolean);
+						if (!again.length) return null;
+					}
+
+					let end = '';
+					if (rec.end !== undefined && rec.end !== null && String(rec.end).trim() !== '') {
+						end = this.normFileName(rec.end, 'end', idx, diags);
+						if (!end) return null;
+					}
+					if (!end) end = begin;   // 缺省 = begin
+
+					// 识别情况：1 = 单文件；2 = 两文件直跳；3 = 跨度 ≥ 3 个文件
+					let scene = 1;
+					if (again.length) scene = 3;
+					else if (end !== begin) scene = 2;
+
+					// 重叠：同一文件既是 begin 又是 again / end
+					if (again.indexOf(begin) !== -1) {
+						diags.push(this.diag('error', 'REPLAY_RECORDS', idx, null,
+							'E-FIELD-MISSING（字段缺失）',
+							'第 ' + idx + ' 条（' + title + '）的 again 里出现了 begin 文件 ' + begin,
+							'again 只写中间文件，首尾文件不要重复填'));
+					}
+					if (scene === 3 && again.indexOf(end) !== -1) {
+						diags.push(this.diag('error', 'REPLAY_RECORDS', idx, null,
+							'E-FIELD-MISSING（字段缺失）',
+							'第 ' + idx + ' 条（' + title + '）的 again 里出现了 end 文件 ' + end,
+							'again 只写中间文件，首尾文件不要重复填'));
+					}
+					if (scene === 3 && end === begin) {
+						diags.push(this.diag('error', 'REPLAY_RECORDS', idx, null,
+							'E-FIELD-MISSING（字段缺失）',
+							'第 ' + idx + ' 条（' + title + '）填了中间文件（跨度 ≥ 3 个文件）却没有不同文件的 end',
+							'跨度 ≥ 3 个文件时 end 必填，且不能与 begin 相同'));
+					}
+
+					// id：缺省按 title 生成（业务可用，但记一条 warn，便于日后改 title 时定位）
+					let id = (rec.id === undefined || rec.id === null) ? '' : String(rec.id).trim();
+					if (!id) {
+						id = this.slug(title);
+						diags.push(this.diag('warn', 'REPLAY_RECORDS', idx, null,
+							'W-ID-DEFAULT（id 缺省已按 title 生成）',
+							'第 ' + idx + ' 条已生成 id="' + id + '"',
+							'建议显式写 id，日后修改 title 时解锁记录不会因此失配'));
+					} else if (/[\s]/.test(id)) {
+						diags.push(this.diag('warn', 'REPLAY_RECORDS', idx, null,
+							'E-UNKNOWN-FIELD（未知字段）',
+							'第 ' + idx + ' 条的 id 含空白字符："' + id + '"',
+							'id 建议只用字母、数字与连字符'));
+					}
+
+					// 单文件（情况 1）的起止是同一个文件，链就是它自己；
+					// 跨文件时链按 begin → again… → end 展开。
+					return { id: id, title: title, begin: begin, again: again, end: end,
+					         scene: scene,
+					         chain: (scene === 1 ? [begin] : [begin].concat(again, [end])) };
+				},
+
+				normalize: function () {
+					const diags = [];
+					const list = [];
+					const seenIds = {};
+					let raw = null;
+					if (typeof REPLAY_RECORDS !== 'undefined' && Array.isArray(REPLAY_RECORDS)) raw = REPLAY_RECORDS;
+
+					if (!raw) {
+						diags.push(this.diag('error', 'REPLAY_RECORDS', null, null,
+							'E-FIELD-MISSING（字段缺失）',
+							'REPLAY_RECORDS 未定义或不是数组',
+							'把它定义成数组，例如 REPLAY_RECORDS = [ { title: "标题", begin: "1" } ]'));
+						return { list: list, diags: diags };
+					}
+
+					const KNOWN = ['id', 'title', 'begin', 'again', 'end'];
+
+					for (let i = 0; i < raw.length; i++) {
+						let rec = raw[i];
+						if (typeof rec === 'string') {
+							rec = this.parseCompact(rec, i, diags);
+						} else if (!rec || typeof rec !== 'object' || Array.isArray(rec)) {
+							diags.push(this.diag('error', 'REPLAY_RECORDS', i, null,
+								'E-FIELD-MISSING（字段缺失）',
+								'第 ' + i + ' 条既不是对象也不是紧凑字符串',
+								'写成 { title: "标题", begin: "1" } 或 "title:标题;begin:1"'));
+							continue;
+						}
+
+						Object.keys(rec).forEach(k => {
+							if (KNOWN.indexOf(k) === -1) {
+								diags.push(this.diag('error', 'REPLAY_RECORDS', i, null,
+									'E-UNKNOWN-FIELD（未知字段）',
+									'第 ' + i + ' 条出现未知字段 "' + k + '"',
+									'可用字段：' + KNOWN.join(' / ') + '（检查是否拼写错误）'));
+							}
+						});
+
+						const norm = this.normalizeOne(rec, i, diags);
+						if (!norm) continue;
+
+						if (seenIds[norm.id]) {
+							diags.push(this.diag('error', 'REPLAY_RECORDS', i, null,
+								'E-ID-DUP（id 重复）',
+								'第 ' + i + ' 条的 id "' + norm.id + '" 与前面某条重复',
+								'每条记录的 id 必须唯一'));
+						}
+						seenIds[norm.id] = true;
+						norm.recIndex = i;
+						list.push(norm);
+					}
+
+					// end 被多条记录共用 → 解锁会连带（不判错，提示即可）
+					const endCount = {};
+					list.forEach(r => { endCount[r.end] = (endCount[r.end] || 0) + 1; });
+					list.forEach(r => {
+						if (endCount[r.end] > 1) {
+							diags.push(this.diag('warn', 'REPLAY_RECORDS', r.recIndex, null,
+								'W-END-SHARED（end 文件被多条记录共用）',
+								'"' + r.title + '" 的 end 文件 ' + r.end + ' 被 ' + endCount[r.end] + ' 条记录共用，' +
+								'正片跑到该文件的结束标记时这些条目会一起解锁',
+								'如果这不是有意的，请让每条记录使用各自的结束文件'));
+						}
+					});
+
+					return { list: list, diags: diags };
+				},
+
+				// ============ 剧本读取与解析 ============
+
+				// 行首偏移表（把字符偏移换算成行号）
+				lineStarts: function (text) {
+					const starts = [0];
+					for (let i = 0; i < text.length; i++) {
+						if (text.charCodeAt(i) === 10) starts.push(i + 1);
+					}
+					return starts;
+				},
+
+				offsetToLine: function (starts, off) {
+					let lo = 0, hi = starts.length - 1;
+					while (lo < hi) {
+						const mid = (lo + hi + 1) >> 1;
+						if (starts[mid] <= off) lo = mid; else hi = mid - 1;
+					}
+					return lo + 1;   // 行号从 1 开始
+				},
+
+				// 剔除服务端注入内容，使行号回到 scenes/ 下磁盘源文件的物理行号（注入规则见 HttpServer）。
+				// 注入是「在固定位置插入固定形状的整行片段」，所以按形状原样删回去即可：
+				// 每段注入都以换行结尾，删掉后行数与磁盘逐行一致，前导缩进也原样还原。
+				//   1) UI 皮肤块：整份 ui/ui_size.js 紧跟 <head> 之后插入，
+				//      形状是「<head> 后紧跟一个 script 标签，标签里是整份配置」。
+				//      块首行是文件自己的注释头（形如 /** …），不一定出现 UI_SIZE_CONFIG，
+				//      所以判据只能取「紧跟 <head> + 块内出现 UI_SIZE_CONFIG」；
+				//      只看首行会把整块留下，而它就排在剧本脚本前面，抽取时会顶替掉真正的剧本脚本。
+				//   2) 官方 CSS：插在 </head> 的 < 之前，每行是一个指向 / 的 style 链接 + 换行。
+				//   3) 官方 JS：插在第一个内联 script 的 < 之前，每行是一个指向 / 的 script 标签 + 换行。
+				// 本文件自己是 HTML：脚本正文里不能出现未转义的结束标签（会提前截断 script 元素），
+				// 要在正文里提到它必须写成转义形式。
+				// 注入引用一律以 / 开头（手写引用都是 ../），这是与手写标签区分开的依据。
+				normalizeInjected: function (html) {
+					let t = String(html).replace(/\r\n/g, '\n');
+					let removed = 0;
+
+					// 1) UI 皮肤块：整块删掉（含注入时带在它前面的换行与缩进）
+					t = t.replace(/(<head[^>]*>)\n[ \t]{0,8}<script>([\s\S]*?)<\/script>/, function (whole, head, body) {
+						if (body.indexOf('UI_SIZE_CONFIG') === -1) return whole;
+						removed += 1 + (body.match(/\n/g) || []).length;
+						return head;
+					});
+
+					// 2) 官方 CSS / 3) 官方 JS：逐行删。不吞前导空白，缩进才能回到原来那一行上。
+					t = t.replace(/<link\b[^>]*href="\/[^"]*"[^>]*>\n/gi, function () { removed++; return ''; });
+					t = t.replace(/<script\b[^>]*src="\/[^"]*"[^>]*><\/script>\n/gi, function () { removed++; return ''; });
+
+					// 可信度：残留 ui_size.js 正文或绝对路径引用 = 注入形状变了，行号不再可信
+					let leftover = 0;
+					if (t.indexOf('UI_SIZE_CONFIG') !== -1) leftover++;
+					t.split('\n').forEach(function (L) {
+						const s = L.trim();
+						if (/^(<link\b[^>]*href="\/|<script\b[^>]*src="\/)/i.test(s)) leftover++;
+					});
+
+					return { text: t, removed: removed, lineAccurate: (leftover === 0) };
+				},
+
+				// 全部内联 script 的正文（跳过外链），按文档顺序返回
+				inlineScripts: function (text) {
+					const re = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
+					const out = [];
+					let m;
+					while ((m = re.exec(text))) {
+						if (/\bsrc\s*=/i.test(m[1])) continue;
+						out.push(m[2]);
+					}
+					return out;
+				},
+
+				// 在桩环境里跑剧本脚本，只为拿到它交给 gameEngine.init 的数据
+				runStub: function (scriptText) {
+					let captured = null;
+					const stubEngine = { init: function (d) { captured = d; } };
+					const stubDoc = {
+						addEventListener: function (type, fn) { try { if (typeof fn === 'function') fn(); } catch (e) { /* 桩内异常忽略 */ } },
+						readyState: 'complete'
+					};
+					const stubWin = {
+						location: { search: '', pathname: '/scenes/probe.html', href: '' },
+						addEventListener: function () {},
+						navigator: { userAgent: '' }
+					};
+					const silent = { log: function () {}, warn: function () {}, error: function () {} };
+					const fn = new Function('gameEngine', 'document', 'window',
+						'BG_CONFIG_SUB', 'BGM_CONFIG_SUB', 'console', scriptText);
+					fn(stubEngine, stubDoc, stubWin, {}, {}, silent);
+					return captured;
+				},
+
+				// 扫 story 数组：每个元素起点（偏移 + 行号）与全部回放标记
+				scanStory: function (text) {
+					const starts = this.lineStarts(text);
+					const result = { elements: [], marks: [], arrayEnd: -1, found: false };
+
+					// 1) 定位 story 键后的 [
+					const keyM = /\bstory\s*:\s*\[/.exec(text);
+					if (!keyM) return result;
+					const open = keyM.index + keyM[0].length - 1;
+					result.found = true;
+
+					// 2) 括号扫描（跳过字符串与注释），记录 depth 从 1 进入元素时的 {
+					let i = open + 1, depth = 1;
+					while (i < text.length) {
+						const c = text[i];
+						if (c === '"' || c === "'" || c === '`') {
+							const q = c; i++;
+							while (i < text.length) {
+								if (text[i] === '\\') { i += 2; continue; }
+								if (text[i] === q) { i++; break; }
+								i++;
+							}
+							continue;
+						}
+						if (c === '/' && text[i + 1] === '/') { while (i < text.length && text[i] !== '\n') i++; continue; }
+						if (c === '/' && text[i + 1] === '*') {
+							i += 2;
+							while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i++;
+							i += 2; continue;
+						}
+						if (c === '[' || c === '{') {
+							depth++;
+							if (c === '{' && depth === 2) {
+								result.elements.push({ offset: i, line: this.offsetToLine(starts, i), end: -1 });
+							}
+							i++; continue;
+						}
+						if (c === ']' || c === '}') {
+							depth--;
+							if (depth === 0) { result.arrayEnd = i; break; }
+							if (c === '}' && depth === 1 && result.elements.length) {
+								result.elements[result.elements.length - 1].end = i + 1;
+							}
+							i++; continue;
+						}
+						i++;
+					}
+					// 收尾：最后一个元素没闭合时用数组结尾兜底
+					if (result.elements.length && result.elements[result.elements.length - 1].end === -1) {
+						result.elements[result.elements.length - 1].end = (result.arrayEnd === -1) ? text.length : result.arrayEnd + 1;
+					}
+
+					// 3) 标记扫描：按偏移归入所属 story 元素
+					const findElem = (off) => {
+						for (let k = result.elements.length - 1; k >= 0; k--) {
+							if (off >= result.elements[k].offset) return k;
+						}
+						return -1;
+					};
+					REPLAY_MARK_LOOSE.lastIndex = 0;
+					let m;
+					while ((m = REPLAY_MARK_LOOSE.exec(text))) {
+						const off = m.index;
+						const ei = findElem(off);
+						if (ei === -1) continue;
+						const elem = result.elements[ei];
+						const body = text.slice(elem.offset, elem.end);
+						const cmdM = /command\s*:\s*(["'])([\s\S]*?)\1/.exec(body);
+						const cmd = cmdM ? cmdM[2] : null;
+						const strict = !!(cmd && REPLAY_MARK_STRICT.test(cmd.trim()));
+						const textM = /text\s*:\s*(["'])([\s\S]*?)\1/.exec(body);
+						const hasContent = !!((textM && textM[2].trim()) ||
+							/\b(action|background|bgm|se|chars|video|voice)\s*:/.test(body));
+						result.marks.push({
+							kind: m[1],                        // 'Begin' | 'End'
+							index: ei,                         // story 下标
+							line: this.offsetToLine(starts, off),
+							strict: strict,
+							cmd: cmd,
+							hasContent: hasContent,
+							body: body
+						});
+					}
+					return result;
+				},
+
+				// 剧本文件的完整信息（含标记）
+				loadScene: async function (file) {
+					const fail = function (code, msg) { const e = new Error(msg); e.code = code; return e; };
+					const url = '../scenes/' + encodeURIComponent(file + '.html');
+					let resp;
+					try { resp = await fetch(url, { cache: 'no-store' }); }
+					catch (e) { throw fail('E-FILE-NOT-FOUND（文件不存在）', '读取请求失败：' + ((e && e.message) || e)); }
+					if (!resp.ok) throw fail('E-FILE-NOT-FOUND（文件不存在）', 'HTTP ' + resp.status);
+					const html = await resp.text();
+					const norm = this.normalizeInjected(html);
+
+					// 页面里可能有多段内联脚本（服务端会把整份 ui_size.js 插在最前面），
+					// 所以逐段试跑、取第一段能交出 story 数组的 —— 不依赖「第几段是剧本」这种位置假设。
+					const list = this.inlineScripts(norm.text);
+					if (!list.length) throw fail('E-STORY-PARSE（story 解析失败）', '页面里没有内联脚本');
+					let data = null;
+					const tried = [];
+					for (let i = 0; i < list.length; i++) {
+						try {
+							const d = this.runStub(list[i]);
+							if (d && Array.isArray(d.story)) { data = d; break; }
+							tried.push('第 ' + (i + 1) + ' 段没交出 story');
+						} catch (e) {
+							tried.push('第 ' + (i + 1) + ' 段执行失败（' + ((e && e.message) || e) + '）');
+						}
+					}
+					if (!data) {
+						throw fail('E-STORY-PARSE（story 解析失败）',
+							'共 ' + list.length + ' 段内联脚本，没有一段交出 story —— ' + tried.join('；'));
+					}
+					const info = this.scanStory(norm.text);
+					return {
+						file: file, story: data.story, text: norm.text,
+						lineAccurate: norm.lineAccurate, removed: norm.removed,
+						elements: info.elements, marks: info.marks
+					};
+				},
+
+				// ============ 渲染 ============
+
+				setStatus: function (msg, type) {
+					const el = document.getElementById('replay-status');
+					if (!el) return;
+					if (!msg) { el.style.display = 'none'; return; }
+					el.textContent = msg;
+					el.className = 'status ' + (type || 'success');
+					el.style.display = 'block';
+				},
+
+				init: function () {
+					const section = document.getElementById('replay-section');
+					const hint = document.getElementById('replay-hint');
+					const tools = document.getElementById('replay-tools');
+					const grid = document.getElementById('replay-grid');
+					if (!section || !grid) return;
+
+					section.style.display = '';
+					this.report = null;
+
+					// 上回回放没退干净时清掉（正常流程由场景页负责清）
+					try { sessionStorage.removeItem(REPLAY_KEYS.isReplay); } catch (e) { /* 忽略 */ }
+
+					const norm = this.normalize();
+					this.records = norm.list;
+					this.normDiags = norm.diags;
+
+					// 检查按钮：?debug=1 或「全部鉴赏」开启时可见
+					let debug = false;
+					try { debug = new URLSearchParams(location.search).get('debug') === '1'; } catch (e) { /* 忽略 */ }
+					if (tools && (debug || this.isAllClearOn())) tools.style.display = '';
+
+					const allClear = this.isAllClearOn();
+					const unlocked = this.readUnlocked();
+
+					// 条目显隐：已解锁才显示；「全部鉴赏」开启时全显（只影响显示，不解锁任何进度）
+					const visible = this.records.filter(r => allClear || !!unlocked[r.end]);
+
+					if (!visible.length) {
+						grid.innerHTML = '';
+						if (hint) {
+							hint.textContent = this.records.length
+								? '还没有可回放的内容：回放需要先在正片里玩到对应剧情的结尾才会解锁。'
+								: '还没有配置回放条目。';
+							hint.style.display = '';
+						}
+						return;
+					}
+					if (hint) hint.style.display = 'none';
+
+					grid.innerHTML = '';
+					visible.forEach(rec => {
+						const card = document.createElement('div');
+						card.className = 'scene-card';
+						card.setAttribute('data-ui', 'prog_jump');
+						card.setAttribute('data-replay-id', rec.id);
+						const tip = allClear && !unlocked[rec.end] ? '（全部鉴赏预览）' : '';
+						card.innerHTML = '<div class="replay-name"></div><div class="replay-path"></div>';
+						card.querySelector('.replay-name').textContent = rec.title + tip;
+						card.querySelector('.replay-path').textContent = this.chainText(rec);
+						card.onclick = () => this.enter(rec);
+						grid.appendChild(card);
+					});
+				},
+
+				chainText: function (rec) {
+					const parts = rec.chain.map(f => f + '.html');
+					return parts.length === 1 ? parts[0] : parts.join(' → ');
+				},
+
+				// ============ 进入回放 ============
+
+				enter: async function (rec) {
+					if (!rec) return;
+					this.setStatus('正在读取 ' + rec.begin + '.html …');
+
+					let scene;
+					try {
+						scene = await this.loadScene(rec.begin);
+					} catch (e) {
+						this.setStatus('回放未启动：' + (e && e.message ? e.message : e), 'error');
+						return;
+					}
+
+					const begins = scene.marks.filter(m => m.kind === 'Begin' && m.strict);
+					if (!begins.length) {
+						this.setStatus('回放未启动：' + rec.begin + '.html 里找不到 $tf.isReplayBegin 标记', 'error');
+						return;
+					}
+					const b = begins[0];
+					// 起点取行规则：纯标记行从「标记行 + 1」开始，带内容的标记行从该行本身开始
+					const startAt = b.hasContent ? b.index : (b.index + 1);
+
+					const payload = {
+						v: 1,
+						id: rec.id,
+						title: rec.title,
+						begin: rec.begin,
+						again: rec.again.slice(),
+						end: rec.end,
+						chain: rec.chain.slice(),
+						beginLine: b.index,
+						startAt: startAt,
+						endFile: rec.end,
+						unlockKey: rec.end,
+						enteredAt: Date.now()
+					};
+
+					try {
+						sessionStorage.setItem(REPLAY_KEYS.isReplay, JSON.stringify(payload));
+						// 让场景页继承 f. 镜像：回放要读与正片一致的变量基线
+						sessionStorage.setItem('shiori_next_scene_target', rec.begin + '.html');
+						// 清掉其它入口信号，避免读档 / 入口快照抢占起点
+						sessionStorage.removeItem('archiveLoadTarget');
+						sessionStorage.removeItem('gameStateSnapshot');
+						sessionStorage.removeItem('shiori_scene_entry_jump');
+					} catch (e) {
+						this.setStatus('回放未启动：浏览器存储不可用', 'error');
+						return;
+					}
+
+					window.location.href = '../scenes/' + encodeURIComponent(rec.begin + '.html') +
+						'?startLine=' + startAt;
+				},
+
+				// ============ 检查器 ============
+
+				resultLabel: function (level) {
+					if (level === 'error') return '错误';
+					if (level === 'warn') return '警告';
+					if (level === 'info') return '需确认';
+					return '通过';
+				},
+
+				runCheck: async function () {
+					this.setStatus('正在检查回放配置 …');
+					const report = document.getElementById('replay-report');
+					const items = [];
+					const push = (d) => { items.push(d); };
+
+					// 1. 配置层（已在 init 时归一化过）
+					const norm = this.normalize();
+					norm.diags.forEach(push);
+
+					// 2. 逐个文件扫描（缓存，避免同一文件重复 fetch）
+					const cache = {};
+					const loadCached = async (file) => {
+						if (!(file in cache)) {
+							try { cache[file] = await this.loadScene(file); }
+							catch (e) {
+								cache[file] = { error: (e && e.message) ? e.message : String(e),
+									code: (e && e.code) ? e.code : '' };
+							}
+						}
+						return cache[file];
+					};
+
+					for (let i = 0; i < norm.list.length; i++) {
+						const rec = norm.list[i];
+						const idx = rec.recIndex;
+						const scope = 'REPLAY_RECORDS';
+						const loc = 'html/saves.html';
+						const recStart = items.length;   // 本条记录从哪一项开始，用于判定「整条无问题」
+
+						// 2.1 文件存在性 + 行号可信度
+						const scenes = {};
+						for (const f of rec.chain) {
+							const s = await loadCached(f);
+							scenes[f] = s;
+							if (s.error) {
+								const notFound = (s.code === 'E-FILE-NOT-FOUND（文件不存在）') || !s.code;
+								push(this.diag('error', scope, idx, null,
+									notFound ? 'E-FILE-NOT-FOUND（文件不存在）' : s.code,
+									'"' + rec.title + '" 引用的 scenes/' + f + '.html 读不到：' + s.error,
+									notFound
+										? '检查文件名是否正确、是否位于 scenes/ 目录内'
+										: '文件在、但没能取出 story：多为服务端注入形状变了，请把这条报错原样反馈'));
+							} else if (s.lineAccurate === false) {
+								push(this.diag('warn', 'scenes/' + f + '.html', null, null,
+									'W-LINE-SHIFT（行号可能偏移）',
+									f + '.html 里仍有未剔除的服务端注入引用，行号可能对不上磁盘源文件',
+									'请以报告里的 [story N] 下标为准定位'));
+							}
+						}
+
+						// 2.2 标记存在性
+						const beginScene = scenes[rec.begin];
+						const endScene = scenes[rec.end];
+						const strictBegin = beginScene && !beginScene.error
+							? beginScene.marks.filter(m => m.kind === 'Begin' && m.strict) : [];
+						const strictEnd = endScene && !endScene.error
+							? endScene.marks.filter(m => m.kind === 'End' && m.strict) : [];
+
+						if (beginScene && !beginScene.error) {
+							if (!strictBegin.length) {
+								push(this.diag('error', 'scenes/' + rec.begin + '.html', null, null,
+									'E-BEGIN-MISSING（缺开始标记）',
+									'"' + rec.title + '"：' + rec.begin + '.html 里找不到 $tf.isReplayBegin 标记',
+									'在剧本里加一行 { text: "", command: "$tf.isReplayBegin = 1" }'));
+							} else if (strictBegin.length > 1) {
+								push(this.diag('error', 'scenes/' + rec.begin + '.html', null, strictBegin[1].line,
+									'E-BEGIN-MISSING（缺开始标记）',
+									rec.begin + '.html 里有 ' + strictBegin.length + ' 个 isReplayBegin 标记，无法确定起点',
+									'一个文件里只保留一个开始标记'));
+							}
+							// 标记写法的松散命中
+							beginScene.marks.forEach(m => {
+								if (m.kind !== 'Begin') return;
+								if (!m.strict) {
+									const noDollar = !(m.cmd && m.cmd.trim().charAt(0) === '$');
+									push(this.diag(noDollar ? 'error' : 'warn', 'scenes/' + rec.begin + '.html', m.index, m.line,
+										'E-MARK-NOT-STRICT（标记不是严格形）',
+										noDollar
+											? '这一行的标记没写在 $ 引导的变量语句区里，引擎不会执行、也不会识别'
+											: '这一行的标记写法不是严格形，运行时不会识别（该行退化为普通 $ 语句）',
+										noDollar
+											? '写成 command: "$tf.isReplayBegin = 1"'
+											: '整行只写 $tf.isReplayBegin = 1，不要混入 ? 条件或其它语句'));
+								}
+								if (m.hasContent) {
+									push(this.diag('info', 'scenes/' + rec.begin + '.html', m.index, m.line,
+										'I-MARK-HAS-TEXT（标记行带内容）',
+										'该标记行还带有台词或演出字段，回放会从这一行本身开始播',
+										'若想让回放从标记的下一行开始，把该行写成纯标记行（只留 command）'));
+								}
+							});
+							if (strictBegin.length && strictBegin[0].hasContent) {
+								push(this.diag('info', 'scenes/' + rec.begin + '.html', strictBegin[0].index, strictBegin[0].line,
+									'I-MARK-HAS-TEXT（标记行带内容）',
+									'开始标记行带内容，回放起点 = 该行本身',
+									'这是预期行为，不必修改'));
+							}
+						}
+
+						if (endScene && !endScene.error) {
+							if (!strictEnd.length) {
+								push(this.diag('error', 'scenes/' + rec.end + '.html', null, null,
+									'E-END-MISSING（缺结束标记）',
+									'"' + rec.title + '"：' + rec.end + '.html 里找不到 $tf.isReplayEnd 标记',
+									'该条目永远无法被正片解锁；补一行 { text: "", command: "$tf.isReplayEnd = 1" }'));
+							} else if (strictEnd.length > 1) {
+								push(this.diag('error', 'scenes/' + rec.end + '.html', null, strictEnd[1].line,
+									'E-END-MISSING（缺结束标记）',
+									rec.end + '.html 里有 ' + strictEnd.length + ' 个 isReplayEnd 标记',
+									'一个文件里只保留一个结束标记'));
+							}
+							endScene.marks.forEach(m => {
+								if (m.kind !== 'End' || m.strict) return;
+								const noDollar = !(m.cmd && m.cmd.trim().charAt(0) === '$');
+								push(this.diag(noDollar ? 'error' : 'warn', 'scenes/' + rec.end + '.html', m.index, m.line,
+									'E-MARK-NOT-STRICT（标记不是严格形）',
+									noDollar
+										? '这一行的标记没写在 $ 引导的变量语句区里，引擎不会执行、也不会识别'
+										: '这一行的结束标记不是严格形，回放跑到这里不会被识别',
+									noDollar
+										? '写成 command: "$tf.isReplayEnd = 1"'
+										: '整行只写 $tf.isReplayEnd = 1'));
+							});
+						}
+
+						// 2.3 中间文件不得有任何标记
+						for (const f of rec.again) {
+							const s = scenes[f];
+							if (!s || s.error) continue;
+							s.marks.forEach(m => {
+								if (!m.strict) return;
+								push(this.diag('error', 'scenes/' + f + '.html', m.index, m.line,
+									'E-MARK-IN-AGAIN（中间文件不该有标记）',
+									'中间文件 ' + f + '.html 里出现了 isReplay' + m.kind + ' 标记',
+									'中间文件只负责把剧情接到下一个文件，标记只属于首尾文件'));
+							});
+						}
+
+						// 2.4 同一文件里 end 在 begin 之前
+						if (rec.begin === rec.end && strictBegin.length && strictEnd.length &&
+							strictEnd[0].index < strictBegin[0].index) {
+							push(this.diag('warn', 'scenes/' + rec.begin + '.html', strictEnd[0].index, strictEnd[0].line,
+								'W-END-BEFORE-BEGIN（end 在 begin 之前）',
+								rec.begin + '.html 里 isReplayEnd 出现在 isReplayBegin 之前，回放区间为空',
+								'把结束标记挪到开始标记之后'));
+						}
+
+						// 2.5 跳转链连通性（静态推演出口）
+						const chainOk = await this.checkChain(rec, scenes, idx, push);
+
+						// 「通过」只在整条记录一项诊断都没有时给 —— 否则「通过」与上面的
+						// 错误 / 警告并列出现，看起来自相矛盾。
+						// 配置层（归一化阶段）的诊断按 recIndex 归到本条记录，一并计入。
+						const recItems = items.slice(recStart);
+						const cfgBad = norm.diags.filter(d =>
+							d.scope === 'REPLAY_RECORDS' && d.index === idx && d.level !== 'ok');
+						if (chainOk && recItems.length === 0 && cfgBad.length === 0) {
+							push(this.diag('ok', 'REPLAY_RECORDS', idx, null,
+								'I-OK（检查通过）',
+								'"' + rec.title + '"（情况 ' + rec.scene + '）：' +
+								this.chainText(rec) + '，标记齐全、出口唯一',
+								''));
+						}
+					}
+
+					// 3. 汇总
+					const counts = { error: 0, warn: 0, info: 0, ok: 0 };
+					items.forEach(d => { if (d.level in counts) counts[d.level]++; });
+					const lines = [];
+					lines.push('Shiori 回放检查报告');
+					lines.push('时间: ' + new Date().toLocaleString());
+					lines.push('页面: html/saves.html');
+					lines.push('记录: ' + norm.list.length + ' 条（错误 ' + counts.error +
+						' / 警告 ' + counts.warn + ' / 需确认 ' + counts.info + ' / 通过 ' + counts.ok + '）');
+					lines.push('行号: 已剔除服务端注入行，对应 scenes/ 下磁盘源文件的物理行号');
+					lines.push('-'.repeat(60));
+					if (!items.length) {
+						lines.push('[通过] 未发现任何问题');
+					} else {
+						items.forEach(d => {
+							const isRec = (d.scope === 'REPLAY_RECORDS');
+							const where = isRec
+								? 'REPLAY_RECORDS[' + (d.index === null ? '-' : d.index) + ']'
+								: d.scope + (d.index === null ? '' : ' [story ' + d.index + ']');
+							if (d.level === 'ok') {
+								lines.push('[' + this.resultLabel(d.level) + '] ' + where + '  ' + d.message);
+								return;
+							}
+							const loc = isRec ? 'html/saves.html'
+								: (d.line != null ? (d.scope + ':' + d.line) : '（行号不可用）');
+							lines.push('[' + this.resultLabel(d.level) + '] ' + where + '  ' + loc);
+							lines.push('       ' + d.code + '  ' + d.message);
+							if (d.hint) lines.push('       提示: ' + d.hint);
+							lines.push('');
+						});
+					}
+					lines.push('-'.repeat(60));
+					lines.push('说明: 运行期遇到这些问题一律静默跳过，不影响剧情推进；');
+					lines.push('      「全部鉴赏」开启时不会解锁任何进度，也不会写入存档。');
+
+					this.report = lines.join('\n');
+					if (report) {
+						report.textContent = this.report;
+						report.style.display = 'block';
+					}
+					this.setStatus('检查完成：错误 ' + counts.error + ' / 警告 ' + counts.warn + ' / 需确认 ' + counts.info);
+				},
+
+				// 静态推演每个非末文件的出口是否唯一且指向链中的下一个文件
+				checkChain: async function (rec, scenes, idx, push) {
+					let ok = true;
+					for (let k = 0; k < rec.chain.length - 1; k++) {
+						const f = rec.chain[k];
+						const next = rec.chain[k + 1];
+						const s = scenes[f];
+						if (!s || s.error) { ok = false; continue; }
+
+						// 该文件里所有指向别处的 target（scenes/ 内文件形式）
+						const body = s.text;
+						const targets = [];
+						const reTarget = /target\s*:\s*(["'])([^"']+\.html[^"']*)\1/g;
+						let m;
+						while ((m = reTarget.exec(body))) targets.push(m[2]);
+						const reNextScene = /nextScene\s*:\s*(["'])([^"']+)\1/g;
+						while ((m = reNextScene.exec(body))) targets.push(m[2]);
+
+						const uniq = Array.from(new Set(targets));
+						// 去掉锚点与查询串后只比文件名
+						const normTargets = uniq.map(t => (t.split('#')[0].split('?')[0].split('/').pop() || t));
+
+						if (!normTargets.length) {
+							push(this.diag('error', 'scenes/' + f + '.html', null, null,
+								'E-CHAIN-BREAK（跳转链断开）',
+								f + '.html 里找不到任何跳转，链走不到 ' + next + '.html',
+								'回放区间内每个非末文件的出口必须是一条无条件直跳'));
+							ok = false;
+							continue;
+						}
+
+						// 出口是否唯一指向下一文件
+						const expected = next + '.html';
+						const hits = normTargets.filter(t => t === expected);
+						if (!hits.length) {
+							push(this.diag('error', 'scenes/' + f + '.html', null, null,
+								'E-CHAIN-BREAK（跳转链断开）',
+								f + '.html 的跳转目标是 ' + normTargets.join(' / ') + '，与链中的下一个文件 ' + expected + ' 不一致',
+								'把记录里的 again / end 顺序改成与实际跳转一致，或修正剧本里的跳转目标'));
+							ok = false;
+						} else if (normTargets.length > 1) {
+							push(this.diag('warn', 'scenes/' + f + '.html', null, null,
+								'E-EXIT-COND（出口是条件跳转）',
+								f + '.html 里有多个跳转目标（' + normTargets.join(' / ') + '），出口不是唯一的无条件直跳',
+								'回放区间内的分支会让回放去向不确定；确认这些分支不影响回放路线'));
+							ok = false;
+						}
+
+						// 区间内是否存在依赖变量的条件
+						if (/\bwhen\s*:/.test(body) || /\$\s*\?/.test(body)) {
+							push(this.diag('info', 'scenes/' + f + '.html', null, null,
+								'W-COND-DEP（区间依赖变量,路线可能不同）',
+								f + '.html 的回放区间里存在条件判定，路线可能随变量变化',
+								'回放期 f. / sf. 的写入已被冻结，读值取的是进入回放时的基线'));
+						}
+					}
+					return ok;
+				},
+
+				copyReport: function () {
+					if (!this.report) { this.setStatus('请先点「检查回放配置」', 'error'); return; }
+					const done = () => this.setStatus('报告已复制到剪贴板');
+					try {
+						if (navigator.clipboard && navigator.clipboard.writeText) {
+							navigator.clipboard.writeText(this.report).then(done).catch(() => this.fallbackCopy(done));
+						} else {
+							this.fallbackCopy(done);
+						}
+					} catch (e) { this.setStatus('复制失败', 'error'); }
+				},
+
+				fallbackCopy: function (done) {
+					try {
+						const ta = document.createElement('textarea');
+						ta.value = this.report;
+						document.body.appendChild(ta);
+						ta.select();
+						document.execCommand('copy');
+						document.body.removeChild(ta);
+						done();
+					} catch (e) { this.setStatus('复制失败', 'error'); }
+				},
+
+				downloadReport: function () {
+					if (!this.report) { this.setStatus('请先点「检查回放配置」', 'error'); return; }
+					try {
+						const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+						const blob = new Blob([this.report], { type: 'text/plain;charset=utf-8' });
+						const a = document.createElement('a');
+						a.href = URL.createObjectURL(blob);
+						a.download = 'shiori_replay_check_' + stamp + '.log';
+						a.click();
+						setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+						this.setStatus('报告已导出为 log 文件');
+					} catch (e) { this.setStatus('导出失败：' + (e && e.message ? e.message : e), 'error'); }
+				}
+			};
+
+			// 宿主「清除所有存档」只注入 JS 删键 + alert(...) + reload，不发 postMessage；
+			// 若玩家恰好停在存档页，vars.js 不在场 —— 这里自挂同款钩子补上这条路。
+			(function () {
+				if (!REPLAY_ENABLED) return;
+				if (typeof window.alert !== 'function') return;
+				const orig = window.alert;
+				window.alert = function (msg) {
+					try {
+						const s = (msg == null) ? '' : String(msg);
+						const lower = s.toLowerCase();
+						const hasClear = lower.indexOf('清除') !== -1 || lower.indexOf('清空') !== -1 || lower.indexOf('clear') !== -1;
+						const hasData = lower.indexOf('游戏数据') !== -1 || lower.indexOf('存档') !== -1 || lower.indexOf('saves') !== -1;
+						if (hasClear && hasData) {
+							localStorage.removeItem(REPLAY_KEYS.unlocked);
+							sessionStorage.removeItem(REPLAY_KEYS.isReplay);
+							console.log('[Replay] 检出宿主清档，已清除回放解锁记录');
+						}
+					} catch (e) { /* 忽略检测错误，不影响原生 alert */ }
+					return orig.apply(this, arguments);
+				};
+			})();
+
+			// 初始化（REPLAY_ENABLED=false 时整块旁路）
+			(function () {
+				if (!REPLAY_ENABLED) return;
+				const boot = function () {
+					try { ReplayManager.init(); }
+					catch (e) { console.warn('[Replay] 初始化失败', e); }
+				};
+				if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+				else boot();
+			})();
 		</script>
 	</body>
 </html>
