@@ -80,6 +80,8 @@ gameEngine.init = function(data, startLine = 0) {
         
         // 设置起始行号
         this.state.currentLine = startLine;
+        // 回放模式初始化：校验回放链、收掉残留快进、把起点锁定在存档页算出的行
+        this.initReplayMode();
         // 缓存DOM元素引用
         this.cacheElements();
         // 上下文菜单开关：按页面类型（是否在 scenes/ 内）决定是否允许呼出
@@ -448,6 +450,79 @@ gameEngine.init = function(data, startLine = 0) {
         
         // 加载视频环境映射（已移除，现在仅使用HTML原生播放）
         // this.loadVideoEnvironmentMap();
+    };
+
+
+    /**
+     * 回放模式初始化（在 init 里、起始行号确定之后调用）。
+     *
+     * 回放由存档页写承载键进入，vars.js 已把载荷恢复进 tf.isReplay；
+     * 这里只做三件事：校验本次进入是否合法、把残留快进收干净、告知起点行。
+     * 任何一步不成立都只是「静默退回普通播放」，不抛错、不弹窗。
+     *
+     * 起点行由 URL 的 ?startLine= 提供（engine_boot 的 startLine 机制），
+     * 与读档的行级恢复走的是同一条路，因此历史演出状态会一并重建。
+     *
+     * @returns {boolean} 是否确实处于回放模式
+     */
+gameEngine.initReplayMode = function() {
+        if (!this.isReplayMode()) return false;
+
+        var rp = (typeof VarSpace !== 'undefined' && VarSpace && VarSpace.getReplay)
+            ? VarSpace.getReplay() : null;
+        var file = decodeURIComponent(window.location.pathname.split('/').pop()).replace(/\.html?$/i, '');
+
+        // 载荷不可用 / 当前文件不在回放链内 → 判定失效并清掉（玩家中途离开再进别的剧本即走这里）
+        if (!rp || !Array.isArray(rp.chain) || rp.chain.indexOf(file) === -1) {
+            console.log('[Replay] 载荷无效或当前文件不在回放链内，回放模式已清除: ' + file);
+            try { if (typeof VarSpace !== 'undefined' && VarSpace && VarSpace.clearReplay) VarSpace.clearReplay(); } catch (e) {}
+            return false;
+        }
+
+        // 回放期禁快进：把可能残留的快进状态收干净
+        try { if (this.state.fastForwardActive) this.stopFastForward(); } catch (e) { /* 忽略 */ }
+
+        this.state._replayExitPending = false;
+        console.log('[Replay] 进入回放模式: ' + (rp.title || '(无标题)') +
+                    ' 链=' + rp.chain.join(' → ') + ' 起点行=' + this.state.currentLine);
+        return true;
+    };
+
+
+    /**
+     * 结束回放并返回存档页。
+     *
+     * 三条口径：
+     *  1. 不写任何解锁记录 —— 解锁由正片跑到 isReplayEnd 时负责；
+     *  2. 不还原、不覆盖 f. / sf. —— 回放期写入已被 VarSpace 冻结，没有需要还原的东西，
+     *     用一份快照去覆盖真实进度反而更危险；
+     *  3. 清掉 gameStateSnapshot / archiveLoadTarget 残留，避免存档页误判「从剧情页进入」
+     *     而弹出智能返回框与覆盖按钮。
+     *
+     * @returns {void}
+     */
+gameEngine.returnFromReplay = function() {
+        console.log('[Replay] 回放结束，返回存档页');
+
+        // 1. 收掉快进与自动推进，避免离开瞬间还在推进剧情
+        try { if (this.state.fastForwardActive) this.stopFastForward(); } catch (e) { /* 忽略 */ }
+        try {
+            if (typeof systemModule !== 'undefined' && systemModule.autoModeEnabled && systemModule.toggleAutoMode)
+                systemModule.toggleAutoMode();
+        } catch (e) { /* 忽略 */ }
+
+        // 2. 清回放模式（含承载键）—— 不写解锁
+        this.state._replayExitPending = false;
+        try { if (typeof VarSpace !== 'undefined' && VarSpace && VarSpace.clearReplay) VarSpace.clearReplay(); } catch (e) { /* 忽略 */ }
+
+        // 3. 清快照残留：存档页靠这两个键判断「是不是从剧情页进来的」
+        try {
+            sessionStorage.removeItem('gameStateSnapshot');
+            sessionStorage.removeItem('archiveLoadTarget');
+        } catch (e) { /* 忽略 */ }
+
+        // 4. 回存档页
+        try { window.location.href = '../html/saves.html'; } catch (e) { /* 忽略 */ }
     };
 
 
