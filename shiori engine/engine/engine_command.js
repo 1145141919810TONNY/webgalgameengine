@@ -449,6 +449,17 @@ gameEngine.isAllClear = function() {
 
 
     /**
+     * 查询当前是否处于回放模式（tf.isReplay 存在）
+     * 回放由存档页写入承载键后进入，VarSpace 不可用时一律视为非回放。
+     * @returns {boolean}
+     */
+gameEngine.isReplayMode = function() {
+        return (typeof VarSpace !== 'undefined' && VarSpace && VarSpace.isReplaying)
+            ? !!VarSpace.isReplaying() : false;
+    };
+
+
+    /**
      * 回退实现：VarSpace 不可用时的分支链求值
      * 判定口径与 VarSpace.resolveEntry 一致，同样返回首个命中项本身
      * @param {Array} entries - 分支项数组
@@ -505,8 +516,9 @@ gameEngine.resolveLineAction = function(action, lineIndex) {
         if (!Array.isArray(action)) return { action: action || null, all: null };
         var entries = action.filter(function (e) { return e && typeof e === 'object'; });
         if (!entries.length) return { action: null, all: null };
-        // 开发者全开：不自动求值，也不自动跳转，全部项都交给玩家点
-        if (this.isAllClear()) return { action: null, all: entries };
+        // 开发者全开：不自动求值，也不自动跳转，全部项都交给玩家点。
+        // 回放期必须旁路这条：回放要靠正常控制流自动走完，按钮会停下来等人点。
+        if (this.isAllClear() && !this.isReplayMode()) return { action: null, all: entries };
 
         var hit = (typeof VarSpace !== 'undefined' && VarSpace && VarSpace.resolveEntry)
             ? VarSpace.resolveEntry(entries)
