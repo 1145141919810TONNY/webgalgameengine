@@ -118,7 +118,14 @@ gameEngine.stopFastForward = function() {
      */
 gameEngine.toggleSkipMode = function(mode) {
         console.log(`[SKIP] toggleSkipMode called, mode: ${mode}, current skipMode: ${this.state.skipMode}`);
-        
+
+        // 回放期禁用快进：SKIP 会把回放一路冲到底，而回放本身就是「重看」，
+        // 快进没有意义。mode 0 = 关闭快进，仍放行；只拦「开启」请求。
+        if (mode > 0 && this.isReplayMode()) {
+            console.log('[Replay] 回放中，SKIP 已禁用');
+            return;
+        }
+
         // 如果当前是同一种模式，则关闭
         if (this.state.skipMode === mode) {
             console.log(`[SKIP] Same mode clicked, stopping. mode: ${mode}`);
