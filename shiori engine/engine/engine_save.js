@@ -24,6 +24,8 @@
      * @sideeffect 首次完成时向 this.state.completedScenes 追加文件名并调用 saveProgress() 写入 localStorage
      */
 gameEngine.markSceneCompleted = function() {
+        // 回放期冻结进度写入：回放是「重看」，不得改写任何进度数据
+        if (this.isReplayMode()) return;
         // 过滤非场景页面（如 CG.html、archive.html 等），避免污染进度数据
         if (!this.isInScenesFolder()) {
             return;
@@ -51,6 +53,8 @@ gameEngine.markSceneCompleted = function() {
      * @sideeffect 写入 localStorage['gameProgress']；调用 notifyStorageOperation('UPDATE', ...)
      */
 gameEngine.saveProgress = function() {
+        // 回放期冻结进度写入
+        if (this.isReplayMode()) return;
         const progressData = {
             completedScenes: this.state.completedScenes,
             // 选过的分支（二周目已读标记）
@@ -150,6 +154,8 @@ gameEngine.resetProgress = function() {
      * @sideeffect 读取并写回 localStorage['gameProgress']，更新 sceneMarkers 与全局 timestamp
      */
 gameEngine.saveCurrentSceneMarker = function() {
+        // 回放期冻结进度写入：否则回放一遍就会把「已访问」时间戳等标记刷新掉
+        if (this.isReplayMode()) return;
         // 过滤非场景页面（如 CG.html、archive.html 等），避免污染进度数据
         if (!this.isInScenesFolder()) {
             return;
@@ -347,6 +353,9 @@ gameEngine.captureThumbnail = function() {
      * @sideeffect 写入 sessionStorage['gameStateSnapshot']；内部调用 captureThumbnail() 采集画面
      */
 gameEngine.saveStateSnapshot = function() {
+        // 回放期不写状态快照：回放位置没有存档价值，
+        // 写进去反而会让返回存档页时多出一份待清理的残留。
+        if (this.isReplayMode()) return;
         // 生成预览文本 - 优先从当前显示的文本片段获取，其次从剧情数据获取
         let previewText = '';
         
@@ -466,6 +475,9 @@ gameEngine.saveStateSnapshot = function() {
      * @sideeffect 写入 localStorage['shiori_scene_entry_<sceneFile>']；f. 未变化时保持原记录不覆盖
      */
 gameEngine.writeSceneEntrySnapshot = function(targetScene) {
+        // 回放期不写场景入口快照：这份记录是给「正片再次进入时恢复 f.」用的，
+        // 回放的数据是基线副本，写进去会把真实入口记录冲掉。
+        if (this.isReplayMode()) return;
         // 深比较辅助（键序无关）：判断两次进入同一场景的 f. 是否一致
         function _stableClone(v) {
             if (Array.isArray(v)) return v.map(_stableClone);
