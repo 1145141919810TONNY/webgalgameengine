@@ -18,7 +18,7 @@
  * 格式：V主版本.次版本.修订号  （与 GameScanner 中的正则 ENGINE_VERSION\s*=\s*["'] 匹配）
  * 请勿删除或重命名此变量，否则管理器将无法正确识别基准的引擎版本。
  */
-const ENGINE_VERSION = "V3.0.0";
+const ENGINE_VERSION = "V3.0.1";
 
 const gameEngine = {
     state: {
