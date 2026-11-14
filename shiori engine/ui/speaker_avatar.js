@@ -398,6 +398,30 @@
      * @param {string} speaker - 名片文本
      * @returns {string|null} 角色标识符；无法确定时 null
      */
+    /** 场上立绘的「角色名 → 图片ID」映射表（roleName → charId） */
+    function charNameMap() {
+        var ge = engine();
+        var m = ge && ge.state && ge.state.charNameMap;
+        return (m && typeof m === 'object') ? m : null;
+    }
+
+    /**
+     * 说话人 → 场上角色标识符。**只认精确一致**：
+     *   1. SPEAKER_ALIAS 一级映射（值给空串 / null = 明确不显示头像）
+     *   2. 与场上立绘的标识符精确相等（activeChars 的键，即 `#char-{id}` 的 id 部分）
+     *   3. 旧版单图立绘回退：speaker 是「角色名（roleName）」，而 activeChars 以
+     *      「图片ID（charId）」为键、真正能定位到 DOM（#char-{charId}）与运行时状态的
+     *      也是 charId —— 它们间的映射在 state.charNameMap[roleName].charId 里。
+     * 对不上就隐藏，不做任何猜测。
+     *
+     * 为什么不做「场上只有一个立绘就用它」的兜底：那等于「屏幕里有立绘就显示头像」，
+     * 旁白、未登记说话的配角、名字写得不一致的说话人都会错误地顶出别人的头像，
+     * 而且全程静默 —— 作者只看到"头像错了"，查不出原因。
+     * 想让昵称 / 别称指向某个角色，用 SPEAKER_ALIAS 显式声明。
+     *
+     * @param {string} speaker - 名片文本
+     * @returns {string|null} 角色标识符（旧版为 charId）；无法确定时 null
+     */
     function resolveCharName(speaker) {
         var s = text(speaker);
         if (!s) return null;
@@ -411,7 +435,23 @@
             if (ms) s = ms;
         }
 
-        return (activeCharNames().indexOf(s) >= 0) ? s : null;
+        // 直接命中 activeChars 的键：
+        //   · 新版分层立绘：键即角色标识符（#char-{id} 的 id）
+        //   · 旧版单图立绘：speaker 恰好等于图片ID 时，键即图片ID
+        if (activeCharNames().indexOf(s) >= 0) return s;
+
+        // 旧版单图立绘补一层回退：speaker 往往是「角色名（roleName）」，而 activeChars
+        // 以「图片ID（charId）」为键、真正能定位到 DOM（#char-{charId}）与运行时状态的
+        // 也是 charId。引擎把 roleName→charId 的映射存在 state.charNameMap 里，这里补上，
+        // 让旧版立绘也能像新版那样自动联动小头像，无需作者手写 SPEAKER_ALIAS。
+        var cnMap = charNameMap();
+        if (cnMap && Object.prototype.hasOwnProperty.call(cnMap, s)) {
+            var cid = text(cnMap[s] && cnMap[s].charId);
+            // 二次确认：解析出的 charId 必须真的在场（防止角色已离场时残留映射顶出旧头像）
+            if (cid && activeCharNames().indexOf(cid) >= 0) return cid;
+        }
+
+        return null;
     }
 
     // ── 合成画布 ────────────────────────────────────────────────
