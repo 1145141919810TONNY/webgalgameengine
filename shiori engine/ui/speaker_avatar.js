@@ -95,6 +95,8 @@
     /** 当前生效的显示变换与其来源（'override' | 'config'），供 getTransform / diagnose 读取 */
     var currentTransform = { x: 0, y: 0, z: 0 };
     var currentTransformSource = 'config';
+    /** 当前生效的变换来自哪张配置表（诊断用）：旧版单图 → CHAR_AVATAR_TRANSFORM_LEGACY */
+    var currentTableName = 'CHAR_AVATAR_TRANSFORM';
 
     // ── 基础工具 ────────────────────────────────────────────────
 
@@ -263,6 +265,78 @@
             if (n) return n;
         }
         return zeroTransform();
+    }
+
+    /**
+     * 把旧版单图立绘的 charId 反查回剧本里的角色名。
+     * 旧版的 activeChars 以图片ID 为键，而作者在 CHAR_AVATAR_TRANSFORM_LEGACY 里
+     * 写的往往是剧本里的角色名（[角色A 中 平 char_a] 的「角色A」），所以要先翻译一次。
+     * @param {string} charId - 图片ID
+     * @returns {string} 角色名；找不到返回空串
+     */
+    function roleNameOf(charId) {
+        var m = charNameMap();
+        if (!m) return '';
+        for (var k in m) {
+            if (!Object.prototype.hasOwnProperty.call(m, k)) continue;
+            if (text(m[k] && m[k].charId) === charId) return k;
+        }
+        return '';
+    }
+
+    /**
+     * 场上这张立绘是不是「旧版单图立绘」。
+     *
+     * 判据与 compositeOf 同一套：宿主持有 img 本身（或内含 .character-img）、
+     * 且不含新版分层合成的 .char-composite。
+     * 单独抽出来是因为「取哪张变换表」这一步发生在取合成节点之前。
+     * @param {string} charName - 立绘标识符（旧版即图片ID）
+     * @returns {boolean}
+     */
+    function isLegacyHost(charName) {
+        var host = byId('char-' + charName);
+        if (!host) return false;
+        if (String(host.tagName).toUpperCase() === 'IMG') return true;
+        var q = (typeof host.querySelector === 'function') ? host.querySelector.bind(host) : null;
+        if (!q) return false;
+        try {
+            if (q('.char-composite')) return false;
+            return !!q('.character-img');
+        } catch (e) { return false; }
+    }
+
+    /**
+     * 旧版单图立绘的取景变换，逐级回退：
+     *   CHAR_AVATAR_TRANSFORM_LEGACY[角色名] → [图片ID] → ["全局"]
+     *   → CHAR_AVATAR_TRANSFORM[图片ID]（老表照旧生效）
+     *   → 零值
+     *
+     * 为什么单开一张表：旧版只有一整张图，构图各不相同，默认头肩窗口必然有人裁偏；
+     * 而 CHAR_AVATAR_TRANSFORM 是按角色名（新版）配的，旧版拿到的 charName 是图片ID，
+     * 直接配会「怎么改都不生效」。角色名 → 图片ID 两级查找把这条路补上。
+     *
+     * @param {string} charName - 立绘标识符（旧版即图片ID）
+     * @param {string} orientation - 方位（旧版恒为 "默认"）
+     * @returns {{x:number,y:number,z:number}}
+     */
+    function pickLegacyTransform(charName, orientation) {
+        var t = table('CHAR_AVATAR_TRANSFORM_LEGACY');
+        if (t) {
+            var role = roleNameOf(charName);
+            var cands = [];
+            var labels = [];
+            if (role) { cands.push(t[role]); labels.push('CHAR_AVATAR_TRANSFORM_LEGACY[' + role + ']'); }
+            cands.push(t[charName]); labels.push('CHAR_AVATAR_TRANSFORM_LEGACY[' + charName + ']');
+            cands.push(t['全局']); labels.push('CHAR_AVATAR_TRANSFORM_LEGACY[全局]');
+            for (var i = 0; i < cands.length; i++) {
+                var n = normTransform(cands[i]);
+                if (n) { n.table = labels[i]; return n; }
+            }
+        }
+        // 旧表继续兜底：作者此前若已按图片ID 配过 CHAR_AVATAR_TRANSFORM，不该失效
+        var fb = pickTransform(charName, orientation);
+        fb.table = 'CHAR_AVATAR_TRANSFORM';
+        return fb;
     }
 
     /**
@@ -826,8 +900,14 @@
 
         // 显示位置 / 缩放：运行期覆盖优先于配置。每次 render 都重算，
         // 于是换角色（方位可能不同）时配置会自动切到该角色那一档。
-        currentTransform = overrideTransform || pickTransform(charName, orientation);
+        // 旧版单图立绘走 CHAR_AVATAR_TRANSFORM_LEGACY（可按角色名配），其余走 CHAR_AVATAR_TRANSFORM。
+        var legacyHost = isLegacyHost(charName);
+        currentTransform = overrideTransform ||
+            (legacyHost ? pickLegacyTransform(charName, orientation) : pickTransform(charName, orientation));
         currentTransformSource = overrideTransform ? 'override' : 'config';
+        // 变换实际来自哪张表（旧表按角色名 / 图片ID 命中时会带上具体键名，便于排查"改了不生效"）
+        currentTableName = currentTransform.table ||
+            (legacyHost ? 'CHAR_AVATAR_TRANSFORM_LEGACY' : 'CHAR_AVATAR_TRANSFORM');
         applyTransform(currentTransform);
 
         // ① 显式素材（优先级 1）
@@ -996,7 +1076,10 @@
                 x: currentTransform.x,
                 y: currentTransform.y,
                 z: currentTransform.z,
-                source: currentTransformSource
+                source: currentTransformSource,
+                /** 生效的配置表：CHAR_AVATAR_TRANSFORM_LEGACY（旧版单图）/ CHAR_AVATAR_TRANSFORM；
+                 *  source 为 override 时表示来自 setTransform 的临时覆盖 */
+                table: currentTransformSource === 'override' ? 'override' : currentTableName
             };
         },
 
@@ -1054,7 +1137,8 @@
                     x: currentTransform.x,
                     y: currentTransform.y,
                     z: currentTransform.z,
-                    source: currentTransformSource
+                    source: currentTransformSource,
+                    table: currentTransformSource === 'override' ? 'override' : currentTableName
                 },
                 issues: issues.slice()
             };
@@ -1075,6 +1159,7 @@
             overrideTransform = null;
             currentTransform = zeroTransform();
             currentTransformSource = 'config';
+            currentTableName = 'CHAR_AVATAR_TRANSFORM';
             applyTransform(currentTransform);
         }
     };

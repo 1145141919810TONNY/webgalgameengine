@@ -704,6 +704,142 @@ gameEngine.parseCharModifiers = function(mods) {
     };
 
     /**
+     * 判断修饰词里是否显式写了百分比缩放（如 "10%"）。
+     *
+     * 与 parseCharModifiers 第六步同一套判定：以 % 结尾、且不是 x: / y: 前缀的 token 才算。
+     * 单独抽出来是给「跨图片继承」的路径用 —— 那条路径只拿到原始修饰词，没有 props 可读。
+     *
+     * @param {string} mods - 修饰词字符串
+     * @returns {boolean} 存在显式百分比缩放返回 true
+     */
+gameEngine.hasExplicitScaleModifier = function(mods) {
+        const arr = String(mods || '').split(/\s+/).filter(Boolean);
+        for (let i = 0; i < arr.length; i++) {
+            const m = arr[i];
+            if (m.startsWith('x:') || m.startsWith('y:')) continue;
+            if (!m.endsWith('%')) continue;
+            const v = parseFloat(m.slice(0, -1));
+            if (!isNaN(v)) return true;
+        }
+        return false;
+    };
+
+    /**
+     * 读取旧版立绘的默认布局配置（CHAR_LEGACY_TRANSFORM）。
+     *
+     * 查找顺序：CHAR_LEGACY_TRANSFORM[角色名] → [图片ID] → ["全局"] → 内置默认值。
+     * 角色名优先于图片ID：作者在剧本里写的是角色名，改一张图时不用动另一张。
+     * 任一字段缺失 / 非数字都单独回落到该项默认值（x=50 / y=0 / z=0），
+     * 所以只写 y 也不会把 x 拖成 0。
+     *
+     * @param {string} charId - 图片ID（CHAR_CONFIG 的键）
+     * @param {string|null} [roleName] - 剧本里的角色名标识符
+     * @returns {{found:boolean,x:number,y:number,z:number}} found=false 表示整张表都没配
+     */
+gameEngine.resolveLegacyLayout = function(charId, roleName) {
+        const dflt = { found: false, x: 50, y: 0, z: 0 };
+        let table = null;
+        try {
+            if (typeof window !== 'undefined' && window.CHAR_LEGACY_TRANSFORM &&
+                typeof window.CHAR_LEGACY_TRANSFORM === 'object') {
+                table = window.CHAR_LEGACY_TRANSFORM;
+            }
+        } catch (e) {
+            table = null;
+        }
+        if (!table) return dflt;
+
+        const pickNum = function (v, d) {
+            if (v === undefined || v === null || v === '') return d;
+            const n = Number(v);
+            return Number.isFinite(n) ? n : d;
+        };
+
+        const cands = [];
+        if (roleName) cands.push(table[roleName]);
+        if (charId) cands.push(table[charId]);
+        cands.push(table['全局']);
+
+        for (let i = 0; i < cands.length; i++) {
+            const c = cands[i];
+            if (!c || typeof c !== 'object') continue;
+            return {
+                found: true,
+                x: pickNum(c.x, 50),
+                y: pickNum(c.y, 0),
+                z: pickNum(c.z, 0)
+            };
+        }
+        return dflt;
+    };
+
+    /**
+     * 把旧版布局配置叠加到 parseCharModifiers 的结果上（基准层 + 剧本层）。
+     *
+     * 语义 —— **一律叠加，配置是基准层，剧本是叠加层**：
+     *   设置这张表的原因就是「这张图在 [中 平] 时本来就不在正确位置」，
+     *   所以基准值要能顶掉内置默认（50 / 0 / 100%），之后剧本写的任何东西都在这之上再叠一层。
+     *   · x：最终 left = 剧本位置 + (x - 50)。剧本写 [中]（50）→ 正好是 x；
+     *        写 [左]（25）→ 25 + (x-50)；写 x:10% → calc(50% + 10% + (x-50)%)。
+     *   · y：最终 bottom = 剧本偏移 + y。[平]（0）→ 正好是 y；[上]（25）→ 25 + y。
+     *   · z：最终 scale = 剧本缩放 + z/100（百分比直接相加，与 x/y 同一套"叠加"口径）。
+     *        不写缩放 → 1 + z/100，即基准大小；写 10% 且 z=8 → 118%。
+     *
+     * 返回值是新对象（不改原 props）：调用方后续还有继承逻辑要在这个值上继续改。
+     * 没配、或配置全为默认值时不产生任何变化，直接返回原对象。
+     *
+     * @param {string} charId - 图片ID
+     * @param {string|null} roleName - 剧本里的角色名标识符
+     * @param {Object} props - parseCharModifiers 的结果
+     * @returns {Object} 叠加后的 props
+     */
+gameEngine.applyLegacyLayout = function(charId, roleName, props) {
+        if (!props || typeof props !== 'object') return props;
+        const cfg = this.resolveLegacyLayout(charId, roleName);
+        if (!cfg.found) return props;
+
+        const round = function (n) { return Math.round(n * 1000) / 1000; };
+        const dx = round(cfg.x - 50);
+        const dy = round(cfg.y);
+        const dz = round(cfg.z);
+        if (dx === 0 && dy === 0 && dz === 0) return props;
+
+        const out = Object.assign({}, props);
+
+        // x：精确坐标（x:）保持 calc 形式，把位移并进括号里，避免出现 calc(calc(...)) 这种写法
+        if (dx !== 0) {
+            if (Number.isFinite(props.preciseX)) {
+                out.left = `calc(50% + ${round(props.preciseX + dx)}%)`;
+            } else {
+                const baseX = parseFloat(String(props.left).replace('%', ''));
+                if (Number.isFinite(baseX)) out.left = round(baseX + dx) + '%';
+            }
+        }
+
+        // y：正值向上，与 bottom 同号，直接相加
+        if (dy !== 0) {
+            if (Number.isFinite(props.preciseY)) {
+                out.bottom = round(props.preciseY + dy) + '%';
+            } else {
+                const baseY = parseFloat(String(props.bottom).replace('%', ''));
+                if (Number.isFinite(baseY)) out.bottom = round(baseY + dy) + '%';
+            }
+        }
+
+        // z：百分比直接相加（与 x/y 的叠加口径一致）；叠完非正数说明配置过头，保持剧本原值
+        if (dz !== 0 && Number.isFinite(out.scale)) {
+            const next = out.scale + dz / 100;
+            if (next > 0) {
+                out.scale = next;
+            } else {
+                console.warn(`[CharParser] CHAR_LEGACY_TRANSFORM 的 z=${cfg.z} 会让 "${charId}" 缩放到 ${next.toFixed(3)}，已忽略该缩放`);
+            }
+        }
+
+        return out;
+    };
+
+    /**
      * 解析角色指令序列
      * 
      * 将 chars 指令按逗号切分为多个「片段(segment)」，并判定首个片段中的角色名：

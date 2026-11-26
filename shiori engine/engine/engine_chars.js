@@ -1796,14 +1796,21 @@ gameEngine.updateChar = function(charId, modifiers, forceInstant = false, roleNa
                 
                 // 处理图片加载完成后的交叉淡入淡出
                 const handleCrossFade = () => {
-                    // 解析新指令的修饰词
-                    const newProps = this.parseCharModifiers(modifiers);
+                    // 解析新指令的修饰词，并叠加旧版立绘的基准布局（CHAR_LEGACY_TRANSFORM），
+                    // 让"换图"和"新建"两条路径拿到同一套 [中 平] 基准
+                    const newProps = this.applyLegacyLayout(
+                        charId, roleName, this.parseCharModifiers(modifiers));
+                    // 新立绘自己有没有配置基准：有的话，缩放要按新图的基准走，
+                    // 否则 [角色A 中 平 图A] → [角色A 中 平 图B] 会一直沿用图A 的高度
+                    const legacyCfgFound = this.resolveLegacyLayout(charId, roleName).found;
                     
                     // 属性继承逻辑：仅当修饰词中显式给出对应关键词时才采用新值，否则继承旧元素
                     const hasExplicitLeft = modifiers.match(/(左|右|中|left|right|middle|x:)/i);
-                    const hasExplicitBottom = modifiers.match(/(上|下|up|down|y:)/i);
+                    // 平 / flat 也算"显式指定垂直默认值"（否则 [中 平] 会一直沿用上一句的位置，
+                    // CHAR_LEGACY_TRANSFORM 的 y 也就永远补不上）
+                    const hasExplicitBottom = modifiers.match(/(上|下|平|up|down|flat|y:)/i);
                     const hasExplicitLayer = modifiers.match(/(前|后|front|back)/i);
-                    const hasExplicitScale = modifiers.match(/\d+%$/);
+                    const hasExplicitScale = this.hasExplicitScaleModifier(modifiers);
                     const hasExplicitZ = modifiers.match(/z:/i);
                     
                     // 应用样式属性（带继承逻辑）
@@ -1811,14 +1818,13 @@ gameEngine.updateChar = function(charId, modifiers, forceInstant = false, roleNa
                     newCharEl.style.bottom = hasExplicitBottom ? newProps.bottom : (charEl.style.bottom || newProps.bottom);
                     newCharEl.style.zIndex = hasExplicitLayer ? newProps.zIndex : (charEl.style.zIndex || newProps.zIndex);
                     
-                    // 缩放处理
-                    if (hasExplicitScale) {
-                        newCharEl.style.height = `${newProps.scale * 100}%`;
-                    } else if (charEl.style.height) {
-                        newCharEl.style.height = charEl.style.height;
-                    } else {
-                        newCharEl.style.height = `${newProps.scale * 100}%`;
+                    // 缩放处理：显式缩放 > 新图自己的基准 > 继承旧图高度 > 解析默认值
+                    let finalScale = newProps.scale;
+                    if (!hasExplicitScale && !legacyCfgFound && charEl.style.height) {
+                        const oldScale = parseFloat(charEl.style.height) / 100;
+                        if (Number.isFinite(oldScale)) finalScale = oldScale;
                     }
+                    newCharEl.style.height = `${finalScale * 100}%`;
                     
                     // 构建transform属性，包含水平对齐和Z轴旋转
                     let transformValue = 'translateX(-50%)';
@@ -1851,9 +1857,9 @@ gameEngine.updateChar = function(charId, modifiers, forceInstant = false, roleNa
                         const inheritedLeft = hasExplicitLeft ? newProps.left : (charEl.style.left || newProps.left);
                         const inheritedBottom = hasExplicitBottom ? newProps.bottom : (charEl.style.bottom || newProps.bottom);
                         const inheritedZ = hasExplicitLayer ? newProps.zIndex : (charEl.style.zIndex || newProps.zIndex);
-                        const inheritedScale = hasExplicitScale
-                            ? newProps.scale
-                            : (charEl.style.height ? parseFloat(charEl.style.height) / 100 : newProps.scale);
+                        // 直接用上面算好的 finalScale：DOM 上写的是什么，状态里就记什么，
+                        // 避免"新图按自己的基准缩放、状态却记着旧图高度"的错位
+                        const inheritedScale = finalScale;
                         this._cancelCharMotion(charEl, charId);
                         charEl.remove();
                         newCharEl.id = `char-${charId}`;
@@ -1904,7 +1910,11 @@ gameEngine.updateChar = function(charId, modifiers, forceInstant = false, roleNa
         }
 
         // 解析修饰词并应用样式
-        const props = this.parseCharModifiers(modifiers);
+        // 旧版立绘的基准布局（CHAR_LEGACY_TRANSFORM）一律叠加在解析结果上：
+        // 基准层定义这张图 [中 平] 时该在哪、多大，剧本写的任何位置/缩放都在此之上再叠一层。
+        // 必须放在下面的"继承"之前 —— 继承只覆盖"这一句没写"的轴，不会把基准加两遍。
+        let props = this.parseCharModifiers(modifiers);
+        props = this.applyLegacyLayout(charId, roleName, props);
                         
         // 属性继承逻辑：runtime 是源；DOM style 仅兜底
         if (!isNewChar && charEl) {
@@ -1920,9 +1930,11 @@ gameEngine.updateChar = function(charId, modifiers, forceInstant = false, roleNa
             // 特殊处理：排除旋转动作指令中的"左"和"右"（左倒、右倒）
             const hasExplicitLeft = modifiers.match(/(左|右|中|left|right|middle|x:)/i) && 
                                    !modifiers.match(/(左渐出|右渐出|lfadeOut|rfadeOut|左渐入|右渐入|lfadeIn|rfadeIn|左倒|右倒|ltilt|rtilt)/i);
-            const hasExplicitBottom = modifiers.match(/(上|下|up|down|y:)/i);
+            // 平 / flat 也算"显式指定垂直默认值"：[上] 之后再写 [中 平] 要能回到底部，
+            // 否则 CHAR_LEGACY_TRANSFORM 的 y 永远补不上（会被上一句的 bottom 继承掉）
+            const hasExplicitBottom = modifiers.match(/(上|下|平|up|down|flat|y:)/i);
             const hasExplicitLayer = modifiers.match(/(前|后|front|back)/i);
-            const hasExplicitScale = modifiers.match(/\d+%$/);
+            const hasExplicitScale = this.hasExplicitScaleModifier(modifiers);
             const hasExplicitZ = modifiers.match(/z:/i);
             const hasExplicitBrightness = modifiers.match(/(明|暗|bright|dim|dark)/i);
 
