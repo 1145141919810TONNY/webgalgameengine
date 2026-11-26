@@ -3,20 +3,22 @@
 【推荐组合】
   容器       .mp4
   视频编码   H.264（AVC）
-  音频编码   不限（MP3 / AAC 均可，AAC 更常见）
+
+【关于音轨】
+  视频的音轨随视频文件一起封装即可，不需要单独导出、也不用挑音频编码；
+  本文件只约束视频，背景音乐 / 角色配音 / 音效等纯音频资源见 assets/bgm、assets/audio、assets/se。
 
 【为什么是这一套】
   · 引擎运行在 WebView2（Chromium 内核）上，剧本里没写扩展名时 resolveVideoPath 默认补 .mp4；
   · H.264 是该内核硬解支持最广的视频编码，1080p 也能低占用流畅播放；
-  · 音频编码对播放基本没有影响，MP3 / AAC 都能正常出声，按手头素材与原工具链选就行；
   · HEVC / H.265、AV1、VP9 在部分机器上没有硬解甚至完全不支持，典型表现是有声音没画面或直接黑屏。
 
 【不推荐的容器】
   .mkv / .avi / .flv / .wmv：Chromium 原生不支持，必须先转成 MP4。
 
 【转码参考（ffmpeg）】
-  ffmpeg -i 源文件 -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p -c:a aac -b:a 192k 输出.mp4
-  （想直接沿用原音轨就把 -c:a aac -b:a 192k 换成 -c:a copy）
+  ffmpeg -i 源文件 -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p -c:a copy 输出.mp4
+  （-c:a copy 直接沿用原音轨；原音轨若不被 MP4 支持，改用 -c:a aac -b:a 192k 重编码）
 
 【放置与引用】
   · 视频文件放在 assets/video/ 目录下；
